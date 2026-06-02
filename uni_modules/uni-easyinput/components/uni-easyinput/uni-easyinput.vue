@@ -546,7 +546,7 @@
 		height: 35px;
 		// min-height: 36px;
 
-		/*ifdef H5*/
+		/* #ifdef H5 */
 		& ::-ms-reveal {
 			display: none;
 		}
@@ -558,8 +558,7 @@
 		& ::-o-clear {
 			display: none;
 		}
-
-		/*endif*/
+		/* #endif */
 	}
 
 	.uni-easyinput__placeholder-class {

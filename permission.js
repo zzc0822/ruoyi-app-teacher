@@ -20,11 +20,16 @@ list.forEach(item => {
   uni.addInterceptor(item, {
     invoke(to) {
       if (getToken()) {
-        if (to.url === loginPage) {
-          uni.reLaunch({ url: "/" })
+        // 已登录用户访问登录页，重定向到首页
+        if (to.url === loginPage || to.url === '/pages/login') {
+          uni.reLaunch({ 
+            url: "/pages/index"
+          })
+          return false
         }
         return true
       } else {
+        // 未登录用户访问非白名单页面，重定向到登录页
         if (checkWhite(to.url)) {
           return true
         }
@@ -33,7 +38,7 @@ list.forEach(item => {
       }
     },
     fail(err) {
-      console.log(err)
+      console.log('[权限拦截] 跳转失败:', err)
     }
   })
 })

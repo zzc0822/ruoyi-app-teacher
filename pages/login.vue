@@ -6,6 +6,10 @@
       <text class="title">若依移动端登录</text>
     </view>
     <view class="login-form-content">
+      <!-- 微信小程序环境: 提示绑定信息 -->
+      <view class="wx-bind-tip" v-if="isWxEnv">
+        <text class="tip-text">首次使用请绑定已有账号</text>
+      </view>
       <view class="input-item flex align-center">
         <view class="iconfont icon-user icon"></view>
         <input v-model="loginForm.username" class="input" type="text" placeholder="请输入账号" maxlength="30" />
@@ -14,7 +18,8 @@
         <view class="iconfont icon-password icon"></view>
         <input v-model="loginForm.password" type="password" class="input" placeholder="请输入密码" maxlength="20" />
       </view>
-      <view class="input-item flex align-center" style="width: 60%;margin: 0px;" v-if="captchaEnabled">
+      <!-- 非小程序环境显示验证码 -->
+      <view class="input-item flex align-center" style="width: 60%;margin: 0px;" v-if="captchaEnabled && !isWxEnv">
         <view class="iconfont icon-code icon"></view>
         <input v-model="loginForm.code" type="number" class="input" placeholder="请输入验证码" maxlength="4" />
         <view class="login-code"> 
@@ -22,7 +27,7 @@
         </view>
       </view>
       <view class="action-btn">
-        <button @click="handleLogin" class="login-btn cu-btn block bg-blue lg round">登录</button>
+        <button @click="handleLogin" class="login-btn cu-btn block bg-blue lg round">{{ isWxEnv ? '绑定并登录' : '登录' }}</button>
       </view>
       <view class="reg text-center" v-if="register">
         <text class="text-grey1">没有账号？</text>
@@ -49,26 +54,49 @@
         captchaEnabled: true,
         // 用户注册开关
         register: false,
+        // 是否微信小程序环境
+        isWxEnv: false,
         globalConfig: getApp().globalData.config,
         loginForm: {
-          username: "admin",
-          password: "admin123",
+          username: "",
+          password: "",
           code: "",
           uuid: ""
         }
       }
     },
     created() {
+      // #ifndef MP-WEIXIN
       this.getCode()
+      // #endif
     },
     onLoad() {
-      //#ifdef H5
+      // #ifdef MP-WEIXIN
+      this.isWxEnv = true
+      this.tryWxAutoLogin()
+      // #endif
+      // #ifndef MP-WEIXIN
       if (getToken()) {
-        this.$tab.reLaunch('/pages/index')
+        uni.reLaunch({ url: '/pages/index' })
       }
-      //#endif
+      // #endif
     },
     methods: {
+      // 尝试微信自动登录
+      tryWxAutoLogin() {
+        if (getToken()) {
+          uni.reLaunch({ url: '/pages/index' })
+          return
+        }
+        this.$modal.loading("自动登录中...")
+        this.$store.dispatch('WxLogin').then(() => {
+          this.$modal.closeLoading()
+          this.loginSuccess()
+        }).catch(() => {
+          this.$modal.closeLoading()
+          // 微信未绑定，显示账号密码输入框让用户绑定
+        })
+      },
       // 用户注册
       handleUserRegister() {
         this.$tab.redirectTo(`/pages/register`)
@@ -93,18 +121,32 @@
           }
         })
       },
-      // 登录方法
+      // 登录方法 — 区分环境
       async handleLogin() {
         if (this.loginForm.username === "") {
           this.$modal.msgError("请输入账号")
         } else if (this.loginForm.password === "") {
           this.$modal.msgError("请输入密码")
-        } else if (this.loginForm.code === "" && this.captchaEnabled) {
+        } else if (this.loginForm.code === "" && this.captchaEnabled && !this.isWxEnv) {
           this.$modal.msgError("请输入验证码")
         } else {
           this.$modal.loading("登录中，请耐心等待...")
+          // #ifdef MP-WEIXIN
+          this.wxBindLogin()
+          // #endif
+          // #ifndef MP-WEIXIN
           this.pwdLogin()
+          // #endif
         }
+      },
+      // 微信绑定登录
+      async wxBindLogin() {
+        this.$store.dispatch('WxBind', this.loginForm).then(() => {
+          this.$modal.closeLoading()
+          this.loginSuccess()
+        }).catch(() => {
+          // 绑定失败
+        })
       },
       // 密码登录
       async pwdLogin() {
@@ -177,6 +219,15 @@
           padding-left: 15px;
         }
 
+      }
+
+      .wx-bind-tip {
+        margin-bottom: 15px;
+
+        .tip-text {
+          font-size: 14px;
+          color: #999;
+        }
       }
 
       .login-btn {

@@ -2,7 +2,7 @@ import config from '@/config'
 import storage from '@/utils/storage'
 import constant from '@/utils/constant'
 import { isHttp, isEmpty } from "@/utils/validate"
-import { login, logout, getInfo } from '@/api/login'
+import { login, logout, getInfo, wxLogin, wxBind, unbindWx } from '@/api/login'
 import { getToken, setToken, removeToken } from '@/utils/auth'
 import defAva from '@/static/images/profile.jpg'
 
@@ -89,6 +89,48 @@ const user = {
       })
     },
 
+    // 微信自动登录
+    WxLogin({ commit }) {
+      return new Promise((resolve, reject) => {
+        uni.login({
+          provider: 'weixin',
+          success: (loginRes) => {
+            wxLogin(loginRes.code).then(res => {
+              setToken(res.token)
+              commit('SET_TOKEN', res.token)
+              resolve(res)
+            }).catch(error => {
+              reject(error)
+            })
+          },
+          fail: (err) => {
+            reject('微信登录失败: ' + err.errMsg)
+          }
+        })
+      })
+    },
+
+    // 微信绑定登录
+    WxBind({ commit }, userInfo) {
+      return new Promise((resolve, reject) => {
+        uni.login({
+          provider: 'weixin',
+          success: (loginRes) => {
+            wxBind(loginRes.code, userInfo.username.trim(), userInfo.password).then(res => {
+              setToken(res.token)
+              commit('SET_TOKEN', res.token)
+              resolve(res)
+            }).catch(error => {
+              reject(error)
+            })
+          },
+          fail: (err) => {
+            reject('微信登录失败: ' + err.errMsg)
+          }
+        })
+      })
+    },
+
     // 退出系统
     LogOut({ commit, state }) {
       return new Promise((resolve, reject) => {
@@ -101,6 +143,36 @@ const user = {
           resolve()
         }).catch(error => {
           reject(error)
+        })
+      })
+    },
+
+    // 解除微信绑定
+    Unbind({ commit }) {
+      return new Promise((resolve, reject) => {
+        // 调用后端接口解除绑定
+        unbindWx().then(() => {
+          // 清除所有本地存储的用户信息
+          commit('SET_TOKEN', '')
+          commit('SET_ID', '')
+          commit('SET_NAME', '')
+          commit('SET_AVATAR', '')
+          commit('SET_ROLES', [])
+          commit('SET_PERMISSIONS', [])
+          removeToken()
+          storage.clean()
+          resolve()
+        }).catch(error => {
+          // 即使后端失败，也清除本地信息
+          commit('SET_TOKEN', '')
+          commit('SET_ID', '')
+          commit('SET_NAME', '')
+          commit('SET_AVATAR', '')
+          commit('SET_ROLES', [])
+          commit('SET_PERMISSIONS', [])
+          removeToken()
+          storage.clean()
+          resolve()
         })
       })
     }

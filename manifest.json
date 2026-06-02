@@ -1,6 +1,6 @@
 {
-    "name" : "若依移动端",
-    "appid" : "__UNI__25A9D80",
+    "name" : "智慧学工教师端",
+    "appid" : "__UNI__42C657A",
     "description" : "",
     "versionName" : "1.2.0",
     "versionCode" : "100",
@@ -41,7 +41,7 @@
     },
     "quickapp" : {},
     "mp-weixin" : {
-        "appid" : "wxccd7e2a0911b3397",
+        "appid" : "wx7ef14f2719e9382d",
         "setting" : {
             "urlCheck" : false,
             "es6" : false,
@@ -51,7 +51,13 @@
         "optimization" : {
             "subPackages" : true
         },
-        "usingComponents" : true
+        "usingComponents" : true,
+        "permission" : {
+            "scope.userLocation" : {
+                "desc" : "用于获取谈话地点位置信息"
+            }
+        },
+        "requiredPrivateInfos" : ["chooseLocation", "getLocation"]
     },
     "vueVersion" : "2",
     "h5" : {
@@ -60,7 +66,7 @@
             "port" : 9090,
             "https" : false
         },
-        "title" : "RuoYi-App",
+        "title" : "智慧学工教师端",
         "router" : {
             "mode" : "hash",
             "base" : "./"

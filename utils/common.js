@@ -52,3 +52,29 @@ export function tansParams(params) {
   }
   return result
 }
+
+/**
+ * 打开地图选择位置
+ * @param options uni.chooseLocation 的额外参数
+ * @returns Promise<{name, address, latitude, longitude}>
+ */
+export function chooseLocation(options = {}) {
+  return new Promise((resolve, reject) => {
+    uni.chooseLocation({
+      ...options,
+      success: (res) => {
+        resolve(res)
+      },
+      fail: (err) => {
+        if (err.errMsg && err.errMsg.includes('auth deny')) {
+          uni.showToast({ title: '请授权定位权限', icon: 'none' })
+        } else if (err.errMsg && err.errMsg.includes('cancel')) {
+          // 用户取消，无需提示
+        } else {
+          uni.showToast({ title: '定位失败，请手动输入', icon: 'none' })
+        }
+        reject(err)
+      }
+    })
+  })
+}

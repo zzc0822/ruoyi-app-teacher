@@ -1,6 +1,7 @@
 <script>
   import config from './config'
   import { getToken } from '@/utils/auth'
+  import store from './store'
 
   export default {
     onLaunch: function() {
@@ -11,13 +12,26 @@
       initApp() {
         // 初始化应用配置
         this.initConfig()
-        // 检查用户登录状态
-        //#ifdef H5
+        // #ifdef MP-WEIXIN
+        this.wxAutoLogin()
+        // #endif
+        // #ifdef H5
         this.checkLogin()
-        //#endif
+        // #endif
       },
       initConfig() {
         this.globalData.config = config
+      },
+      // 微信小程序自动登录
+      wxAutoLogin() {
+        if (!getToken()) {
+          store.dispatch('WxLogin').then(() => {
+            store.dispatch('GetInfo')
+          }).catch(() => {
+            // 未绑定，跳转登录页进行账号绑定
+            uni.reLaunch({ url: '/pages/login' })
+          })
+        }
       },
       checkLogin() {
         if (!getToken()) {

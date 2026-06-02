@@ -38,19 +38,46 @@ const request = config => {
         const code = res.data.code || 200
         const msg = errorCode[code] || res.data.msg || errorCode['default']
         if (code === 401) {
-          showConfirm('登录状态已过期，您可以继续留在该页面，或者重新登录?').then(res => {
-            if (res.confirm) {
-              store.dispatch('LogOut').then(res => {
-                uni.reLaunch({ url: '/pages/login' })
-              })
-            }
+          // #ifdef MP-WEIXIN
+          store.dispatch('WxLogin').then(() => {
+            // 微信自动登录成功，重新发起原请求
+            config.header['Authorization'] = 'Bearer ' + getToken()
+            uni.request({
+              method: config.method || 'get',
+              timeout: config.timeout || timeout,
+              url: config.baseUrl || baseUrl + config.url,
+              data: config.data,
+              header: config.header,
+              dataType: 'json'
+            }).then(response => {
+              let [err, resp] = response
+              if (!err) {
+                resolve(resp.data)
+              } else {
+                reject('重试请求失败')
+              }
+            })
+          }).catch(() => {
+            // 微信自动登录也失败，跳转登录页
+            store.dispatch('LogOut').then(() => {
+              uni.reLaunch({ url: '/pages/login' })
+            })
           })
+          // #endif
+          // #ifndef MP-WEIXIN
+          store.dispatch('LogOut').then(() => {
+            uni.reLaunch({ url: '/pages/login' })
+          })
+          // #endif
           reject('无效的会话，或者会话已过期，请重新登录。')
         } else if (code === 500) {
           toast(msg)
           reject('500')
         } else if (code !== 200) {
-          toast(msg)
+          // 20001: 微信未绑定账号，静默拒绝，不弹提示
+          if (code !== 20001) {
+            toast(msg)
+          }
           reject(code)
         }
         resolve(res.data)

@@ -19,6 +19,14 @@
           <view>清理缓存</view>
         </view>
       </view>
+      <!-- #ifdef MP-WEIXIN -->
+      <view class="list-cell list-cell-arrow" @click="handleUnbind">
+        <view class="menu-item-box">
+          <view class="iconfont icon-link menu-icon"></view>
+          <view>解除绑定</view>
+        </view>
+      </view>
+      <!-- #endif -->
     </view>
     <view class="cu-list menu">
       <view class="cu-item item-box">
@@ -51,6 +59,18 @@
         this.$modal.confirm('确定注销并退出系统吗？').then(() => {
           this.$store.dispatch('LogOut').then(() => {}).finally(()=>{
             this.$tab.reLaunch('/pages/index')
+          })
+        })
+      },
+      handleUnbind() {
+        this.$modal.confirm('解除绑定后，可以使用其他账号重新登录。确定要解除绑定吗？').then(() => {
+          this.$store.dispatch('Unbind').then(() => {
+            this.$modal.msgSuccess('解除绑定成功')
+            setTimeout(() => {
+              this.$tab.reLaunch('/pages/login')
+            }, 1500)
+          }).catch(err => {
+            this.$modal.msgError('解除绑定失败')
           })
         })
       }

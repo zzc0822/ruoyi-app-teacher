@@ -2,26 +2,26 @@
   <view class="mine-container" :style="{height: `${windowHeight}px`}">
     <!--顶部个人信息栏-->
     <view class="header-section">
-      <view class="flex padding justify-between">
-        <view class="flex align-center">
-          <view v-if="!avatar" class="cu-avatar xl round bg-white">
-            <view class="iconfont icon-people text-gray icon"></view>
-          </view>
-          <image v-if="avatar" @click="handleToAvatar" :src="avatar" class="cu-avatar xl round" mode="widthFix">
-          </image>
-          <view v-if="!name" @click="handleToLogin" class="login-tip">
-            点击登录
-          </view>
-          <view v-if="name" @click="handleToInfo" class="user-info">
-            <view class="u_title">
-              用户名：{{ name }}
-            </view>
-          </view>
+      <view class="header-content">
+        <!-- 方形头像（有照片时显示） -->
+        <image v-if="teacherPhoto" @click="handleToAvatar" :src="teacherPhoto" class="teacher-avatar" mode="aspectFill"></image>
+        <!-- 方形头像（无照片时显示占位符，也可点击） -->
+        <view v-else @click="handleToAvatar" class="avatar-placeholder">
+          <uni-icons type="person" size="48" color="#999"></uni-icons>
         </view>
-        <view @click="handleToInfo" class="flex align-center">
-          <text>个人信息</text>
-          <view class="iconfont icon-right"></view>
+        
+        <!-- 用户信息 -->
+        <view v-if="!teacherName" @click="handleToLogin" class="login-tip">
+          点击登录
         </view>
+        <view v-if="teacherName" @click="handleToInfo" class="user-info">
+          <view class="teacher-name">{{ teacherName }}</view>
+          <view class="teacher-title" v-if="teacherTitle">{{ teacherTitle }}</view>
+        </view>
+      </view>
+      <view @click="handleToInfo" class="header-right">
+        <text>详细信息</text>
+        <uni-icons type="right" size="16" color="rgba(255,255,255,0.8)"></uni-icons>
       </view>
     </view>
 
@@ -77,21 +77,116 @@
 </template>
 
 <script>
-  export default {
-    data() {
-      return {
-        name: this.$store.state.user.name
-      }
+import { getTeacherinfoByUserId, getRoleList } from '@/api/stumanage/teacherinfo'
+import config from '@/config'
+
+export default {
+  data() {
+    return {
+      // 教师信息
+      teacherInfo: null,
+      teacherName: '',
+      teacherTitle: '',
+      teacherPhoto: '',
+      // 角色列表
+      roleList: []
+    }
+  },
+  computed: {
+    avatar() {
+      return this.$store.state.user.avatar
     },
-    computed: {
-      avatar() {
-        return this.$store.state.user.avatar
-      },
-      windowHeight() {
-        return uni.getSystemInfoSync().windowHeight - 50
-      }
+    windowHeight() {
+      return uni.getSystemInfoSync().windowHeight - 50
+    }
+  },
+  onShow() {
+    // 确保用户信息已加载
+    if (!this.$store.state.user.id) {
+      console.log('[我的页面] userId 为空，先获取用户信息')
+      this.$store.dispatch('GetInfo').then(() => {
+        console.log('[我的页面] 用户信息获取成功')
+        this.loadRoleList()
+        this.loadTeacherInfo()
+      }).catch(err => {
+        console.error('[我的页面] 获取用户信息失败:', err)
+      })
+    } else {
+      this.loadRoleList()
+      this.loadTeacherInfo()
+    }
+  },
+  methods: {
+    // 加载角色列表
+    loadRoleList() {
+      getRoleList().then(res => {
+        this.roleList = res.data || []
+      }).catch(err => {
+        console.error('加载角色列表失败:', err)
+      })
     },
-    methods: {
+    // 转换行政职务ID为中文名称
+    convertXzdwToName(xzdw) {
+      if (!xzdw) return ''
+      const ids = xzdw.split(',').map(id => id.trim())
+      const names = ids.map(id => {
+        const role = this.roleList.find(r => r.roleId == id)
+        return role ? role.roleName : id
+      })
+      return names.join('、')
+    },
+    // 加载教师信息
+    loadTeacherInfo() {
+      // 从 store 获取 userId
+      const userId = this.$store.state.user.id
+      console.log('[我的页面] userId:', userId)
+      console.log('[我的页面] store.state.user:', this.$store.state.user)
+      
+      if (!userId) {
+        console.log('[我的页面] userId 为空，不加载教师信息')
+        return
+      }
+      
+      getTeacherinfoByUserId(userId).then(res => {
+        console.log('[我的页面] 教师信息加载成功:', res)
+        this.teacherInfo = res.data
+        if (this.teacherInfo) {
+          // 教师姓名
+          this.teacherName = this.teacherInfo.xm || ''
+          console.log('[我的页面] teacherName:', this.teacherName)
+          // 职务（优先显示行政职务，其次显示专业技术职务）
+          const xzdw = this.teacherInfo.xzdw || ''
+          const zyjszc = this.teacherInfo.zyjszc || ''
+          
+          // 如果角色列表已加载，转换行政职务为中文
+          if (this.roleList.length > 0) {
+            this.teacherTitle = this.convertXzdwToName(xzdw) || zyjszc || ''
+          } else {
+            // 否则等待角色列表加载
+            this.waitForRolesAndSetTitle(xzdw, zyjszc)
+          }
+          
+          // 教师照片
+          if (this.teacherInfo.photo) {
+            this.teacherPhoto = config.baseUrl + '/profile' + this.teacherInfo.photo
+          }
+        }
+      }).catch(err => {
+        console.error('[我的页面] 加载教师信息失败:', err)
+      })
+    },
+    // 等待角色列表加载后设置职务
+    waitForRolesAndSetTitle(xzdw, zyjszc) {
+      let retryCount = 0
+      const maxRetry = 5
+      const checkInterval = setInterval(() => {
+        retryCount++
+        if (this.roleList.length > 0 || retryCount >= maxRetry) {
+          clearInterval(checkInterval)
+          this.teacherTitle = this.convertXzdwToName(xzdw) || zyjszc || ''
+        }
+      }, 500)
+    },
       handleToInfo() {
         this.$tab.navigateTo('/pages/mine/info/index')
       },
@@ -132,32 +227,69 @@
     width: 100%;
     height: 100%;
 
-
     .header-section {
-      padding: 15px 15px 45px 15px;
-      background-color: #3c96f3;
+      padding: 50px 20px 50px;
+      background: linear-gradient(135deg, #2979ff, #1e88e5);
       color: white;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
 
-      .login-tip {
-        font-size: 18px;
-        margin-left: 10px;
+      .header-content {
+        display: flex;
+        align-items: center;
+        gap: 16px;
       }
 
-      .cu-avatar {
-        border: 2px solid #eaeaea;
+      // 方形头像
+      .teacher-avatar {
+        width: 80px;
+        height: 80px;
+        border-radius: 12px;
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        background: #fff;
+      }
 
-        .icon {
-          font-size: 40px;
-        }
+      .avatar-placeholder {
+        width: 80px;
+        height: 80px;
+        border-radius: 12px;
+        background: rgba(255, 255, 255, 0.9);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .login-tip {
+        font-size: 16px;
+        color: rgba(255, 255, 255, 0.9);
       }
 
       .user-info {
-        margin-left: 15px;
+        flex: 1;
 
-        .u_title {
-          font-size: 18px;
-          line-height: 30px;
+        .teacher-name {
+          font-size: 20px;
+          font-weight: bold;
+          line-height: 32px;
+          color: #fff;
         }
+
+        .teacher-title {
+          font-size: 14px;
+          line-height: 24px;
+          color: rgba(255, 255, 255, 0.85);
+          margin-top: 4px;
+        }
+      }
+
+      .header-right {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 14px;
+        color: rgba(255, 255, 255, 0.9);
+        margin-top: 32px;
       }
     }
 

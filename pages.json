@@ -12,18 +12,20 @@
   }, {
     "path": "pages/index",
     "style": {
-      "navigationBarTitleText": "若依移动端框架",
+      "navigationBarTitleText": "智慧学工教师端",
       "navigationStyle": "custom"
     }
   }, {
     "path": "pages/work/index",
     "style": {
-      "navigationBarTitleText": "工作台"
+      "navigationBarTitleText": "工作台",
+      "navigationStyle": "custom"
     }
   }, {
     "path": "pages/mine/index",
     "style": {
-      "navigationBarTitleText": "我的"
+      "navigationBarTitleText": "我的",
+      "navigationStyle": "custom"
     }
   }, {
     "path": "pages/mine/avatar/index",
@@ -70,6 +72,51 @@
     "style": {
       "navigationBarTitleText": "浏览文本"
     }
+  }, {
+    "path": "pages/work/stuinfo/index",
+    "style": {
+      "navigationBarTitleText": "我的学生"
+    }
+  }, {
+    "path": "pages/work/classcheck/index",
+    "style": {
+      "navigationBarTitleText": "查课记录"
+    }
+  }, {
+    "path": "pages/work/classcheck/add",
+    "style": {
+      "navigationBarTitleText": "新建查课"
+    }
+  }, {
+    "path": "pages/work/talk/index",
+    "style": {
+      "navigationBarTitleText": "谈心谈话"
+    }
+  }, {
+    "path": "pages/work/talk/add",
+    "style": {
+      "navigationBarTitleText": "新增谈话"
+    }
+  }, {
+    "path": "pages/work/leave/index",
+    "style": {
+      "navigationBarTitleText": "请假管理"
+    }
+  }, {
+    "path": "pages/work/leave/add",
+    "style": {
+      "navigationBarTitleText": "新增请假"
+    }
+  }, {
+    "path": "pages/work/leave/detail",
+    "style": {
+      "navigationBarTitleText": "请假详情"
+    }
+  }, {
+    "path": "pages/work/todo/index",
+    "style": {
+      "navigationBarTitleText": "待办事项"
+    }
   }],
   "tabBar": {
     "color": "#000000",
@@ -96,7 +143,7 @@
   },
   "globalStyle": {
     "navigationBarTextStyle": "black",
-    "navigationBarTitleText": "RuoYi",
+    "navigationBarTitleText": "智慧学工教师端",
     "navigationBarBackgroundColor": "#FFFFFF"
   }
 }
