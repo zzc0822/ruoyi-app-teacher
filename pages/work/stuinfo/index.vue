@@ -505,31 +505,20 @@ export default {
   },
   async onLoad() {
     // 从数据库加载角色视图配置
-    console.log('[我的学生] ========== 开始加载 ==========')
-    console.log('[我的学生] 当前用户角色:', this.$store?.state?.user?.roles)
-    
     this.viewConfig = await getRoleViewConfig('stuinfo')
-    console.log('[我的学生] API返回的完整配置:', JSON.stringify(this.viewConfig, null, 2))
     
     // 根据配置决定显示逻辑（兼容 viewType 和 view_type）
     const viewType = this.viewConfig.viewType || this.viewConfig.view_type || 'class_list'
-    console.log('[我的学生] 解析后的viewType:', viewType)
-    console.log('[我的学生] this.viewConfig.viewType:', this.viewConfig.viewType)
-    console.log('[我的学生] this.viewConfig.view_type:', this.viewConfig.view_type)
     
     if (viewType === 'major_stats') {
       // 书记角色：专业统计视图
-      console.log('[我的学生] ✅✅✅ 显示书记视图 (major_stats)')
       this.isSecretaryRole = true
       this.loadSecretaryData()
     } else {
       // 教师角色：班级列表视图
-      console.log('[我的学生] ❌❌❌ 显示普通视图, viewType:', viewType)
-      console.log('[我的学生] 原因: viewType 不是 major_stats')
       this.isSecretaryRole = false
       this.loadClasses()
     }
-    console.log('[我的学生] ========== 加载结束 ==========')
   },
   methods: {
     // 加载书记数据
@@ -543,7 +532,7 @@ export default {
           this.loadAllStats()
         }
       } catch (err) {
-        console.error('获取教师信息失败:', err)
+        // 获取失败静默处理
       }
     },
     
@@ -617,7 +606,7 @@ export default {
           this.drawCounselorPieChart()
         })
       }).catch(err => {
-        console.error('加载统计数据失败:', err)
+        // 加载失败静默处理
       })
     },
     
@@ -661,8 +650,6 @@ export default {
         // 下半年：新生已入学，最小年级 = 当前年 - 3（如2026年下半年，最小2023级）
         const minGradeYear = isFirstHalf ? (currentYear - 4) : (currentYear - 3)
         
-        console.log(`[年级统计] 当前时间: ${currentYear}年${currentMonth}月, 上半年: ${isFirstHalf}, 最小年级: ${minGradeYear}级`)
-        
         const gradeMap = {}
         allClasses.forEach(cls => {
           const nj = cls.nj || ''
@@ -683,7 +670,7 @@ export default {
         // 转换为数组并排序
         this.gradeClassStats = Object.values(gradeMap).sort((a, b) => b.grade.localeCompare(a.grade))
       }).catch(err => {
-        console.error('加载班级数据失败:', err)
+        // 加载失败静默处理
       })
     },
     

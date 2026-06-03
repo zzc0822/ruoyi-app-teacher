@@ -198,8 +198,6 @@ export default {
         this.refresh() // 清空搜索时显示全部请假记录
         return
       }
-      console.log('[Leave Search] 搜索有请假记录的学生:', key)
-      
       // 先查询所有请假记录，按学号分组
       listLeave({ pageNum: 1, pageSize: 1000, xsname: key }).then(leaveRes => {
         const leaveRecords = leaveRes.rows || []
@@ -235,18 +233,15 @@ export default {
           Promise.all(countPromises).then(results => {
             this.studentList = results
             this.showStudentPicker = this.studentList.length > 0
-            console.log('[Leave Search] 找到有请假记录的学生:', this.studentList.length)
           })
         })
       }).catch(err => {
-        console.error('[Leave Search] 搜索失败:', err)
         this.studentList = []
         this.showStudentPicker = false
       })
     },
     // 选择学生
     selectStudent(stu) {
-      console.log('[Leave Select] 选择学生:', stu.xsname, stu.xh)
       this.showStudentPicker = false
       // 加载该学生的请假记录
       this.queryParam.xh = stu.xh
@@ -295,13 +290,11 @@ export default {
     },
     handleSearch() {
       const key = this.searchKey.trim()
-      console.log('[Leave Search] 搜索关键词:', key)
       // 同时按姓名和学号模糊查询（后端会用OR连接）
       this.queryParam.xsname = key || undefined
       this.queryParam.xh = key || undefined
       this.queryParam.pageNum = 1
       this.list = []
-      console.log('[Leave Search] 查询参数:', this.queryParam)
       this.getList()
     },
     handleClear() {
@@ -318,10 +311,8 @@ export default {
       
       this.loading = true
       this.loadStatus = 'loading'
-      console.log('[Leave List] 请求参数:', this.queryParam)
       
       listLeave(this.queryParam).then(res => {
-        console.log('[Leave List] 返回数据:', res)
         const rows = res.rows || []
         
         // 第一页替换，其他页追加
@@ -332,7 +323,6 @@ export default {
         }
         
         this.total = res.total || 0
-        console.log('[Leave List] 列表数量:', this.list.length, '总数:', this.total)
         
         // 更新加载状态
         if (this.list.length >= this.total) {
@@ -341,7 +331,6 @@ export default {
           this.loadStatus = 'more'
         }
       }).catch((err) => { 
-        console.error('[Leave List] 请求失败:', err)
         this.loadStatus = 'more'
         uni.showToast({
           title: '加载失败',
@@ -489,7 +478,7 @@ export default {
   flex: 0 0 75%;
   background: linear-gradient(135deg, #e43d33, #c62828);
   border-radius: 20rpx;
-  padding: 24rpx;
+  padding: 28rpx 24rpx;
 }
 
 .stats-row {
@@ -526,6 +515,7 @@ export default {
   align-items: center;
   justify-content: center;
   gap: 6rpx;
+  padding: 28rpx 12rpx;
 }
 
 .add-btn-label {

@@ -89,3 +89,18 @@ export function unbindWx() {
     method: 'post'
   })
 }
+
+// 手机号快捷登录
+export function phoneLogin(phoneCode, loginCode) {
+  return request({
+    url: '/phoneLogin',
+    headers: {
+      isToken: false
+    },
+    method: 'post',
+    data: { 
+      phoneCode,  // 获取手机号的code
+      loginCode   // 获取openid的code
+    }
+  })
+}

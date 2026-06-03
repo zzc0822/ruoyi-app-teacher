@@ -31,9 +31,9 @@
     <view class="section-card" v-if="todoList.length > 0">
       <view class="section-header">
         <text class="section-title">待办提醒</text>
-        <text class="section-more" @click="goWork">更多</text>
+        <text class="section-more" @click="goTodoList">更多</text>
       </view>
-      <view class="todo-item" v-for="(item, index) in todoList" :key="index" @click="goWork">
+      <view class="todo-item" v-for="(item, index) in todoList" :key="index" @click="handleTodoClick(item)">
         <view class="todo-left">
           <view :class="['todo-dot', 'dot-' + item.urgency]" v-if="item.urgency"></view>
           <text class="todo-text">{{ item.title }}</text>
@@ -48,21 +48,29 @@
         <text class="section-title">快捷入口</text>
       </view>
       <view class="quick-grid">
-        <view class="quick-item" @click="goWork">
-          <uni-icons type="person-filled" size="24" color="#2979ff"></uni-icons>
+        <view class="quick-item" @click="goMyStudents">
+          <view class="quick-icon icon-blue">
+            <uni-icons type="person-filled" size="26" color="#fff"></uni-icons>
+          </view>
           <text class="quick-name">我的学生</text>
         </view>
-        <view class="quick-item" @click="goWork">
-          <uni-icons type="checkbox-filled" size="24" color="#18bc37"></uni-icons>
-          <text class="quick-name">查课记录</text>
+        <view class="quick-item" @click="goAddClassCheck">
+          <view class="quick-icon icon-green">
+            <uni-icons type="plusempty" size="26" color="#fff"></uni-icons>
+          </view>
+          <text class="quick-name">查课登记</text>
         </view>
-        <view class="quick-item" @click="goWork">
-          <uni-icons type="chat-filled" size="24" color="#f3a044"></uni-icons>
-          <text class="quick-name">谈话记录</text>
+        <view class="quick-item" @click="goAddTalk">
+          <view class="quick-icon icon-orange">
+            <uni-icons type="chat-filled" size="26" color="#fff"></uni-icons>
+          </view>
+          <text class="quick-name">记录谈话</text>
         </view>
-        <view class="quick-item" @click="goWork">
-          <uni-icons type="paperplane" size="24" color="#e43d33"></uni-icons>
-          <text class="quick-name">请假管理</text>
+        <view class="quick-item" @click="goAddLeave">
+          <view class="quick-icon icon-red">
+            <uni-icons type="paperplane-filled" size="26" color="#fff"></uni-icons>
+          </view>
+          <text class="quick-name">请假登记</text>
         </view>
       </view>
     </view>
@@ -147,6 +155,45 @@ export default {
     goWork() {
       uni.switchTab({ url: '/pages/work/index' })
     },
+    goTodoList() {
+      uni.navigateTo({ url: '/pages/work/todo/index' })
+    },
+    handleTodoClick(item) {
+      // 根据待办类型跳转
+      if (item.todoType === 'classcheck_confirm') {
+        uni.navigateTo({
+          url: '/pages/work/classcheck/confirm?id=' + item.businessId,
+          fail: (err) => {
+            // 如果跳转失败，跳转到待办列表页
+            uni.navigateTo({ url: '/pages/work/todo/index' })
+          }
+        })
+      } else if (item.todoType === 'leave' || item.todoType === 'leave_approval') {
+        uni.navigateTo({
+          url: '/pages/work/leave/detail?id=' + item.businessId,
+          fail: () => uni.navigateTo({ url: '/pages/work/todo/index' })
+        })
+      } else if (item.todoType === 'talk_disciplinary') {
+        uni.navigateTo({
+          url: '/pages/work/talk/add?todoId=' + item.id + '&businessId=' + item.businessId,
+          fail: (err) => {
+            uni.navigateTo({ url: '/pages/work/todo/index' })
+          }
+        })
+      } else if (item.todoType === 'talk' || item.todoType === 'talk_daily') {
+        uni.navigateTo({ url: '/pages/work/talk/index' })
+      } else if (item.todoType === 'classcheck_talk') {
+        uni.navigateTo({
+          url: '/pages/work/talk/add?todoId=' + item.id + '&businessId=' + item.businessId,
+          fail: (err) => {
+            uni.navigateTo({ url: '/pages/work/todo/index' })
+          }
+        })
+      } else {
+        // 其他类型跳转到待办列表页
+        uni.navigateTo({ url: '/pages/work/todo/index' })
+      }
+    },
     formatDeadline(val) {
       if (!val) return ''
       const d = new Date(val.replace(/ /g, 'T'))
@@ -156,6 +203,19 @@ export default {
       if (diff === 0) return '今天'
       if (diff === 1) return '明天'
       return diff + '天后'
+    },
+    // 快捷入口跳转
+    goMyStudents() {
+      uni.navigateTo({ url: '/pages/work/stuinfo/index' })
+    },
+    goAddClassCheck() {
+      uni.navigateTo({ url: '/pages/work/classcheck/add' })
+    },
+    goAddTalk() {
+      uni.navigateTo({ url: '/pages/work/talk/add' })
+    },
+    goAddLeave() {
+      uni.navigateTo({ url: '/pages/work/leave/add' })
     }
   }
 }
@@ -298,11 +358,34 @@ export default {
   flex-direction: column;
   align-items: center;
   padding: 16rpx 0;
+  position: relative;
 }
+
+.quick-icon {
+  width: 96rpx;
+  height: 96rpx;
+  border-radius: 28rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 12rpx;
+  box-shadow: 0 6rpx 16rpx rgba(0, 0, 0, 0.15);
+  transition: all 0.3s ease;
+}
+
+.quick-item:active .quick-icon {
+  transform: scale(0.95);
+  box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.1);
+}
+
+/* 渐变色背景 */
+.icon-blue { background: linear-gradient(135deg, #2979ff 0%, #5ba3ff 100%); }
+.icon-green { background: linear-gradient(135deg, #18bc37 0%, #4cd964 100%); }
+.icon-orange { background: linear-gradient(135deg, #f3a044 0%, #ffc870 100%); }
+.icon-red { background: linear-gradient(135deg, #e43d33 0%, #ff6b6b 100%); }
 
 .quick-name {
   font-size: 24rpx;
   color: #333;
-  margin-top: 8rpx;
 }
 </style>

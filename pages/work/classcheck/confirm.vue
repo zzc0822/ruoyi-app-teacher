@@ -1,5 +1,5 @@
 <template>
-  <view class="page-container">
+  <view class="page-container" @click="onPageClick">
     <!-- 抽查信息卡片 -->
     <view class="info-card">
       <view class="card-header">
@@ -21,7 +21,7 @@
         </view>
         <view class="info-row">
           <text class="info-label">抽查人</text>
-          <text class="info-value">{{ checkInfo.checkerName }}（{{ formatCheckerRole(checkInfo.checkerRole) }}）</text>
+          <text class="info-value">{{ checkInfo.checkName }}（{{ formatCheckerRole(checkInfo.checkerRole) }}）</text>
         </view>
       </view>
     </view>
@@ -118,55 +118,62 @@
         </view>
       </view>
 
-      <!-- 场景2：辅导员未查课 - 提交缺勤名单或说明 -->
+      <!-- 场晧2：辅导员未查课 - 三个操作按钮 -->
       <view v-if="scene === 'counselor_not_checked'">
+        <!-- 三个操作按钮 -->
         <view class="choice-card">
-          <button class="choice-btn" @click="showAbsentForm = true">
+          <button class="choice-btn" @click.stop="handleAbsentForm" :disabled="submitting">
             <text class="choice-icon">📝</text>
             <text class="choice-text">提交缺勤名单</text>
           </button>
-          <button class="choice-btn secondary" @click="showRemarkOnly = true">
+          <button class="choice-btn secondary" @click.stop="handleLeaveRegister" :disabled="submitting">
+            <text class="choice-icon">📋</text>
+            <text class="choice-text">补登请假记录</text>
+          </button>
+          <button class="choice-btn tertiary" @click.stop="handleRemarkOnly" :disabled="submitting">
             <text class="choice-icon">📄</text>
-            <text class="choice-text">填写未查课说明</text>
+            <text class="choice-text">情况说明</text>
           </button>
         </view>
-
+      
         <!-- 缺勤名单表单 -->
-        <view class="absent-form" v-if="showAbsentForm">
+        <view class="absent-form" v-if="showAbsentForm" @click.stop>
           <view class="form-header">
             <text class="form-title">缺勤学生名单</text>
             <text class="form-hint">点击学生标记状态</text>
           </view>
-          
+                
           <view class="student-grid" v-if="students.length > 0">
             <view
               v-for="(stu, i) in students"
               :key="stu.xh"
               class="student-item"
-              @click="onStuClick(stu)"
+              @click.stop="submitting ? null : onStuClick(stu)"
             >
               <view :class="['student-btn', getStuClass(stu)]">
                 <text class="student-name">{{ stu.xsname }}</text>
-                <text class="student-status" v-if="getStuStatus(stu)">{{ getStuStatus(stu) }}</text>
+                <text :class="['student-status', getStuStatusClass(stu)]" v-if="getStuStatus(stu)">{{ getStuStatus(stu) }}</text>
               </view>
             </view>
           </view>
-
+      
           <view class="absent-summary">
             <text>迟到：{{ lateCount }}人</text>
             <text>早退：{{ earlyCount }}人</text>
             <text>旷课：{{ truantCount }}人</text>
           </view>
         </view>
-
-        <!-- 仅填写说明 -->
+      
+        <!-- 情况说明 -->
         <view class="remark-section" v-if="showRemarkOnly">
-          <text class="remark-label">未查课说明</text>
+          <text class="remark-label">情况说明</text>
           <textarea 
             class="remark-input" 
             v-model="remark" 
-            placeholder="请说明未查课原因..."
+            placeholder="请说明情况..."
             :maxlength="200"
+            :disabled="submitting"
+            @blur="onRemarkBlur"
           />
           <text class="remark-count">{{ remark.length }}/200</text>
         </view>
@@ -175,7 +182,7 @@
 
     <!-- 底部操作栏 -->
     <view class="bottom-bar" v-if="canProceed">
-      <button class="btn-cancel" @click="goBack">取消</button>
+      <button class="btn-cancel" @click="goBack" :disabled="submitting">取消</button>
       <button class="btn-submit" @click="submitConfirm" :disabled="submitting">
         {{ submitting ? '提交中...' : '提交确认' }}
       </button>
@@ -236,6 +243,8 @@ export default {
       getClassCheck(this.checkId).then(res => {
         this.checkInfo = res.data || {}
         this.checkScene()
+      }).catch(err => {
+        uni.showToast({ title: '加载失败', icon: 'none' })
       })
     },
     
@@ -269,6 +278,50 @@ export default {
         this.students = res.data || res.rows || []
         this.canProceed = true
       })
+    },
+    
+    // 提交缺勤名单
+    handleAbsentForm() {
+      this.showAbsentForm = !this.showAbsentForm
+      this.showRemarkOnly = false
+      this.confirmType = 'absent'
+      
+      if (this.showAbsentForm && this.students.length === 0) {
+        this.loadStudents()
+      }
+    },
+    
+    // 补登请假记录
+    handleLeaveRegister() {
+      // 直接跳转到请假登记页面，传递查课信息
+      uni.navigateTo({
+        url: '/pages/work/leave/add?bjdm=' + this.checkInfo.bjdm + 
+             '&bjmc=' + encodeURIComponent(this.checkInfo.bjmc || '') +
+             '&checkDate=' + this.checkInfo.checkDate +
+             '&lessonNo=' + this.checkInfo.lessonNo,
+        fail: (err) => {
+          uni.showToast({ title: '跳转失败', icon: 'none' })
+        }
+      })
+    },
+    
+    // 情况说明
+    handleRemarkOnly() {
+      this.showRemarkOnly = !this.showRemarkOnly
+      this.showAbsentForm = false
+      this.confirmType = 'remark'
+    },
+    
+    // 文本框失去焦点
+    onRemarkBlur() {
+      // 不自动隐藏，保持显示状态
+    },
+    
+    // 页面点击（隐藏学生名单）
+    onPageClick() {
+      if (this.showAbsentForm) {
+        this.showAbsentForm = false
+      }
     },
     
     // 检查未登记请假人员
@@ -321,6 +374,15 @@ export default {
       return ''
     },
     
+    // 获取学生状态样式类
+    getStuStatusClass(stu) {
+      const status = this.clickMap[stu.xh] || 0
+      if (status === 1) return 'status-late-text'
+      if (status === 2) return 'status-early-text'
+      if (status === 3) return 'status-truant-text'
+      return ''
+    },
+    
     // 提交确认
     submitConfirm() {
       if (this.scene === 'counselor_checked' && !this.remark) {
@@ -329,17 +391,35 @@ export default {
       }
       
       if (this.scene === 'counselor_not_checked') {
-        if (!this.showAbsentForm && !this.showRemarkOnly) {
+        if (!this.confirmType) {
           uni.showToast({ title: '请选择操作方式', icon: 'none' })
           return
         }
-        if (this.showAbsentForm && this.truantCount === 0 && this.lateCount === 0 && this.earlyCount === 0) {
+        if (this.confirmType === 'absent' && this.truantCount === 0 && this.lateCount === 0 && this.earlyCount === 0) {
           uni.showToast({ title: '请标记缺勤学生', icon: 'none' })
           return
         }
-        if (this.showRemarkOnly && !this.remark) {
-          uni.showToast({ title: '请填写未查课说明', icon: 'none' })
+        if (this.confirmType === 'remark' && !this.remark) {
+          uni.showToast({ title: '请填写情况说明', icon: 'none' })
           return
+        }
+        
+        // 校验人数：实到 + 请假 + 缺勤 >= 应到
+        if (this.confirmType === 'absent') {
+          const totalStudents = this.checkInfo.totalStudents || 0
+          const presentCount = this.checkInfo.presentCount || 0
+          const leaveCount = this.checkInfo.leaveCount || 0
+          const absentCount = this.lateCount + this.earlyCount + this.truantCount
+          
+          if (presentCount + leaveCount + absentCount < totalStudents) {
+            uni.showModal({
+              title: '人数校验失败',
+              content: `实到(${presentCount}) + 请假(${leaveCount}) + 缺勤(${absentCount}) = ${presentCount + leaveCount + absentCount}人，小于应到(${totalStudents})人，请检查`,
+              showCancel: false,
+              confirmText: '知道了'
+            })
+            return
+          }
         }
       }
       
@@ -348,7 +428,8 @@ export default {
       const data = {
         id: this.checkId,
         remark: this.remark,
-        detailList: this.buildDetailList()
+        detailList: this.buildDetailList(),
+        confirmType: this.confirmType  // absent(缺勤名单) / remark(情况说明)
       }
       
       confirmClassCheck(data).then(res => {
@@ -643,6 +724,15 @@ export default {
   &.secondary {
     border-color: #ff9800;
   }
+  
+  &.tertiary {
+    border-color: #4caf50;
+  }
+  
+  &[disabled] {
+    opacity: 0.5;
+    background: #f5f5f5;
+  }
 }
 
 .choice-icon {
@@ -684,21 +774,23 @@ export default {
 
 .student-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 16rpx;
-  margin-bottom: 20rpx;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 12rpx;
+  margin-bottom: 16rpx;
 }
 
 .student-item {
   .student-btn {
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
     align-items: center;
     justify-content: center;
-    padding: 20rpx;
+    padding: 14rpx 8rpx;
     border-radius: 12rpx;
     background: #e8f5e9;
     border: 2rpx solid #c8e6c9;
+    height: 60rpx;
+    transition: opacity 0.3s;
     
     &.status-late {
       background: #fff8e1;
@@ -717,40 +809,48 @@ export default {
   }
   
   .student-name {
-    font-size: 26rpx;
+    font-size: 24rpx;
     color: #333;
     font-weight: 500;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 75%;
   }
   
   .student-status {
     font-size: 20rpx;
     font-weight: bold;
-    margin-top: 4rpx;
-    
-    .status-late & {
-      color: #f3a044;
-    }
-    
-    .status-early & {
-      color: #ff9800;
-    }
-    
-    .status-truant & {
-      color: #e43d33;
-    }
+    margin-left: 4rpx;
+  }
+  
+  .status-late-text {
+    color: #f3a044;
+  }
+  
+  .status-early-text {
+    color: #ff9800;
+  }
+  
+  .status-truant-text {
+    color: #e43d33;
   }
 }
 
 .absent-summary {
   display: flex;
-  justify-content: space-around;
-  padding: 16rpx;
+  justify-content: space-between;
+  padding: 16rpx 20rpx;
   background: #f5f5f5;
   border-radius: 8rpx;
+  margin-bottom: 20rpx;
   
   text {
     font-size: 24rpx;
     color: #666;
+    white-space: nowrap;
+    flex: 1;
+    text-align: center;
   }
 }
 

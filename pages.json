@@ -88,6 +88,11 @@
       "navigationBarTitleText": "新建查课"
     }
   }, {
+    "path": "pages/work/classcheck/confirm",
+    "style": {
+      "navigationBarTitleText": "抽查确认"
+    }
+  }, {
     "path": "pages/work/talk/index",
     "style": {
       "navigationBarTitleText": "谈心谈话"

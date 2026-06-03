@@ -253,40 +253,6 @@ export default {
     }
   },
   onLoad() {
-    // 调试：检查所有本地存储的数据
-    try {
-      console.log('[查课页面] ========== 调试信息 ==========')
-      console.log('[查课页面] user_roles:', uni.getStorageSync('user_roles'))
-      console.log('[查课页面] user_id:', uni.getStorageSync('user_id'))
-      console.log('[查课页面] user_name:', uni.getStorageSync('user_name'))
-      
-      // 检查store（使用 this.$store）
-      console.log('[查课页面] this.$store:', this.$store)
-      
-      if (this.$store && this.$store.state && this.$store.state.user) {
-        console.log('[查课页面] this.$store.state.user:', this.$store.state.user)
-        console.log('[查课页面] this.$store.state.user.roles:', this.$store.state.user.roles)
-        console.log('[查课页面] this.$store.state.user.token:', this.$store.state.user.token)
-        console.log('[查课页面] this.$store.state.user.name:', this.$store.state.user.name)
-        console.log('[查课页面] this.$store.state.user.id:', this.$store.state.user.id)
-      } else {
-        console.log('[查课页面] this.$store.state.user 不存在')
-      }
-      
-      if (this.$store && this.$store.getters) {
-        console.log('[查课页面] this.$store.getters.roles:', this.$store.getters.roles)
-      }
-      
-      // 查看所有存储键
-      const storageInfo = uni.getStorageInfoSync()
-      console.log('[查课页面] 所有存储键:', storageInfo.keys)
-      
-      console.log('[查课页面] ======================================')
-    } catch (e) {
-      console.error('[查课页面] 调试信息获取失败:', e)
-      console.error('[查课页面] 错误堆栈:', e.stack)
-    }
-    
     // 确保用户信息已加载
     this.ensureUserInfoLoaded()
     
@@ -409,7 +375,6 @@ export default {
     },
     // 切换辅导员统计视图
     switchView(mode) {
-      console.log('[查课页面] 切换视图:', mode)
       this.viewMode = mode
       this.$forceUpdate()
     },
@@ -419,7 +384,6 @@ export default {
       const store = this.$store
       
       if (!store) {
-        console.log('[查课页面] this.$store 不存在')
         return
       }
       
@@ -428,16 +392,12 @@ export default {
         const hasToken = !!store.state.user.token
         const hasRoles = store.state.user.roles && store.state.user.roles.length > 0
         
-        console.log('[查课页面] hasToken:', hasToken, 'hasRoles:', hasRoles)
-        
         if (hasToken && !hasRoles) {
-          console.log('[查课页面] 检测到有token但无roles，调用GetInfo...')
           // 异步调用GetInfo获取用户信息
           store.dispatch('GetInfo').then(() => {
-            console.log('[查课页面] GetInfo成功，重新检查角色')
             this.checkRole()
           }).catch(err => {
-            console.error('[查课页面] GetInfo失败:', err)
+            // 获取失败静默处理
           })
         }
       }
@@ -452,20 +412,17 @@ export default {
       
       if (store && store.state && store.state.user && store.state.user.roles) {
         roles = store.state.user.roles
-        console.log('[查课页面] 从this.$store.state获取角色:', roles)
       }
       else if (store && store.getters && store.getters.roles) {
         roles = store.getters.roles
-        console.log('[查课页面] 从this.$store.getters获取角色:', roles)
       }
       
       // 方式2：从本地存储直接获取
       if (!roles || (Array.isArray(roles) && roles.length === 0)) {
         try {
           roles = uni.getStorageSync('user_roles') || []
-          console.log('[查课页面] 从本地存储获取角色:', roles)
         } catch (e) {
-          console.error('[查课页面] 获取角色失败:', e)
+          // 获取失败静默处理
         }
       }
       
@@ -474,87 +431,63 @@ export default {
         roles = []
       }
       
-      console.log('[查课页面] ========== 角色判断 ==========')
-      console.log('[查课页面] 原始roles:', JSON.stringify(roles))
-      
       // 使用项目统一的角色判断函数
       this.isSecretaryRole = isSecretary(roles)
       
-      console.log('[查课页面] isSecretaryRole结果:', this.isSecretaryRole)
-      console.log('[查课页面] 最终用户角色:', roles)
-      console.log('[查课页面] ======================================')
-      
       // 如果是书记角色，加载辅导员统计
       if (this.isSecretaryRole) {
-        console.log('[查课页面] ✅ 检测到书记角色，开始加载辅导员统计')
         this.loadCounselorStats()
-      } else {
-        console.log('[查课页面] ❌ 不是书记角色，不加载辅导员统计')
       }
     },
     // 加载辅导员统计
     loadCounselorStats() {
-      console.log('[查课页面] 开始加载辅导员统计...')
-      
       // 获取学院代码（从用户信息中）
       let xydm = ''
-      
+          
       // 方式1：从store中获取用户信息
       if (this.$store && this.$store.state && this.$store.state.user) {
         const user = this.$store.state.user
-        console.log('[查课页面] store.user:', user)
-        
+            
         // 尝试从user对象中获取学院代码
         xydm = user.xydm || user.deptId || user.departmentId || ''
-        console.log('[查课页面] 从store获取学院代码:', xydm)
       }
-      
-      // 方式2：从globalData.userInfo获取
+          
+      // 方式2：从 globalData.userInfo获取
       if (!xydm) {
         const app = getApp()
         if (app.globalData && app.globalData.userInfo) {
           xydm = app.globalData.userInfo.xydm || app.globalData.userInfo.deptId || ''
-          console.log('[查课页面] 从globalData获取学院代码:', xydm)
         }
       }
-      
+          
       // 方式3：调用教师信息接口获取
       if (!xydm) {
-        console.log('[查课页面] 尝试调用教师信息接口获取学院代码...')
         import('@/api/stumanage/teacherinfo').then(module => {
           const { getTeacherinfoByUserId } = module
           return getTeacherinfoByUserId()
         }).then(res => {
           if (res.data && res.data.xydm) {
             xydm = res.data.xydm
-            console.log('[查课页面] 从教师信息接口获取学院代码:', xydm)
             // 获取到学院代码后，加载辅导员统计
             this._loadCounselorStatsByXydm(xydm)
-          } else {
-            console.warn('[查课页面] 教师信息接口未返回学院代码')
           }
         }).catch(err => {
-          console.error('[查课页面] 获取教师信息失败:', err)
+          // 获取失败静默处理
         })
         return
       }
-      
+          
       if (!xydm) {
-        console.warn('[查课页面] 未获取到学院代码')
         return
       }
-      
+          
       // 加载辅导员统计
       this._loadCounselorStatsByXydm(xydm)
     },
     // 根据学院代码加载辅导员统计
     _loadCounselorStatsByXydm(xydm) {
-      console.log('[查课页面] 使用学院代码加载辅导员统计:', xydm)
-      
       getStatsByCounselor(xydm).then(res => {
-        console.log('[查课页面] 辅导员统计响应:', res)
         const data = res.data || []
-        console.log('[查课页面] 辅导员统计原始数据:', data)
         
         // 按查课次数排序
         this.counselorStats = data
@@ -564,13 +497,10 @@ export default {
           }))
           .sort((a, b) => b.checkCount - a.checkCount)
         
-        console.log('[查课页面] 辅导员统计数量:', this.counselorStats.length)
-        console.log('[查课页面] 辅导员统计详情:', this.counselorStats)
-        
         // 强制更新视图
         this.$forceUpdate()
       }).catch(err => {
-        console.error('[查课页面] 加载辅导员统计失败:', err)
+        // 加载失败静默处理
       })
     },
     // 计算辅导员柱状图高度

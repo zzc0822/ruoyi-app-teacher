@@ -60,3 +60,11 @@ export function saveLeaveAttachments(leaveId, fileList) {
     data: { businessId: leaveId, category: 'leave', fileList: fileList }
   })
 }
+
+// 获取请假统计数据
+export function getLeaveStats() {
+  return request({
+    url: '/api/leave/stats',
+    method: 'get'
+  })
+}

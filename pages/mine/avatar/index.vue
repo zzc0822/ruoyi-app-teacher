@@ -64,7 +64,7 @@
             this.imageSrc = config.baseUrl + '/profile' + this.teacherInfo.photo
           }
         }).catch(err => {
-          console.error('加载教师信息失败:', err)
+          // 加载失败静默处理
         })
       },
       // 选择照片
@@ -75,10 +75,9 @@
           sourceType: ['album', 'camera'], // 相册或相机
           success: (res) => {
             this.imageSrc = res.tempFilePaths[0]
-            console.log('[选择照片] 成功:', this.imageSrc)
           },
           fail: (err) => {
-            console.error('[选择照片] 失败:', err)
+            // 用户取消选择
           }
         })
       },
@@ -96,15 +95,9 @@
         
         // 使用附件上传工具
         uploadTeacherPhoto(this.imageSrc).then(res => {
-          console.log('[上传证件照] 成功:', res)
-          console.log('[上传证件照] res.data:', res.data)
-          console.log('[上传证件照] res.imgUrl:', res.imgUrl)
-          console.log('[上传证件照] res.url:', res.url)
-          
           // 更新教师信息的 photo 字段
           // 后端返回的路径可能是：/teacher/photo/2026/05/xxx.jpg
           const photoPath = res.data || res.imgUrl || res.url
-          console.log('[上传证件照] 最终photoPath:', photoPath)
           
           if (photoPath && this.teacherInfo) {
             this.updateTeacherPhoto(photoPath)
@@ -113,7 +106,6 @@
             uni.showToast({ title: '上传失败：未获取到照片路径', icon: 'error' })
           }
         }).catch(err => {
-          console.error('[上传证件照] 失败:', err)
           uni.hideLoading()
           uni.showToast({ title: '上传失败', icon: 'error' })
         }).finally(() => {
@@ -122,17 +114,12 @@
       },
       // 更新教师信息中的照片路径
       updateTeacherPhoto(photoPath) {
-        console.log('[更新教师信息] photoPath:', photoPath)
-        console.log('[更新教师信息] jsid:', this.teacherInfo.jsid)
-        
         const updateData = {
           jsid: this.teacherInfo.jsid,
           photo: photoPath
         }
         
         updateMyTeacherinfo(updateData).then(res => {
-          console.log('[更新教师信息] 成功:', res)
-          
           // 更新本地缓存的照片路径（加上/profile前缀）
           this.imageSrc = config.baseUrl + '/profile' + photoPath
           
@@ -144,7 +131,6 @@
             uni.navigateBack()
           }, 1500)
         }).catch(err => {
-          console.error('[更新教师信息] 失败:', err)
           uni.hideLoading()
           uni.showToast({ title: '更新失败', icon: 'error' })
         })

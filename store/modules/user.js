@@ -2,7 +2,7 @@ import config from '@/config'
 import storage from '@/utils/storage'
 import constant from '@/utils/constant'
 import { isHttp, isEmpty } from "@/utils/validate"
-import { login, logout, getInfo, wxLogin, wxBind, unbindWx } from '@/api/login'
+import { login, logout, getInfo, wxLogin, wxBind, unbindWx, phoneLogin } from '@/api/login'
 import { getToken, setToken, removeToken } from '@/utils/auth'
 import defAva from '@/static/images/profile.jpg'
 
@@ -127,6 +127,19 @@ const user = {
           fail: (err) => {
             reject('微信登录失败: ' + err.errMsg)
           }
+        })
+      })
+    },
+
+    // 手机号快捷登录
+    PhoneLogin({ commit }, data) {
+      return new Promise((resolve, reject) => {
+        phoneLogin(data.phoneCode, data.loginCode).then(res => {
+          setToken(res.token)
+          commit('SET_TOKEN', res.token)
+          resolve(res)
+        }).catch(error => {
+          reject(error)
         })
       })
     },

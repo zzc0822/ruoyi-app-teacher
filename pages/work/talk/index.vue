@@ -116,7 +116,7 @@
 </template>
 
 <script>
-import { listTalk, getPendingTalks } from '@/api/stumanage/talk'
+import { listTalk, getPendingTalks, getTalkStats } from '@/api/stumanage/talk'
 import config from '@/config'
 
 export default {
@@ -161,16 +161,17 @@ export default {
         }
         this.total = res.total || 0
         this.loadStatus = this.list.length >= this.total ? 'noMore' : 'more'
-        this.calcStats(rows)
+        // 获取统计数据（从后端）
+        this.loadStats()
       }).catch(() => { this.loadStatus = 'more' })
     },
-    calcStats(latestRows) {
-      // 用最新一批数据来估算统计，完整统计需后端接口
-      // 这里用 pendingList 计算 pending，其余从列表推算
-      this.stats.pending = this.pendingList.length
-      this.stats.ongoing = this.list.filter(i => i.talkStatus === 'ongoing').length
-      this.stats.completed = this.list.filter(i => i.talkStatus === 'completed').length
-      this.stats.total = this.total
+    loadStats() {
+      // 从后端获取统计数据
+      getTalkStats().then(res => {
+        if (res && res.data) {
+          this.stats = res.data
+        }
+      }).catch(() => {})
     },
     getPending() {
       getPendingTalks().then(res => {

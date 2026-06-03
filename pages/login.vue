@@ -29,6 +29,21 @@
       <view class="action-btn">
         <button @click="handleLogin" class="login-btn cu-btn block bg-blue lg round">{{ isWxEnv ? '绑定并登录' : '登录' }}</button>
       </view>
+      
+      <!-- 微信小程序环境：显示一键登录按钮 -->
+      <view class="wx-quick-login" v-if="isWxEnv">
+        <view class="divider">
+          <text class="divider-text">或</text>
+        </view>
+        <button 
+          open-type="getPhoneNumber" 
+          @getphonenumber="handleGetPhoneNumber" 
+          class="phone-login-btn cu-btn block bg-green lg round"
+        >
+          <text class="iconfont icon-phone"></text>
+          一键手机号登录
+        </button>
+      </view>
       <view class="reg text-center" v-if="register">
         <text class="text-grey1">没有账号？</text>
         <text @click="handleUserRegister" class="text-blue">立即注册</text>
@@ -165,6 +180,44 @@
         this.$store.dispatch('GetInfo').then(res => {
           this.$tab.reLaunch('/pages/index')
         })
+      },
+      // 获取手机号快捷登录
+      handleGetPhoneNumber(e) {
+        if (e.detail.errMsg === 'getPhoneNumber:ok') {
+          // 检查是否有code
+          if (!e.detail.code) {
+            this.$modal.msgError('获取手机号失败：未返回code')
+            return
+          }
+          
+          this.$modal.loading('登录中，请耐心等待...')
+          
+          // 先调用uni.login获取openid的code
+          uni.login({
+            provider: 'weixin',
+            success: (loginRes) => {
+              // 同时传递两个code
+              this.$store.dispatch('PhoneLogin', {
+                phoneCode: e.detail.code,  // 获取手机号的code
+                loginCode: loginRes.code   // 获取openid的code
+              }).then(() => {
+                this.$modal.closeLoading()
+                this.loginSuccess()
+              }).catch((err) => {
+                this.$modal.closeLoading()
+                this.$modal.msgError(err || '手机号登录失败，请重试')
+              })
+            },
+            fail: (err) => {
+              this.$modal.closeLoading()
+              this.$modal.msgError('获取微信会话失败，请重试')
+            }
+          })
+        } else if (e.detail.errMsg === 'getPhoneNumber:fail user deny') {
+          this.$modal.msgError('您已拒绝授权，请使用账号密码登录')
+        } else {
+          this.$modal.msgError('获取手机号失败：' + (e.detail.errMsg || '未知错误'))
+        }
       }
     }
   }

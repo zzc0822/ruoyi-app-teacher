@@ -91,6 +91,9 @@
             <uni-forms-item label="教师简介" name="jsjj">
               <uni-easyinput v-model="teacher.jsjj" type="textarea" placeholder="请输入教师简介" :maxlength="500" autoHeight />
             </uni-forms-item>
+            <uni-forms-item label="教务系统密码" name="jwmm">
+              <uni-easyinput v-model="teacher.jwmm" type="text" placeholder="请输入教务系统密码" />
+            </uni-forms-item>
           </view>
 
         </uni-forms>
@@ -142,7 +145,8 @@ export default {
         lzsj: '',
         lzsjStr: '',
         zt: '',
-        jsjj: ''
+        jsjj: '',
+        jwmm: ''
       },
       // 角色列表（从系统获取）
       roleList: [],
@@ -192,18 +196,9 @@ export default {
         if (roles.length > 0) {
           // 如果成功获取，使用系统数据
           this.roleList = roles
-          console.log('[角色列表] 从系统加载成功:', this.roleList.length, '个角色')
-          console.log('[角色列表] 完整数据:', JSON.stringify(roles))
-          // 打印第一个角色的所有字段
-          if (roles.length > 0) {
-            console.log('[角色列表] 第一个角色的字段:', Object.keys(roles[0]))
-            console.log('[角色列表] 第一个角色数据:', roles[0])
-          }
-        } else {
-          console.log('[角色列表] 系统返回空，使用默认映射')
         }
       }).catch(err => {
-        console.error('[角色列表] 加载失败，使用默认映射:', err)
+        // 加载失败静默处理
       })
     },
     // 切换 Tab
@@ -259,27 +254,16 @@ export default {
     },
     // 转换行政职务ID为中文名称
     convertXzdwToName(xzdw) {
-      console.log('[行政职务转换] xzdw原始值:', xzdw)
-      console.log('[行政职务转换] 角色列表:', this.roleList)
-      
       if (!xzdw) return ''
       // xzdw 可能是 "1,2,3" 这样的格式
       const ids = xzdw.split(',').map(id => id.trim())
-      console.log('[行政职务转换] 解析后的ID数组:', ids)
-      
-      // 打印所有角色的roleId，方便对比
-      const roleIds = this.roleList.map(r => r.roleId)
-      console.log('[行政职务转换] 系统中存在的角色ID:', roleIds)
       
       const names = ids.map(id => {
         // 使用 == 而不是 ===，兼容字符串和数字比较
         const role = this.roleList.find(r => r.roleId == id)
-        console.log('[行政职务转换] 查找ID:', id, '(类型:', typeof id, ') -> 找到角色:', role ? role.roleName : '未找到')
         return role ? role.roleName : id
       })
-      const result = names.join('、')
-      console.log('[行政职务转换] 最终结果:', result)
-      return result
+      return names.join('、')
     },
     // 格式化日期
     formatDate(date) {
@@ -316,21 +300,18 @@ export default {
               bzdz: this.teacher.bzdz,      // 办公地址
               txdz: this.teacher.txdz,      // 通讯地址
               zt: this.teacher.zt,          // 状态
-              jsjj: this.teacher.jsjj       // 教师简介
+              jsjj: this.teacher.jsjj,      // 教师简介
+              jwmm: this.teacher.jwmm       // 教务系统密码
             }
-            
-            console.log('[教师信息] 提交数据:', submitData)
             
             uni.showLoading({ title: '保存中...' })
             
             updateMyTeacherinfo(submitData).then(response => {
-              console.log('[教师信息] 保存成功:', response)
               uni.hideLoading()
               this.$modal.msgSuccess('保存成功')
               // 重新加载数据，不返回
               this.getTeacherInfo()
             }).catch(err => {
-              console.error('[教师信息] 保存失败:', err)
               uni.hideLoading()
               this.$modal.msgError('保存失败: ' + (err.msg || err.message || '未知错误'))
             })

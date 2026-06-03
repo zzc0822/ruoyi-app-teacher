@@ -256,10 +256,8 @@ export default {
     }
   },
   onLoad(options) {
-    console.log('[查课新增] ========== onLoad ==========')
     this.checkRole()
     this.initDateTime()
-    console.log('[查课新增] isSecretaryRole:', this.isSecretaryRole)
     
     // 加载班级列表（内部会根据角色自动加载筛选选项）
     this.loadClasses()
@@ -288,18 +286,12 @@ export default {
       const store = this.$store
       let roles = []
       
-      console.log('[查课新增] 开始检查角色')
-      console.log('[查课新增] store:', store)
-      
       if (store && store.state && store.state.user && store.state.user.roles) {
         roles = store.state.user.roles
-        console.log('[查课新增] 从store获取角色:', roles)
       }
       
       // 使用项目统一的角色判断函数
       this.isSecretaryRole = isSecretary(roles)
-      
-      console.log('[查课新增] 是否为书记角色:', this.isSecretaryRole)
       
       // 注意：不在这里加载筛选选项，等班级数据加载完成后再加载
     },
@@ -307,12 +299,8 @@ export default {
     loadFilterOptions() {
       // 从班级列表中提取专业和年级
       if (this.classList.length === 0) {
-        console.log('[查课新增] 班级列表为空，无法加载筛选选项')
         return
       }
-          
-      console.log('[查课新增] 开始加载筛选选项，班级数量:', this.classList.length)
-      console.log('[查课新增] 第一个班级数据:', this.classList[0])
           
       // 提取专业列表
       const majorMap = {}
@@ -324,8 +312,6 @@ export default {
       const currentMonth = now.getMonth() + 1  // 1-12
       const isFirstHalf = currentMonth <= 6
       const minGradeYear = isFirstHalf ? (currentYear - 4) : (currentYear - 3)
-          
-      console.log(`[查课新增-年级过滤] 当前时间: ${currentYear}年${currentMonth}月, 上半年: ${isFirstHalf}, 最小年级: ${minGradeYear}级`)
           
       this.classList.forEach(cls => {
         // 专业 - 尝试多种字段名
@@ -348,9 +334,6 @@ export default {
         }
       })
           
-      console.log('[查课新增] 提取的专业:', majorMap)
-      console.log('[查课新增] 过滤后的年级:', Array.from(gradeSet))
-          
       this.majorList = Object.keys(majorMap).map(zydm => ({
         zydm,
         zymc: majorMap[zydm]
@@ -359,9 +342,6 @@ export default {
           
       // 排序年级并添加“全部年级”
       this.gradeOptions = ['全部年级', ...Array.from(gradeSet).sort((a, b) => b.localeCompare(a))]
-          
-      console.log('[查课新增] 专业列表:', this.majorNames)
-      console.log('[查课新增] 年级列表:', this.gradeOptions)
     },
     // 专业选择变化
     onMajorChange(e) {
@@ -405,13 +385,9 @@ export default {
       this.form.lessonNo = lessonIdx + 1
     },
     loadClasses() {
-      console.log('[查课新增] 开始加载班级列表, isSecretaryRole:', this.isSecretaryRole)
-      
       // 书记角色：获取学院所有班级
       if (this.isSecretaryRole) {
-        console.log('[查课新增] 书记角色，使用 listClassinfo API')
         return listClassinfo({ pageNum: 1, pageSize: 999 }).then(res => {
-          console.log('[查课新增] 班级接口响应:', res)
           let data = res.rows || res.data || []
           if (!Array.isArray(data)) {
             if (data && data.rows && Array.isArray(data.rows)) {
@@ -423,11 +399,8 @@ export default {
           this.classList = data
           this.classNames = this.classList.map(c => c.bjjc || c.bjname)
           
-          console.log('[查课新增] 班级列表加载完成, 数量:', this.classList.length)
-          
           // 加载筛选选项
           if (this.classList.length > 0) {
-            console.log('[查课新增] 调用 loadFilterOptions')
             this.loadFilterOptions()
           }
           
@@ -435,14 +408,12 @@ export default {
             this.loadStudents(this.form.bjdm)
           }
         }).catch((err) => {
-          console.error('[查课新增] 加载班级失败:', err)
+          // 加载失败静默处理
         })
       } 
       // 辅导员角色：获取我的班级
       else {
-        console.log('[查课新增] 辅导员角色，使用 getMyClasses API')
         return getMyClasses().then(res => {
-          console.log('[查课新增] 班级接口响应:', res)
           let data = res.data || []
           if (!Array.isArray(data)) {
             if (data && data.rows && Array.isArray(data.rows)) {
@@ -454,11 +425,8 @@ export default {
           this.classList = data
           this.classNames = this.classList.map(c => c.bjjc || c.bjname)
           
-          console.log('[查课新增] 班级列表加载完成, 数量:', this.classList.length)
-          
           // 加载筛选选项
           if (this.isSecretaryRole && this.classList.length > 0) {
-            console.log('[查课新增] 调用 loadFilterOptions')
             this.loadFilterOptions()
           }
           
@@ -466,7 +434,7 @@ export default {
             this.loadStudents(this.form.bjdm)
           }
         }).catch((err) => {
-          console.error('[查课新增] 加载班级失败:', err)
+          // 加载失败静默处理
         })
       }
     },

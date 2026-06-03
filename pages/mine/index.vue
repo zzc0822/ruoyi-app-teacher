@@ -103,13 +103,11 @@ export default {
   onShow() {
     // 确保用户信息已加载
     if (!this.$store.state.user.id) {
-      console.log('[我的页面] userId 为空，先获取用户信息')
       this.$store.dispatch('GetInfo').then(() => {
-        console.log('[我的页面] 用户信息获取成功')
         this.loadRoleList()
         this.loadTeacherInfo()
       }).catch(err => {
-        console.error('[我的页面] 获取用户信息失败:', err)
+        // 获取失败静默处理
       })
     } else {
       this.loadRoleList()
@@ -122,7 +120,7 @@ export default {
       getRoleList().then(res => {
         this.roleList = res.data || []
       }).catch(err => {
-        console.error('加载角色列表失败:', err)
+        // 加载失败静默处理
       })
     },
     // 转换行政职务ID为中文名称
@@ -139,21 +137,16 @@ export default {
     loadTeacherInfo() {
       // 从 store 获取 userId
       const userId = this.$store.state.user.id
-      console.log('[我的页面] userId:', userId)
-      console.log('[我的页面] store.state.user:', this.$store.state.user)
       
       if (!userId) {
-        console.log('[我的页面] userId 为空，不加载教师信息')
         return
       }
       
       getTeacherinfoByUserId(userId).then(res => {
-        console.log('[我的页面] 教师信息加载成功:', res)
         this.teacherInfo = res.data
         if (this.teacherInfo) {
           // 教师姓名
           this.teacherName = this.teacherInfo.xm || ''
-          console.log('[我的页面] teacherName:', this.teacherName)
           // 职务（优先显示行政职务，其次显示专业技术职务）
           const xzdw = this.teacherInfo.xzdw || ''
           const zyjszc = this.teacherInfo.zyjszc || ''
@@ -172,7 +165,7 @@ export default {
           }
         }
       }).catch(err => {
-        console.error('[我的页面] 加载教师信息失败:', err)
+        // 加载失败静默处理
       })
     },
     // 等待角色列表加载后设置职务

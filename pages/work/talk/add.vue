@@ -28,7 +28,7 @@
         <input class="form-input" v-model="form.talkPlace" placeholder="请输入谈话地点" />
         <view class="loc-btn" @click="pickLocation"><text class="loc-icon">📍</text></view>
       </view>
-      <!-- 截止时间（有违纪学生时显示） -->
+      <!-- 截止时间（有谈话对象时显示） -->
       <view class="form-item" v-if="hasViolationStudent">
         <text class="form-label">截止时间</text>
         <picker mode="date" :value="deadlineDate" @change="onDeadlineDateChange">
@@ -60,7 +60,7 @@
       <view class="action-row">
         <view class="action-btn btn-warn" @tap.stop="toggleViolationList">
           <text class="action-icon">⚠️</text>
-          <text>{{ showViolationList ? '收起列表' : '违纪学生' }}</text>
+          <text>{{ showViolationList ? '收起列表' : '谈话对象' }}</text>
         </view>
         <view class="selected-badge" v-if="form.studentList.length > 0">
           <text>已选 {{ form.studentList.length }} 人</text>
@@ -77,10 +77,10 @@
           <text class="item-arrow">›</text>
         </view>
       </view>
-      <!-- 违纪学生列表（checkbox多选） -->
+      <!-- 谈话对象多选面板（checkbox多选） -->
       <view class="violation-panel" v-if="showViolationList && violationList.length > 0">
         <view class="vp-header">
-          <text class="vp-title">违纪学生列表</text>
+          <text class="vp-title">谈话对象列表</text>
           <text class="vp-count">共 {{ violationList.length }} 人</text>
           <text class="vp-action" @tap.stop="addAllViolation">全选</text>
         </view>
@@ -167,6 +167,7 @@
 
 <script>
 import { addTalk, updateTalk, getTalk, getMyStudents, getViolationStudents, getTalkAttachments } from '@/api/stumanage/talk'
+import { getClassCheck } from '@/api/stumanage/classcheck'
 import upload from '@/utils/upload'
 import config from '@/config'
 import { chooseLocation } from '@/utils/common'
@@ -215,6 +216,11 @@ export default {
       this.editId = options.id
       this.loadDetail(options.id)
     }
+    // 处理从待办进入的情况：todoId + businessId
+    if (options.todoId && options.businessId) {
+      // businessId 是查课记录ID，需要加载该记录的违纪学生
+      this.loadViolationStudentsFromCheck(options.businessId)
+    }
   },
   computed: {
     hasViolationStudent() {
@@ -245,17 +251,21 @@ export default {
     loadDetail(id) {
       getTalk(id).then(res => {
         const data = res.data
+        
         if (!data) return
         this.form.talkCategory = data.talkCategory || 'daily'
         this.form.talkTypeList = data.talkType ? data.talkType.split(',') : []
         this.form.talkPlace = data.talkPlace || ''
         this.form.isEnded = data.isEnded || '0'
         this.form.newContent = ''
+        
+        // 加载学生列表
         this.form.studentList = (data.studentList || []).map(s => ({
           xh: s.xh, xsname: s.xsname, bjdm: s.bjdm || '',
           violationType: s.violationType || null, checkDetailId: s.checkDetailId || null,
           checkId: s.checkId || null, studentRemark: s.studentRemark || '',
         }))
+        
         this.historyContent = data.contentList || []
         if (data.talkTime) {
           const dt = new Date(data.talkTime.replace(/ /g, 'T'))
@@ -269,7 +279,9 @@ export default {
         }
         // 加载附件
         this.loadAttachments(id)
-      }).catch(() => {})
+      }).catch(err => {
+        // 加载失败静默处理
+      })
     },
     loadAttachments(talkId) {
       getTalkAttachments(talkId).then(res => {
@@ -385,7 +397,6 @@ export default {
     },
     addViolationStudent(stu) {
       if (!stu || !stu.xh) {
-        console.warn('addViolationStudent: invalid stu', stu)
         return
       }
       const detailId = stu.checkDetailId != null ? Number(stu.checkDetailId) : null
@@ -404,6 +415,42 @@ export default {
       if (!this.form.talkTypeList.includes('discipline')) {
         this.form.talkTypeList.push('discipline')
       }
+    },
+    // 从查课记录加载违纪学生（从待办进入时调用）
+    loadViolationStudentsFromCheck(checkId) {
+      getClassCheck(checkId).then(res => {
+        const record = res.data
+        
+        if (!record || !record.detailList || record.detailList.length === 0) {
+          return
+        }
+        
+        // 过滤出违纪学生（迟到/早退/旷课）
+        const violationStudents = record.detailList.filter(d => 
+          d.absentType && ['late', 'early_leave', 'truant'].includes(d.absentType)
+        )
+        
+        if (violationStudents.length === 0) {
+          return
+        }
+        // 自动添加到谈话对象
+        violationStudents.forEach(stu => {
+          this.addViolationStudent({
+            xh: stu.xh,
+            xsname: stu.xsname,
+            bjdm: stu.bjdm || '',
+            absentType: stu.absentType,
+            checkDetailId: stu.id,
+            checkId: checkId,
+          })
+        })
+        uni.showToast({ 
+          title: '已加载 ' + violationStudents.length + ' 个谈话对象', 
+          icon: 'none' 
+        })
+      }).catch(err => {
+        // 加载失败静默处理
+      })
     },
     isViolationChecked(stu) {
       if (!stu || !stu.xh) return false
@@ -578,6 +625,8 @@ export default {
       this.submitting = true
       const talkTimeStr = this.talkDate + ' ' + this.talkTime + ':00'
       const deadlineStr = this.form.talkCategory === 'disciplinary' ? (this.deadlineDate + ' ' + this.deadlineTime + ':00') : null
+      
+      // 构建提交数据
       const data = {
         id: this.editId || undefined,
         talkCategory: this.form.talkCategory,
@@ -597,26 +646,27 @@ export default {
         }] : [],
         attachmentList: this.attachList.map((p, i) => ({
           businessType: 'talk',
-          fileName: p.attachment.fileName,
-          filePath: p.attachment.filePath,
-          fileSize: p.attachment.fileSize,
-          fileType: p.attachment.fileType,
-          mediaType: p.attachment.mediaType || 'image',
-          exifData: p.attachment.exifData || '',
+          fileName: p.attachment?.fileName || '',
+          filePath: p.attachment?.filePath || '',
+          fileSize: p.attachment?.fileSize || 0,
+          fileType: p.attachment?.fileType || '',
+          mediaType: p.attachment?.mediaType || 'image',
+          exifData: p.attachment?.exifData || '',
           sortOrder: i + 1,
         })),
       }
+      
       let request
       if (this.editId) {
         request = updateTalk(data)
       } else {
         request = addTalk(data)
       }
-      request.then(() => {
+      request.then(res => {
         uni.showToast({ title: this.editId ? '修改成功' : '提交成功', icon: 'success' })
         setTimeout(() => { uni.navigateBack() }, 800)
-      }).catch(() => {
-        uni.showToast({ title: '提交失败', icon: 'none' })
+      }).catch(err => {
+        uni.showToast({ title: '提交失败: ' + (err.msg || err.message || '未知错误'), icon: 'none', duration: 3000 })
       }).finally(() => {
         this.submitting = false
       })

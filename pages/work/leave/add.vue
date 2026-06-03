@@ -195,7 +195,10 @@ export default {
         { value: 'plane', label: '飞机' },
         { value: 'bus', label: '汽车' },
         { value: 'other', label: '其他' }
-      ]
+      ],
+      // 查课信息（从抽查确认页面传入）
+      checkDate: null,
+      lessonNo: null
     }
   },
   computed: {
@@ -227,8 +230,14 @@ export default {
       return t ? t.label : ''
     }
   },
-  onLoad() {
-    // 初始化默认日期时间为当前时间
+  onLoad(options) {
+    // 接收查课信息
+    if (options.checkDate) {
+      this.checkDate = options.checkDate
+      this.lessonNo = options.lessonNo ? parseInt(options.lessonNo) : null
+    }
+    
+    // 初始化默认日期时间
     this.initDefaultDateTime()
   },
   methods: {
@@ -464,6 +473,32 @@ export default {
       if (!this.form.leaveReason) { uni.showToast({ title: '请填写请假事由', icon: 'none' }); return }
       if (!this.form.startTime) { uni.showToast({ title: '请选择离校时间', icon: 'none' }); return }
       if (!this.form.endTime) { uni.showToast({ title: '请选择返校时间', icon: 'none' }); return }
+      
+      // 验证查课时间（如果是从抽查确认页面进入）
+      if (this.checkDate && this.lessonNo) {
+        // 将查课日期转换为 Date 对象
+        const checkDateStr = this.checkDate.replace(/-/g, '/')
+        const checkStart = new Date(checkDateStr + ' 00:00:00')
+        const checkEnd = new Date(checkDateStr + ' 23:59:59')
+        
+        // 将请假时间转换为 Date 对象
+        const leaveStart = new Date(this.form.startTime.replace(/ /g, 'T'))
+        const leaveEnd = new Date(this.form.endTime.replace(/ /g, 'T'))
+        
+        // 判断请假时间是否包含查课日期
+        // 条件：请假开始时间 <= 查课结束时间 且 请假结束时间 >= 查课开始时间
+        const isOverlap = leaveStart <= checkEnd && leaveEnd >= checkStart
+        
+        if (!isOverlap) {
+          uni.showModal({
+            title: '时间验证失败',
+            content: '请假时间必须包含本次查课时间（' + this.checkDate + '），请修改请假时间',
+            showCancel: false,
+            confirmText: '知道了'
+          })
+          return
+        }
+      }
 
       // 辅导员自动审批逻辑
       const days = this.form.leaveDays || 0
@@ -481,18 +516,31 @@ export default {
         // 保存请假佐证附件
         if (newId && this.uploadedFiles.length > 0) {
           saveLeaveAttachments(newId, this.uploadedFiles).then(() => {
-            uni.showToast({ title: days <= 3 ? '提交成功，已自动审批' : '提交成功，已转上级审批', icon: 'none', duration: 2000 })
-            setTimeout(() => { uni.navigateBack() }, 1500)
+            uni.showToast({ title: days <= 3 ? '提交成功，已自动审批' : '提交成功，已转上级审批', icon: 'success', duration: 2000 })
+            setTimeout(() => { 
+              // 跳转到请假列表页
+              uni.redirectTo({ 
+                url: '/pages/work/leave/index' 
+              }) 
+            }, 1500)
           }).catch(() => {
             uni.showToast({ title: '提交成功但附件保存失败', icon: 'none', duration: 2000 })
-            setTimeout(() => { uni.navigateBack() }, 1500)
+            setTimeout(() => { 
+              uni.redirectTo({ 
+                url: '/pages/work/leave/index' 
+              }) 
+            }, 1500)
           })
         } else {
-          uni.showToast({ title: days <= 3 ? '提交成功，已自动审批' : '提交成功，已转上级审批', icon: 'none', duration: 2000 })
-          setTimeout(() => { uni.navigateBack() }, 1500)
+          uni.showToast({ title: days <= 3 ? '提交成功，已自动审批' : '提交成功，已转上级审批', icon: 'success', duration: 2000 })
+          setTimeout(() => { 
+            uni.redirectTo({ 
+              url: '/pages/work/leave/index' 
+            }) 
+          }, 1500)
         }
-      }).catch(() => {
-        uni.showToast({ title: '提交失败', icon: 'none' })
+      }).catch(err => {
+        uni.showToast({ title: '提交失败: ' + (err.msg || err.message || '未知错误'), icon: 'none', duration: 3000 })
       }).finally(() => {
         this.submitting = false
       })

@@ -69,3 +69,20 @@ export function checkDuplicate(bjdm, checkDate, lessonNo) {
     params: { bjdm, checkDate, lessonNo }
   })
 }
+
+// 辅导员确认查课记录
+export function confirmClassCheck(data) {
+  return request({
+    url: '/api/mini/classcheck/confirm',
+    method: 'post',
+    data: data
+  })
+}
+
+// 获取查课统计数据
+export function getClassCheckStats() {
+  return request({
+    url: '/api/mini/classcheck/stats',
+    method: 'get'
+  })
+}

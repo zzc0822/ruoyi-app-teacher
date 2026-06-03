@@ -8,10 +8,11 @@ let timeout = 10000
 const baseUrl = config.baseUrl
 
 const request = config => {
-  // 是否需要设置 token
-  const isToken = (config.headers || {}).isToken === false
+  // 是否需要设置 token（默认需要，除非明确设置为false）
+  const isToken = (config.headers || {}).isToken !== false
   config.header = config.header || {}
-  if (getToken() && !isToken) {
+  
+  if (getToken() && isToken) {
     config.header['Authorization'] = 'Bearer ' + getToken()
   }
   // get请求映射params参数
@@ -38,6 +39,21 @@ const request = config => {
         const code = res.data.code || 200
         const msg = errorCode[code] || res.data.msg || errorCode['default']
         if (code === 401) {
+          // 检查是否是登录相关接口，如果是则不触发自动登录
+          const isLoginUrl = config.url && (
+            config.url.includes('/login') || 
+            config.url.includes('/phoneLogin') || 
+            config.url.includes('/wxLogin') ||
+            config.url.includes('/captchaImage')
+          )
+          
+          if (isLoginUrl) {
+            // 登录接口直接显示错误信息，不触发自动登录
+            toast(msg)
+            reject(msg)
+            return
+          }
+          
           // #ifdef MP-WEIXIN
           store.dispatch('WxLogin').then(() => {
             // 微信自动登录成功，重新发起原请求
@@ -72,7 +88,7 @@ const request = config => {
           reject('无效的会话，或者会话已过期，请重新登录。')
         } else if (code === 500) {
           toast(msg)
-          reject('500')
+          reject(msg)  // 返回后端的具体错误消息，而不是'500'
         } else if (code !== 200) {
           // 20001: 微信未绑定账号，静默拒绝，不弹提示
           if (code !== 20001) {

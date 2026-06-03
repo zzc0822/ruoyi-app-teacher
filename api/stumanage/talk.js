@@ -76,3 +76,19 @@ export function deleteTalkAttachment(id) {
     method: 'post'
   })
 }
+
+// 获取谈话统计数据
+export function getTalkStats() {
+  return request({
+    url: '/api/mini/talk/stats',
+    method: 'get'
+  })
+}
+
+// 获取违纪学生列表（用于谈话对象选择）
+export function getViolationStudents() {
+  return request({
+    url: '/api/mini/talk/violationStudents',
+    method: 'get'
+  })
+}

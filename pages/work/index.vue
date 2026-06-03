@@ -64,10 +64,8 @@ import { getWorkStats } from '@/api/stumanage/workstats'
 // 全量功能定义
 const ALL_FUNCS = [
   { key: 'stuinfo', name: '我的学生', icon: 'person-filled', color: 'blue', url: '/pages/work/stuinfo/index' },
-  { key: 'classcheck', name: '查课记录', icon: 'checkbox-filled', color: 'green', url: '/pages/work/classcheck/index' },
-  { key: 'classcheck_add', name: '新建查课', icon: 'plusempty', color: 'green', url: '/pages/work/classcheck/add' },
-  { key: 'talk', name: '谈话记录', icon: 'chat-filled', color: 'orange', url: '/pages/work/talk/index' },
-  { key: 'talk_add', name: '新增谈话', icon: 'compose', color: 'orange', url: '/pages/work/talk/add' },
+  { key: 'classcheck', name: '查课管理', icon: 'checkbox-filled', color: 'green', url: '/pages/work/classcheck/index' },
+  { key: 'talk', name: '谈心谈话', icon: 'chat-filled', color: 'orange', url: '/pages/work/talk/index' },
   { key: 'leave', name: '请假管理', icon: 'paperplane-filled', color: 'red', url: '/pages/work/leave/index' },
   { key: 'todo', name: '待办事项', icon: 'flag-filled', color: 'purple', url: '/pages/work/todo/index' }
 ]
@@ -270,14 +268,10 @@ export default {
       }).catch(() => {})
     },
     toggleEditCommon() {
-      console.log('切换常用功能编辑模式', this.editingCommon)
       this.editingCommon = !this.editingCommon
-      console.log('编辑模式已切换为:', this.editingCommon)
     },
     toggleStudentSection() {
-      console.log('切换学生管理折叠状态', this.studentCollapsed)
       this.studentCollapsed = !this.studentCollapsed
-      console.log('折叠状态已切换为:', this.studentCollapsed)
     },
     onFuncClick(item) {
       if (this.editingCommon) return
