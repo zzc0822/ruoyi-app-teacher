@@ -2,7 +2,7 @@ import config from '@/config'
 import storage from '@/utils/storage'
 import constant from '@/utils/constant'
 import { isHttp, isEmpty } from "@/utils/validate"
-import { login, logout, getInfo, wxLogin, wxBind, unbindWx, phoneLogin } from '@/api/login'
+import { login, logout, getInfo, wxLogin, wxBind, unbindWx, phoneLogin, studentBindLogin } from '@/api/login'
 import { getToken, setToken, removeToken } from '@/utils/auth'
 import defAva from '@/static/images/profile.jpg'
 
@@ -186,6 +186,19 @@ const user = {
           removeToken()
           storage.clean()
           resolve()
+        })
+      })
+    },
+    
+    // 学生绑定登录
+    StudentBindLogin({ commit }, data) {
+      return new Promise((resolve, reject) => {
+        studentBindLogin(data.code, data.studentNo).then(res => {
+          setToken(res.token)
+          commit('SET_TOKEN', res.token)
+          resolve()
+        }).catch(error => {
+          reject(error)
         })
       })
     }

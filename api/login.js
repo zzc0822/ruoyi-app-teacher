@@ -58,6 +58,21 @@ export function getCodeImg() {
   })
 }
 
+// 学生绑定登录
+export function studentBindLogin(code, studentNo) {
+  return request({
+    'url': '/api/studentBindLogin',
+    headers: {
+      isToken: false
+    },
+    'method': 'post',
+    'data': {
+      code,
+      studentNo
+    }
+  })
+}
+
 // 微信自动登录
 export function wxLogin(code) {
   return request({

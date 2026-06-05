@@ -43,6 +43,18 @@
           <text class="iconfont icon-phone"></text>
           一键手机号登录
         </button>
+        
+        <!-- 学生绑定入口 -->
+        <view class="divider" style="margin-top: 20rpx;">
+          <text class="divider-text">学生首次登录</text>
+        </view>
+        <button 
+          @click="showStudentBind = true" 
+          class="student-bind-btn cu-btn block bg-orange lg round"
+        >
+          <text class="iconfont icon-student"></text>
+          学生一键绑定
+        </button>
       </view>
       <view class="reg text-center" v-if="register">
         <text class="text-grey1">没有账号？</text>
@@ -54,7 +66,40 @@
         <text @click="handlePrivacy" class="text-blue">《隐私协议》</text>
       </view>
     </view>
-     
+       <!-- 学生绑定弹窗 -->
+    <view class="student-bind-modal" v-if="showStudentBind" @click="closeStudentBind">
+      <view class="modal-content" @click.stop>
+        <view class="modal-header">
+          <text class="modal-title">🎓 学生账号绑定</text>
+          <text class="modal-close" @click="closeStudentBind">✕</text>
+        </view>
+        
+        <view class="modal-body">
+          <view class="tip-text">
+            请输入学号、身份证号或手机号进行绑定
+          </view>
+          
+          <view class="input-item">
+            <input 
+              v-model="studentBindForm.studentNo" 
+              class="input" 
+              type="text" 
+              placeholder="请输入学号/身份证号/手机号" 
+              maxlength="18"
+            />
+          </view>
+          
+          <button 
+            @click="handleStudentBind" 
+            class="bind-btn cu-btn block bg-blue lg round"
+            :loading="studentBinding"
+          >
+            确认绑定
+          </button>
+        </view>
+      </view>
+    </view>
+    
   </view>
 </template>
 
@@ -72,6 +117,12 @@
         // 是否微信小程序环境
         isWxEnv: false,
         globalConfig: getApp().globalData.config,
+        // 学生绑定
+        showStudentBind: false,
+        studentBinding: false,
+        studentBindForm: {
+          studentNo: ''
+        },
         loginForm: {
           username: "",
           password: "",
@@ -198,6 +249,48 @@
           }
         })
       },
+      // 关闭学生绑定弹窗
+      closeStudentBind() {
+        this.showStudentBind = false
+        this.studentBindForm.studentNo = ''
+      },
+      
+      // 学生绑定
+      handleStudentBind() {
+        const studentNo = this.studentBindForm.studentNo.trim()
+        
+        if (!studentNo) {
+          this.$modal.msgError('请输入学号/身份证号/手机号')
+          return
+        }
+        
+        this.studentBinding = true
+        
+        // 先获取微信登录code
+        uni.login({
+          provider: 'weixin',
+          success: (loginRes) => {
+            // 调用学生绑定接口
+            this.$store.dispatch('StudentBindLogin', {
+              code: loginRes.code,
+              studentNo: studentNo
+            }).then(() => {
+              this.studentBinding = false
+              this.$modal.msgSuccess('绑定成功')
+              this.closeStudentBind()
+              this.loginSuccess()
+            }).catch((err) => {
+              this.studentBinding = false
+              this.$modal.msgError(err || '绑定失败，请重试')
+            })
+          },
+          fail: (err) => {
+            this.studentBinding = false
+            this.$modal.msgError('获取微信登录凭证失败')
+          }
+        })
+      },
+      
       // 获取手机号快捷登录
       handleGetPhoneNumber(e) {
         if (e.detail.errMsg === 'getPhoneNumber:ok') {
@@ -323,6 +416,84 @@
           position: absolute;
           margin-left: 10px;
           width: 200rpx;
+        }
+      }
+      
+      .student-bind-btn {
+        margin-top: 20rpx;
+        height: 45px;
+      }
+    }
+  }
+  
+  // 学生绑定弹窗
+  .student-bind-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    
+    .modal-content {
+      width: 85%;
+      background-color: #fff;
+      border-radius: 20rpx;
+      overflow: hidden;
+      
+      .modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 30rpx;
+        border-bottom: 1rpx solid #eee;
+        
+        .modal-title {
+          font-size: 32rpx;
+          font-weight: bold;
+          color: #333;
+        }
+        
+        .modal-close {
+          font-size: 40rpx;
+          color: #999;
+          padding: 0 10rpx;
+        }
+      }
+      
+      .modal-body {
+        padding: 40rpx 30rpx;
+        
+        .tip-text {
+          font-size: 26rpx;
+          color: #666;
+          margin-bottom: 30rpx;
+          text-align: center;
+        }
+        
+        .input-item {
+          margin-bottom: 30rpx;
+          background-color: #f5f6f7;
+          height: 80rpx;
+          border-radius: 40rpx;
+          display: flex;
+          align-items: center;
+          padding: 0 30rpx;
+          
+          .input {
+            flex: 1;
+            font-size: 28rpx;
+            color: #333;
+          }
+        }
+        
+        .bind-btn {
+          margin-top: 40rpx;
+          height: 80rpx;
         }
       }
     }
