@@ -122,6 +122,32 @@
     "style": {
       "navigationBarTitleText": "待办事项"
     }
+  }, {
+    "path": "pages/student/tab",
+    "style": {
+      "navigationBarTitleText": "校园",
+      "navigationStyle": "custom"
+    }
+  }, {
+    "path": "pages/student/index",
+    "style": {
+      "navigationBarTitleText": "校园广场"
+    }
+  }, {
+    "path": "pages/student/add",
+    "style": {
+      "navigationBarTitleText": "发布内容"
+    }
+  }, {
+    "path": "pages/student/campus/index",
+    "style": {
+      "navigationBarTitleText": "墙"
+    }
+  }, {
+    "path": "pages/student/me",
+    "style": {
+      "navigationBarTitleText": "我的"
+    }
   }],
   "tabBar": {
     "color": "#000000",
