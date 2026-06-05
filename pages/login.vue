@@ -177,8 +177,25 @@
       // 登录成功后，处理函数
       loginSuccess(result) {
         // 设置用户信息
-        this.$store.dispatch('GetInfo').then(res => {
-          this.$tab.reLaunch('/pages/index')
+        this.$store.dispatch('GetInfo').then(async res => {
+          // 初始化角色配置
+          const { initRoleConfig, checkRealNameAuth } = await import('@/permission')
+          
+          // 获取角色配置
+          const roleConfig = await initRoleConfig()
+          
+          // 检查实名认证状态
+          const authStatus = await checkRealNameAuth()
+          
+          // 根据认证状态跳转页面
+          if (authStatus.needAuth) {
+            // 需要实名认证，跳转到身份选择页
+            this.$tab.reLaunch('/pages/auth/chooseIdentity')
+          } else {
+            // 已认证，跳转到对应首页
+            const homePage = roleConfig?.homePage || '/pages/index'
+            this.$tab.reLaunch(homePage)
+          }
         })
       },
       // 获取手机号快捷登录

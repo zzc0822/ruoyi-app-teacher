@@ -148,6 +148,24 @@
     "style": {
       "navigationBarTitleText": "我的"
     }
+  }, {
+    "path": "pages/auth/chooseIdentity",
+    "style": {
+      "navigationBarTitleText": "选择身份",
+      "navigationStyle": "custom"
+    }
+  }, {
+    "path": "pages/auth/teacherAuth",
+    "style": {
+      "navigationBarTitleText": "教师实名认证",
+      "navigationStyle": "custom"
+    }
+  }, {
+    "path": "pages/auth/studentAuth",
+    "style": {
+      "navigationBarTitleText": "学生实名认证",
+      "navigationStyle": "custom"
+    }
   }],
   "tabBar": {
     "color": "#000000",
