@@ -99,8 +99,21 @@ export default {
     this.loadTeacherName()
     this.loadStats()
     this.loadTodos()
+    
+    // 监听刷新事件
+    uni.$on('refreshHomeData', this.loadAllData)
+  },
+  onHide() {
+    // 移除事件监听
+    uni.$off('refreshHomeData', this.loadAllData)
   },
   methods: {
+    // 加载所有数据（用于事件刷新）
+    loadAllData() {
+      this.loadTeacherName()
+      this.loadStats()
+      this.loadTodos()
+    },
     // 加载教师姓名
     loadTeacherName() {
       // 确保用户信息已加载
@@ -149,8 +162,19 @@ export default {
     loadTodos() {
       listTodo().then(res => {
         const list = res.data || []
-        this.todoList = list.filter(t => t.status !== 'completed').slice(0, 3)
-      }).catch(() => {})
+        
+        // 获取当前用户信息
+        const userId = this.$store.state.user?.id || this.$store.state.user?.userId
+        
+        // status: 0=未完成, 1=已完成
+        const filtered = list.filter(t => {
+          return t.status !== '1' && t.status !== 1
+        })
+        
+        this.todoList = filtered.slice(0, 3)
+      }).catch(() => {
+        // 静默失败
+      })
     },
     goWork() {
       uni.switchTab({ url: '/pages/work/index' })

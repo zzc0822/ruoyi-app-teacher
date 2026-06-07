@@ -1,6 +1,5 @@
 import { getToken } from '@/utils/auth'
 import { getRoleConfig, getRealNameStatus } from '@/api/roleView'
-import { getConfigByRoles } from '@/utils/roleConfig'
 
 // 登录页面
 const loginPage = "/pages/login"
@@ -9,8 +8,7 @@ const loginPage = "/pages/login"
 const whiteList = [
   '/pages/login', 
   '/pages/register', 
-  '/pages/common/webview/index',
-  '/pages/auth/chooseIdentity' // 身份选择页面（白名单）
+  '/pages/common/webview/index'
 ]
 
 // 全局角色配置缓存
@@ -24,42 +22,39 @@ function checkWhite(url) {
 
 /**
  * 初始化角色配置
- * 登录后调用，获取用户角色并设置TabBar
  */
 export async function initRoleConfig() {
   try {
-    // 获取后端角色配置
     const res = await getRoleConfig()
     
     if (res.code === 200 && res.data) {
-      const { roles, homePage } = res.data
+      globalRoleConfig = res.data
       
-      // 使用角色配置文件生成配置
-      globalRoleConfig = getConfigByRoles(roles)
-      
-      // 动态设置TabBar
-      if (globalRoleConfig.tabBar && globalRoleConfig.tabBar.length > 0) {
-        uni.setTabBar({
-          list: globalRoleConfig.tabBar
-        })
+      // 动态设置TabBar（仅小程序支持）
+      // #ifdef MP-WEIXIN
+      try {
+        if (globalRoleConfig.tabBar && globalRoleConfig.tabBar.length > 0 && typeof uni.setTabBar === 'function') {
+          uni.setTabBar({
+            list: globalRoleConfig.tabBar
+          })
+        }
+      } catch (e) {
       }
+      // #endif
       
-      // 保存用户信息到全局状态
       uni.setStorageSync('roleConfig', globalRoleConfig)
-      uni.setStorageSync('userRoles', roles)
-      
-      console.log('[角色配置] 初始化成功', {
-        roles,
-        homePage,
-        tabBarCount: globalRoleConfig.tabBar.length
-      })
+      uni.setStorageSync('userRoles', globalRoleConfig.roles)
       
       return globalRoleConfig
     }
   } catch (error) {
-    console.error('[角色配置] 初始化失败', error)
     // 失败时使用默认配置（教师）
-    globalRoleConfig = getConfigByRoles(['teacher'])
+    globalRoleConfig = {
+      roles: ['teacher'],
+      homePage: '/pages/index',
+      tabBar: [],
+      features: {}
+    }
     return globalRoleConfig
   }
 }
@@ -72,27 +67,10 @@ export async function checkRealNameAuth() {
     const res = await getRealNameStatus()
     
     if (res.code === 200 && res.data) {
-      const { needAuth, teacherAuthenticated, studentAuthenticated } = res.data
-      
-      // 保存认证状态
-      uni.setStorageSync('authStatus', {
-        needAuth,
-        teacherAuthenticated,
-        studentAuthenticated,
-        teacherInfo: res.data.teacherInfo,
-        studentInfo: res.data.studentInfo
-      })
-      
-      console.log('[实名认证] 检查成功', {
-        needAuth,
-        teacherAuthenticated,
-        studentAuthenticated
-      })
-      
+      uni.setStorageSync('authStatus', res.data)
       return res.data
     }
   } catch (error) {
-    console.error('[实名认证] 检查失败', error)
     return { needAuth: false }
   }
 }
@@ -102,7 +80,6 @@ export async function checkRealNameAuth() {
  */
 export function getRoleConfigSync() {
   if (!globalRoleConfig) {
-    // 从缓存读取
     globalRoleConfig = uni.getStorageSync('roleConfig')
   }
   return globalRoleConfig
@@ -122,14 +99,21 @@ let list = ["navigateTo", "redirectTo", "reLaunch", "switchTab"]
 list.forEach(item => {
   uni.addInterceptor(item, {
     invoke(to) {
+      if (to.url && to.url.indexOf('redirect=true') !== -1) {
+        return true
+      }
+      
       if (getToken()) {
         // 已登录用户访问登录页，重定向到首页
         if (to.url === loginPage || to.url === '/pages/login') {
-          // 获取缓存的角色配置
           const config = getRoleConfigSync()
-          const homePage = config?.homePage || '/pages/index'
+          let homePage = config?.homePage || '/pages/index'
           
-          uni.reLaunch({ url: homePage })
+          if (!homePage.startsWith('/')) {
+            homePage = '/' + homePage
+          }
+          
+          uni.reLaunch({ url: homePage + (homePage.indexOf('?') === -1 ? '?redirect=true' : '&redirect=true') })
           return false
         }
         return true
@@ -143,7 +127,6 @@ list.forEach(item => {
       }
     },
     fail(err) {
-      console.log('[权限拦截] 跳转失败:', err)
     }
   })
 })

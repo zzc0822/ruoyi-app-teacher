@@ -6,7 +6,7 @@ import request from '@/utils/request'
  */
 export function getRoleConfig() {
   return request({
-    url: '/api/role-view/config',
+    url: '/api/role-view-config/config',
     method: 'get'
   })
 }
@@ -16,7 +16,7 @@ export function getRoleConfig() {
  */
 export function getRealNameStatus() {
   return request({
-    url: '/api/role-view/realname/status',
+    url: '/api/role-view-config/realname/status',
     method: 'get'
   })
 }

@@ -3,9 +3,9 @@
     <!--顶部个人信息栏-->
     <view class="header-section">
       <view class="header-content">
-        <!-- 方形头像（有照片时显示） -->
+        <!-- 教师照片（有照片时显示） -->
         <image v-if="teacherPhoto" @click="handleToAvatar" :src="teacherPhoto" class="teacher-avatar" mode="aspectFill"></image>
-        <!-- 方形头像（无照片时显示占位符，也可点击） -->
+        <!-- 教师照片（无照片时显示占位符，也可点击） -->
         <view v-else @click="handleToAvatar" class="avatar-placeholder">
           <uni-icons type="person" size="48" color="#999"></uni-icons>
         </view>
@@ -15,8 +15,13 @@
           点击登录
         </view>
         <view v-if="teacherName" @click="handleToInfo" class="user-info">
-          <view class="teacher-name">{{ teacherName }}</view>
-          <view class="teacher-title" v-if="teacherTitle">{{ teacherTitle }}</view>
+          <view class="teacher-name">
+            <text>{{ teacherName }}</text>
+            <text v-if="teacherCollege" class="teacher-college-inline"> · {{ teacherCollege }}</text>
+          </view>
+          <view class="teacher-title" v-if="teacherTitle">
+            <text class="title-text">{{ teacherTitle }}</text>
+          </view>
         </view>
       </view>
       <view @click="handleToInfo" class="header-right">
@@ -86,6 +91,7 @@ export default {
       // 教师信息
       teacherInfo: null,
       teacherName: '',
+      teacherCollege: '',
       teacherTitle: '',
       teacherPhoto: '',
       // 角色列表
@@ -101,6 +107,9 @@ export default {
     }
   },
   onShow() {
+    // 监听头像刷新事件
+    uni.$on('refreshMinePage', this.loadTeacherInfo)
+    
     // 确保用户信息已加载
     if (!this.$store.state.user.id) {
       this.$store.dispatch('GetInfo').then(() => {
@@ -114,7 +123,18 @@ export default {
       this.loadTeacherInfo()
     }
   },
+  onHide() {
+    // 移除事件监听
+    uni.$off('refreshMinePage', this.loadTeacherInfo)
+  },
   methods: {
+    // 截断文本，超过指定长度显示省略号
+    truncateText(text, maxLength) {
+      if (!text) return ''
+      if (text.length <= maxLength) return text
+      return text.substring(0, maxLength) + '...'
+    },
+    
     // 加载角色列表
     loadRoleList() {
       getRoleList().then(res => {
@@ -147,6 +167,8 @@ export default {
         if (this.teacherInfo) {
           // 教师姓名
           this.teacherName = this.teacherInfo.xm || ''
+          // 学院名称
+          this.teacherCollege = this.teacherInfo.xyname || ''
           // 职务（优先显示行政职务，其次显示专业技术职务）
           const xzdw = this.teacherInfo.xzdw || ''
           const zyjszc = this.teacherInfo.zyjszc || ''
@@ -162,6 +184,7 @@ export default {
           // 教师照片
           if (this.teacherInfo.photo) {
             this.teacherPhoto = config.baseUrl + '/profile' + this.teacherInfo.photo
+
           }
         }
       }).catch(err => {
@@ -266,13 +289,29 @@ export default {
           font-weight: bold;
           line-height: 32px;
           color: #fff;
+          display: flex;
+          align-items: center;
+          
+          .teacher-college-inline {
+            font-size: 15px;
+            font-weight: normal;
+            color: rgba(255, 255, 255, 0.85);
+          }
         }
 
         .teacher-title {
-          font-size: 14px;
-          line-height: 24px;
-          color: rgba(255, 255, 255, 0.85);
-          margin-top: 4px;
+          font-size: 16px;
+          line-height: 26px;
+          color: rgba(255, 255, 255, 0.9);
+          margin-top: 6px;
+          display: flex;
+          align-items: center;
+          
+          .title-text {
+            font-size: 17px;
+            font-weight: 500;
+            color: #fff;
+          }
         }
       }
 

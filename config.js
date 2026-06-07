@@ -1,6 +1,6 @@
 // 应用全局配置
 module.exports = {
-  baseUrl: 'http://192.168.1.166:8080',
+  baseUrl: 'http://192.168.1.134:8080',
   // baseUrl: 'http://172.17.201.241:8080',
   // 应用信息
   appInfo: {

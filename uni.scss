@@ -2,6 +2,9 @@
  * uni-app内置的常用样式变量
  */
 
+// 引入uView UI主题变量（必须在最前面）
+@import '@/uni_modules/uview-ui/theme.scss';
+
 /* 行为相关颜色 */
 $uni-color-primary: #007aff;
 $uni-color-success: #4cd964;

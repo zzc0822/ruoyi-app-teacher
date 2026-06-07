@@ -187,7 +187,6 @@ export default {
             } else {
                 // 不是数组类型当作加载失败处理
                 this.loadFail();
-                console.error('the list must be a array');
             }
         },
         // 加载失败
@@ -298,7 +297,6 @@ export default {
             } else {
                 // 不是数组类型当作刷新失败处理
                 this.refreshFail();
-                console.error('the list must be a array');
             }
         },
         // 刷新失败

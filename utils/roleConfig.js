@@ -36,7 +36,7 @@ export const ROLE_CONFIG = {
       stuinfo: true        // 学生信息
     },
     // 首页路径
-    homePage: "pages/index",
+    homePage: "/pages/index",
     // 角色名称
     roleName: "教师"
   },
@@ -72,7 +72,7 @@ export const ROLE_CONFIG = {
       campus: true         // 校园墙
     },
     // 首页路径
-    homePage: "pages/student/tab",
+    homePage: "/pages/student/tab",
     // 角色名称
     roleName: "学生"
   }
@@ -87,7 +87,7 @@ export function getConfigByRoles(roles = []) {
   let config = {
     tabBar: [],
     features: {},
-    homePage: "pages/index", // 默认首页
+    homePage: null, // 不预设默认值，让角色配置来决定
     roles: []
   }
   
@@ -119,6 +119,11 @@ export function getConfigByRoles(roles = []) {
       config.roles.push(role)
     }
   })
+  
+  // 如果最终没有homePage，使用默认值
+  if (!config.homePage) {
+    config.homePage = "/pages/index"
+  }
   
   return config
 }

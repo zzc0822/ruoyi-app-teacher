@@ -52,6 +52,7 @@
             "subPackages" : true
         },
         "usingComponents" : true,
+        "lazyCodeLoading" : "requiredComponents",
         "permission" : {
             "scope.userLocation" : {
                 "desc" : "用于获取谈话地点位置信息"

@@ -38,7 +38,6 @@ export const ROLE_CONFIG = {
  */
 export function getUserRoles(vm) {
   if (!vm || !vm.$store) {
-    console.warn('[角色系统] 无法获取 store')
     return []
   }
   
@@ -61,7 +60,6 @@ export function getUserRoles(vm) {
       return Array.isArray(roles) ? roles : []
     }
   } catch (e) {
-    console.error('[角色系统] 获取本地存储角色失败:', e)
   }
   
   return []
@@ -74,7 +72,6 @@ export function getUserRoles(vm) {
  */
 export async function ensureUserInfoLoaded(vm) {
   if (!vm || !vm.$store) {
-    console.warn('[角色系统] 无法获取 store')
     return Promise.reject('Store not available')
   }
   
@@ -86,13 +83,10 @@ export async function ensureUserInfoLoaded(vm) {
     const hasRoles = store.state.user.roles && store.state.user.roles.length > 0
     
     if (hasToken && !hasRoles) {
-      console.log('[角色系统] 检测到有 token 但无 roles，调用 GetInfo...')
       try {
         await store.dispatch('GetInfo')
-        console.log('[角色系统] GetInfo 成功')
         return Promise.resolve()
       } catch (err) {
-        console.error('[角色系统] GetInfo 失败:', err)
         return Promise.reject(err)
       }
     }
@@ -145,7 +139,6 @@ export const roleMixin = {
         this.isTeacherRole = isTeacher(this.userRoles)
         this.roleType = getRoleType(this.userRoles)
         
-        console.log('[角色系统] 角色检查完成:', {
           roles: this.userRoles,
           isSecretary: this.isSecretaryRole,
           isAdmin: this.isAdminRole,
@@ -160,7 +153,6 @@ export const roleMixin = {
           roleType: this.roleType
         }
       } catch (err) {
-        console.error('[角色系统] 角色检查失败:', err)
         return {
           isSecretaryRole: false,
           isAdminRole: false,
@@ -270,7 +262,6 @@ export const RoleUtil = {
 export function install(Vue) {
   Vue.prototype.$role = RoleUtil
   
-  console.log('[角色系统] 已安装到 Vue 原型')
 }
 
 /**

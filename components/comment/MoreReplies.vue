@@ -104,7 +104,6 @@
 		methods: {
 			//评论成功回调
 			commentSuccess(res) {
-				console.log(res);
 				this.commentCount++;
 				var commentId = res.response.data.data
 				touristApi.getComment(commentId).then(({

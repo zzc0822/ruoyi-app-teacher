@@ -6,19 +6,19 @@
 			<view class="content-box-top woo-box-flex">
 				<view class="content-box-avatar">
 					<u--image shape="circle" width="50px" height="50px"
-						:src="handleCampusUrl(contentObj.params.avatar)">
+						:src="handleCampusUrl(contentObj.params && contentObj.params.avatar ? contentObj.params.avatar : '')">
 					</u--image>
 				</view>
 
 				<view class="box--flex woo-box-item-flex" style="justify-content: center; flex-direction: column">
 					<view class="box--flex" style="margin-bottom: 7px; font-weight: bolder">
 						<span class="nickName">
-							{{ contentObj.params.nickName }}
+							{{ (contentObj.params && contentObj.params.nickName) ? contentObj.params.nickName : '未知用户' }}
 						</span>
 					</view>
 					<view class="box--flex">
 						<view class="content-category-tag">
-							<view>{{ contentObj.params.categoryName }}</view>
+							<view>{{ (contentObj.params && contentObj.params.categoryName) ? contentObj.params.categoryName : '默认分类' }}</view>
 						</view>
 						<view class="content-category-tag" v-if="contentObj.status==0">
 							<view style="color: blue;">审核中</view>
@@ -78,6 +78,8 @@
 		isLogin,
 		getUserId
 	} from "@/utils/auth";
+	import { handleCampusUrl } from "@/utils/campus";
+	import { parseTime } from "@/utils/common";
 
 	import operateApi from "@/api/operate";
 
@@ -117,6 +119,17 @@
 		mounted() {},
 		//方法集合
 		methods: {
+			//处理URL
+			handleCampusUrl(url) {
+				if (!url || url === '') return ''
+				if (url.startsWith('http')) return url
+				return handleCampusUrl(url)
+			},
+			//格式化时间
+			parseTime(time, pattern) {
+				if (!time) return ''
+				return parseTime(time, pattern)
+			},
 			//打开弹出层
 			openArrowDown() {
 				const data = {

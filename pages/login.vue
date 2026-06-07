@@ -3,103 +3,65 @@
     <view class="logo-content align-center justify-center flex">
       <image style="width: 100rpx;height: 100rpx;" :src="globalConfig.appInfo.logo" mode="widthFix">
       </image>
-      <text class="title">若依移动端登录</text>
+      <text class="title">智慧学工系统</text>
     </view>
+    
     <view class="login-form-content">
-      <!-- 微信小程序环境: 提示绑定信息 -->
-      <view class="wx-bind-tip" v-if="isWxEnv">
-        <text class="tip-text">首次使用请绑定已有账号</text>
-      </view>
-      <view class="input-item flex align-center">
-        <view class="iconfont icon-user icon"></view>
-        <input v-model="loginForm.username" class="input" type="text" placeholder="请输入账号" maxlength="30" />
-      </view>
-      <view class="input-item flex align-center">
-        <view class="iconfont icon-password icon"></view>
-        <input v-model="loginForm.password" type="password" class="input" placeholder="请输入密码" maxlength="20" />
-      </view>
-      <!-- 非小程序环境显示验证码 -->
-      <view class="input-item flex align-center" style="width: 60%;margin: 0px;" v-if="captchaEnabled && !isWxEnv">
-        <view class="iconfont icon-code icon"></view>
-        <input v-model="loginForm.code" type="number" class="input" placeholder="请输入验证码" maxlength="4" />
-        <view class="login-code"> 
-          <image :src="codeUrl" @click="getCode" class="login-code-img"></image>
+      <!-- 教师登录表单 -->
+      <view class="teacher-login-form">
+        <view class="input-item flex align-center">
+          <view class="iconfont icon-user icon"></view>
+          <input v-model="loginForm.username" class="input" type="text" placeholder="请输入账号（工号/手机号）" maxlength="30" />
         </view>
-      </view>
-      <view class="action-btn">
-        <button @click="handleLogin" class="login-btn cu-btn block bg-blue lg round">{{ isWxEnv ? '绑定并登录' : '登录' }}</button>
+        <view class="input-item flex align-center">
+          <view class="iconfont icon-password icon"></view>
+          <input v-model="loginForm.password" type="password" class="input" placeholder="请输入密码" maxlength="20" />
+        </view>
+        <!-- 非小程序环境显示验证码 -->
+        <view class="input-item flex align-center" style="width: 60%;margin: 0px;" v-if="captchaEnabled && !isWxEnv">
+          <view class="iconfont icon-code icon"></view>
+          <input v-model="loginForm.code" type="number" class="input" placeholder="请输入验证码" maxlength="4" />
+          <view class="login-code"> 
+            <image :src="codeUrl" @click="getCode" class="login-code-img"></image>
+          </view>
+        </view>
       </view>
       
-      <!-- 微信小程序环境：显示一键登录按钮 -->
-      <view class="wx-quick-login" v-if="isWxEnv">
-        <view class="divider">
-          <text class="divider-text">或</text>
-        </view>
-        <button 
-          open-type="getPhoneNumber" 
-          @getphonenumber="handleGetPhoneNumber" 
-          class="phone-login-btn cu-btn block bg-green lg round"
-        >
-          <text class="iconfont icon-phone"></text>
-          一键手机号登录
-        </button>
-        
-        <!-- 学生绑定入口 -->
-        <view class="divider" style="margin-top: 20rpx;">
-          <text class="divider-text">学生首次登录</text>
-        </view>
-        <button 
-          @click="showStudentBind = true" 
-          class="student-bind-btn cu-btn block bg-orange lg round"
-        >
-          <text class="iconfont icon-student"></text>
-          学生一键绑定
-        </button>
-      </view>
-      <view class="reg text-center" v-if="register">
-        <text class="text-grey1">没有账号？</text>
-        <text @click="handleUserRegister" class="text-blue">立即注册</text>
-      </view>
-      <view class="xieyi text-center">
-        <text class="text-grey1">登录即代表同意</text>
-        <text @click="handleUserAgrement" class="text-blue">《用户协议》</text>
-        <text @click="handlePrivacy" class="text-blue">《隐私协议》</text>
-      </view>
-    </view>
-       <!-- 学生绑定弹窗 -->
-    <view class="student-bind-modal" v-if="showStudentBind" @click="closeStudentBind">
-      <view class="modal-content" @click.stop>
-        <view class="modal-header">
-          <text class="modal-title">🎓 学生账号绑定</text>
-          <text class="modal-close" @click="closeStudentBind">✕</text>
+      <!-- 登录按钮 -->
+      <view class="teacher-login-mode">
+        <view class="action-btn">
+          <button @click="handleLogin" class="login-btn cu-btn block bg-blue lg round">{{ isWxEnv ? '绑定并登录' : '登录' }}</button>
         </view>
         
-        <view class="modal-body">
-          <view class="tip-text">
-            请输入学号、身份证号或手机号进行绑定
+        <!-- 微信小程序环境：显示一键登录按钮 -->
+        <view class="wx-quick-login" v-if="isWxEnv">
+          <view class="divider">
+            <text class="divider-text">或</text>
           </view>
-          
-          <view class="input-item">
-            <input 
-              v-model="studentBindForm.studentNo" 
-              class="input" 
-              type="text" 
-              placeholder="请输入学号/身份证号/手机号" 
-              maxlength="18"
-            />
-          </view>
-          
           <button 
-            @click="handleStudentBind" 
-            class="bind-btn cu-btn block bg-blue lg round"
-            :loading="studentBinding"
+            open-type="getPhoneNumber" 
+            @getphonenumber="handleGetPhoneNumber" 
+            class="phone-login-btn cu-btn block bg-green lg round"
           >
-            确认绑定
+            <text class="iconfont icon-phone"></text>
+            一键手机号登录
           </button>
         </view>
       </view>
+      
+      <!-- 底部链接（所有角色都显示） -->
+      <view class="bottom-links">
+        <view class="reg text-center" v-if="register">
+          <text class="text-grey1">没有账号？</text>
+          <text @click="handleUserRegister" class="text-blue">立即注册</text>
+        </view>
+        <view class="xieyi text-center">
+          <text class="text-grey1">登录即代表同意</text>
+          <text @click="handleUserAgrement" class="text-blue">《用户协议》</text>
+          <text @click="handlePrivacy" class="text-blue">《隐私协议》</text>
+        </view>
+      </view>
     </view>
-    
   </view>
 </template>
 
@@ -117,12 +79,7 @@
         // 是否微信小程序环境
         isWxEnv: false,
         globalConfig: getApp().globalData.config,
-        // 学生绑定
-        showStudentBind: false,
-        studentBinding: false,
-        studentBindForm: {
-          studentNo: ''
-        },
+        // 登录表单
         loginForm: {
           username: "",
           password: "",
@@ -229,6 +186,11 @@
       loginSuccess(result) {
         // 设置用户信息
         this.$store.dispatch('GetInfo').then(async res => {
+          
+          // 清除旧的角色配置缓存（避免使用上一次的角色）
+          uni.removeStorageSync('roleConfig')
+          uni.removeStorageSync('userRoles')
+          
           // 初始化角色配置
           const { initRoleConfig, checkRealNameAuth } = await import('@/permission')
           
@@ -245,49 +207,17 @@
           } else {
             // 已认证，跳转到对应首页
             const homePage = roleConfig?.homePage || '/pages/index'
+            
             this.$tab.reLaunch(homePage)
           }
-        })
-      },
-      // 关闭学生绑定弹窗
-      closeStudentBind() {
-        this.showStudentBind = false
-        this.studentBindForm.studentNo = ''
-      },
-      
-      // 学生绑定
-      handleStudentBind() {
-        const studentNo = this.studentBindForm.studentNo.trim()
-        
-        if (!studentNo) {
-          this.$modal.msgError('请输入学号/身份证号/手机号')
-          return
-        }
-        
-        this.studentBinding = true
-        
-        // 先获取微信登录code
-        uni.login({
-          provider: 'weixin',
-          success: (loginRes) => {
-            // 调用学生绑定接口
-            this.$store.dispatch('StudentBindLogin', {
-              code: loginRes.code,
-              studentNo: studentNo
-            }).then(() => {
-              this.studentBinding = false
-              this.$modal.msgSuccess('绑定成功')
-              this.closeStudentBind()
-              this.loginSuccess()
-            }).catch((err) => {
-              this.studentBinding = false
-              this.$modal.msgError(err || '绑定失败，请重试')
-            })
-          },
-          fail: (err) => {
-            this.studentBinding = false
-            this.$modal.msgError('获取微信登录凭证失败')
-          }
+        }).catch(err => {
+          
+          // 统一提示“账号不存在”，不暴露具体原因
+          this.$modal.msgError('账号不存在')
+          // 延迟后关闭loading
+          setTimeout(() => {
+            this.$modal.closeLoading()
+          }, 1500)
         })
       },
       
@@ -306,8 +236,8 @@
           uni.login({
             provider: 'weixin',
             success: (loginRes) => {
-              // 同时传递两个code
-              this.$store.dispatch('PhoneLogin', {
+              // 调用教师手机号绑定
+              this.$store.dispatch('TeacherPhoneBind', {
                 phoneCode: e.detail.code,  // 获取手机号的code
                 loginCode: loginRes.code   // 获取openid的code
               }).then(() => {
@@ -315,7 +245,7 @@
                 this.loginSuccess()
               }).catch((err) => {
                 this.$modal.closeLoading()
-                this.$modal.msgError(err || '手机号登录失败，请重试')
+                this.$modal.msgError(err || '教师手机号绑定失败，请检查手机号是否正确')
               })
             },
             fail: (err) => {
@@ -345,7 +275,7 @@
       width: 100%;
       font-size: 21px;
       text-align: center;
-      padding-top: 15%;
+      padding-top: 10%;
 
       image {
         border-radius: 4px;
@@ -353,6 +283,7 @@
 
       .title {
         margin-left: 10px;
+        font-weight: bold;
       }
     }
 
@@ -392,12 +323,104 @@
           color: #999;
         }
       }
-
-      .login-btn {
-        margin-top: 40px;
-        height: 45px;
+      
+      // 学生登录模式
+      .student-login-mode {
+        .student-tip-card {
+          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          border-radius: 20rpx;
+          padding: 30rpx;
+          margin-bottom: 30rpx;
+          display: flex;
+          align-items: center;
+          
+          .tip-icon {
+            font-size: 40rpx;
+            margin-right: 20rpx;
+          }
+          
+          .tip-text {
+            flex: 1;
+            font-size: 26rpx;
+            color: #fff;
+            line-height: 1.5;
+          }
+        }
+        
+        .input-item {
+          margin: 30rpx auto;
+          background-color: #f5f6f7;
+          height: 80rpx;
+          border-radius: 40rpx;
+          display: flex;
+          align-items: center;
+          padding: 0 30rpx;
+          
+          .icon {
+            font-size: 40rpx;
+            color: #0081ff;
+            margin-right: 20rpx;
+          }
+          
+          .input {
+            flex: 1;
+            font-size: 28rpx;
+            color: #333;
+          }
+        }
+        
+        .student-bind-btn {
+          margin-top: 40rpx;
+          height: 80rpx;
+          font-size: 32rpx;
+          font-weight: bold;
+        }
+        
+        .divider {
+          margin: 40rpx auto;
+          display: flex;
+          align-items: center;
+          
+          &::before,
+          &::after {
+            content: '';
+            flex: 1;
+            height: 1rpx;
+            background-color: #e5e5e5;
+          }
+          
+          .divider-text {
+            padding: 0 30rpx;
+            font-size: 24rpx;
+            color: #999;
+          }
+        }
+        
+        .phone-bind-btn {
+          height: 80rpx;
+          font-size: 32rpx;
+          font-weight: bold;
+        }
+        
+        .student-help {
+          margin-top: 30rpx;
+          text-align: center;
+          
+          .help-text {
+            font-size: 24rpx;
+            color: #999;
+          }
+        }
       }
       
+      // 教师登录模式
+      .teacher-login-mode {
+        .login-btn {
+          margin-top: 40px;
+          height: 45px;
+        }
+      }
+
       .reg {
         margin-top: 15px;
       }
@@ -423,80 +446,11 @@
         margin-top: 20rpx;
         height: 45px;
       }
-    }
-  }
-  
-  // 学生绑定弹窗
-  .student-bind-modal {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background-color: rgba(0, 0, 0, 0.5);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 9999;
-    
-    .modal-content {
-      width: 85%;
-      background-color: #fff;
-      border-radius: 20rpx;
-      overflow: hidden;
       
-      .modal-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: 30rpx;
-        border-bottom: 1rpx solid #eee;
-        
-        .modal-title {
-          font-size: 32rpx;
-          font-weight: bold;
-          color: #333;
-        }
-        
-        .modal-close {
-          font-size: 40rpx;
-          color: #999;
-          padding: 0 10rpx;
-        }
-      }
-      
-      .modal-body {
-        padding: 40rpx 30rpx;
-        
-        .tip-text {
-          font-size: 26rpx;
-          color: #666;
-          margin-bottom: 30rpx;
-          text-align: center;
-        }
-        
-        .input-item {
-          margin-bottom: 30rpx;
-          background-color: #f5f6f7;
-          height: 80rpx;
-          border-radius: 40rpx;
-          display: flex;
-          align-items: center;
-          padding: 0 30rpx;
-          
-          .input {
-            flex: 1;
-            font-size: 28rpx;
-            color: #333;
-          }
-        }
-        
-        .bind-btn {
-          margin-top: 40rpx;
-          height: 80rpx;
-        }
+      // 底部链接
+      .bottom-links {
+        margin-top: 20px;
       }
     }
   }
-
-</style>
+  </style>

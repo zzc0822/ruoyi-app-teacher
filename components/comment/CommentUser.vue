@@ -7,7 +7,7 @@
 				<view class="woo-box-flex">
 					<!-- 头像 -->
 					<u--image shape="circle" width="40px" height="40px"
-						:src="handleCampusUrl(contentObj.params.avatar)" />
+						:src="handleCampusUrl(contentObj.params && contentObj.params.avatar ? contentObj.params.avatar : '')" />
 					<!-- 昵称、评论内容、时间 -->
 					<view class="woo-box-item-flex" style="margin: -2px 0 0 10px">
 						<view>

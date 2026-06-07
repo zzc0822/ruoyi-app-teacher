@@ -1,7 +1,7 @@
 <template>
   <view class="work-container">
     <!-- 顶部学工金句 -->
-    <view class="greeting-section">
+    <view class="greeting-section" @click="refreshQuote">
       <view class="quote-content">
         <view class="quote-main">
           <view class="quote-first-line-float"></view>
@@ -60,6 +60,7 @@ import { listStuinfo } from '@/api/stumanage/stuinfo'
 import { listClassCheck } from '@/api/stumanage/classcheck'
 import { getRoleViewConfig } from '@/utils/roleViewConfig'
 import { getWorkStats } from '@/api/stumanage/workstats'
+import { getRandomQuote } from '@/api/stumanage/workquote'
 
 // 全量功能定义
 const ALL_FUNCS = [
@@ -106,6 +107,7 @@ export default {
   },
   computed: {
     allStudentFuncs() {
+      // 所有角色都显示全部功能
       return ALL_FUNCS
     },
     commonList() {
@@ -116,6 +118,7 @@ export default {
     }
   },
   async created() {
+    
     // 初始化汇总数据为加载状态
     this.initSummaryData()
     
@@ -126,6 +129,10 @@ export default {
     this.viewConfig = await getRoleViewConfig('work_index')
     
     this.loadCommonKeys()
+    
+    // 初始化时随机选择一条金句
+    this.refreshQuote()
+    
   },
   onShow() {
     this.loadUnread()
@@ -193,11 +200,6 @@ export default {
           this.summaryData.onLeave = res.data.onLeave || '0'
           this.summaryData.pendingLeave = res.data.pendingLeave || '0'
           
-          // 加载学工金句
-          if (res.data.workQuote) {
-            this.workQuote = res.data.workQuote
-          }
-          
           // 保存缓存
           uni.setStorageSync(STATS_CACHE_KEY, {
             data: {
@@ -205,11 +207,35 @@ export default {
               talkCount: this.summaryData.talkCount,
               onLeave: this.summaryData.onLeave,
               pendingLeave: this.summaryData.pendingLeave,
-              reserved: this.summaryData.reserved,
-              workQuote: this.workQuote  // 保存金句到缓存
+              reserved: this.summaryData.reserved
             },
             timestamp: Date.now()
           })
+        }
+      })
+    },
+    // 随机选择一条金句（从后端获取）
+    refreshQuote() {
+      getRandomQuote().then(res => {
+        if (res.data) {
+          this.workQuote = {
+            text: res.data.quoteText || '用心做教育,用爱育未来',
+            author: res.data.quoteAuthor || '学工团队'
+          }
+          
+          // 更新缓存
+          const cache = uni.getStorageSync(STATS_CACHE_KEY)
+          if (cache && cache.data) {
+            cache.data.workQuote = this.workQuote
+            cache.timestamp = Date.now()
+            uni.setStorageSync(STATS_CACHE_KEY, cache)
+          }
+        }
+      }).catch(() => {
+        // 如果接口失败，使用默认金句
+        this.workQuote = {
+          text: '用心做教育,用爱育未来',
+          author: '学工团队'
         }
       })
     },

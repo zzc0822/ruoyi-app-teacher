@@ -2,8 +2,8 @@ import config from '@/config'
 import storage from '@/utils/storage'
 import constant from '@/utils/constant'
 import { isHttp, isEmpty } from "@/utils/validate"
-import { login, logout, getInfo, wxLogin, wxBind, unbindWx, phoneLogin, studentBindLogin } from '@/api/login'
-import { getToken, setToken, removeToken } from '@/utils/auth'
+import { login, logout, getInfo, wxLogin, wxBind, unbindWx, phoneLogin, studentBindLogin, teacherPhoneBind, studentPhoneBind } from '@/api/login'
+import { getToken, setToken, removeToken, setUserId, removeUserId } from '@/utils/auth'
 import defAva from '@/static/images/profile.jpg'
 
 const baseUrl = config.baseUrl
@@ -15,7 +15,8 @@ const user = {
     name: storage.get(constant.name),
     avatar: storage.get(constant.avatar),
     roles: storage.get(constant.roles),
-    permissions: storage.get(constant.permissions)
+    permissions: storage.get(constant.permissions),
+    userType: storage.get('user_type') // 用户类型（00-教师/系统用户，其他-非教师）
   },
 
   mutations: {
@@ -25,6 +26,8 @@ const user = {
     SET_ID: (state, id) => {
       state.id = id
       storage.set(constant.id, id)
+      // 同时保存到 auth.js 使用的 key
+      setUserId(id)
     },
     SET_NAME: (state, name) => {
       state.name = name
@@ -41,6 +44,10 @@ const user = {
     SET_PERMISSIONS: (state, permissions) => {
       state.permissions = permissions
       storage.set(constant.permissions, permissions)
+    },
+    SET_USERTYPE: (state, userType) => {
+      state.userType = userType
+      storage.set('user_type', userType)
     }
   },
 
@@ -67,13 +74,24 @@ const user = {
       return new Promise((resolve, reject) => {
         getInfo().then(res => {
           const user = res.user
-		  let avatar = user.avatar || ""
-		  if (!isHttp(avatar)) {
+          let avatar = user.avatar || ""
+          if (!isHttp(avatar)) {
             avatar = (isEmpty(avatar)) ? defAva : baseUrl + avatar
           }
           const userid = (isEmpty(user) || isEmpty(user.userId)) ? "" : user.userId
-		  const username = (isEmpty(user) || isEmpty(user.userName)) ? "" : user.userName
-		  if (res.roles && res.roles.length > 0) {
+          const username = (isEmpty(user) || isEmpty(user.userName)) ? "" : user.userName
+          const userType = user.userType || ''
+          
+          // 验证是否为教师账号
+          if (userType !== '00' || (res.roles && res.roles.includes('student'))) {
+            removeToken()
+            removeUserId()
+            storage.clean()
+            reject(new Error('账号不存在'))
+            return
+          }
+          
+          if (res.roles && res.roles.length > 0) {
             commit('SET_ROLES', res.roles)
             commit('SET_PERMISSIONS', res.permissions)
           } else {
@@ -82,6 +100,7 @@ const user = {
           commit('SET_ID', userid)
           commit('SET_NAME', username)
           commit('SET_AVATAR', avatar)
+          commit('SET_USERTYPE', userType)
           resolve(res)
         }).catch(error => {
           reject(error)
@@ -119,6 +138,13 @@ const user = {
             wxBind(loginRes.code, userInfo.username.trim(), userInfo.password).then(res => {
               setToken(res.token)
               commit('SET_TOKEN', res.token)
+              if (res.user && res.user.userId) {
+                commit('SET_ID', res.user.userId)
+                commit('SET_NAME', res.user.userName || '')
+                if (res.user.avatar) {
+                  commit('SET_AVATAR', res.user.avatar)
+                }
+              }
               resolve(res)
             }).catch(error => {
               reject(error)
@@ -135,6 +161,41 @@ const user = {
     PhoneLogin({ commit }, data) {
       return new Promise((resolve, reject) => {
         phoneLogin(data.phoneCode, data.loginCode).then(res => {
+          setToken(res.token)
+          commit('SET_TOKEN', res.token)
+          // 如果有用户信息，保存用户ID
+          if (res.user && res.user.userId) {
+            const userid = res.user.userId
+            commit('SET_ID', userid)
+            commit('SET_NAME', res.user.userName || '')
+            if (res.user.avatar) {
+              commit('SET_AVATAR', res.user.avatar)
+            }
+          }
+          resolve(res)
+        }).catch(error => {
+          reject(error)
+        })
+      })
+    },
+
+    // 教师手机号绑定
+    TeacherPhoneBind({ commit }, data) {
+      return new Promise((resolve, reject) => {
+        teacherPhoneBind(data.phoneCode, data.loginCode).then(res => {
+          setToken(res.token)
+          commit('SET_TOKEN', res.token)
+          resolve(res)
+        }).catch(error => {
+          reject(error)
+        })
+      })
+    },
+
+    // 学生手机号绑定
+    PhoneBindStudent({ commit }, data) {
+      return new Promise((resolve, reject) => {
+        studentPhoneBind(data.phoneCode, data.loginCode).then(res => {
           setToken(res.token)
           commit('SET_TOKEN', res.token)
           resolve(res)
@@ -196,12 +257,19 @@ const user = {
         studentBindLogin(data.code, data.studentNo).then(res => {
           setToken(res.token)
           commit('SET_TOKEN', res.token)
-          resolve()
+          if (res.user && res.user.userId) {
+            commit('SET_ID', res.user.userId)
+            commit('SET_NAME', res.user.userName || '')
+            if (res.user.avatar) {
+              commit('SET_AVATAR', res.user.avatar)
+            }
+          }
+          resolve(res)
         }).catch(error => {
           reject(error)
         })
       })
-    }
+    },
   }
 }
 

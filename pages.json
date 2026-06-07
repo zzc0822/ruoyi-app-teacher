@@ -27,145 +27,111 @@
       "navigationBarTitleText": "我的",
       "navigationStyle": "custom"
     }
+  }],
+  "subPackages": [{
+    "root": "pages/sub-mine",
+    "pages": [{
+      "path": "avatar/index",
+      "style": {
+        "navigationBarTitleText": "修改头像"
+      }
+    }, {
+      "path": "info/index",
+      "style": {
+        "navigationBarTitleText": "个人信息"
+      }
+    }, {
+      "path": "info/edit",
+      "style": {
+        "navigationBarTitleText": "编辑资料"
+      }
+    }, {
+      "path": "pwd/index",
+      "style": {
+        "navigationBarTitleText": "修改密码"
+      }
+    }, {
+      "path": "setting/index",
+      "style": {
+        "navigationBarTitleText": "应用设置"
+      }
+    }, {
+      "path": "help/index",
+      "style": {
+        "navigationBarTitleText": "常见问题"
+      }
+    }, {
+      "path": "about/index",
+      "style": {
+        "navigationBarTitleText": "关于我们"
+      }
+    }]
   }, {
-    "path": "pages/mine/avatar/index",
-    "style": {
-      "navigationBarTitleText": "修改头像"
-    }
+    "root": "pages/sub-work",
+    "pages": [{
+      "path": "stuinfo/index",
+      "style": {
+        "navigationBarTitleText": "我的学生"
+      }
+    }, {
+      "path": "talk/index",
+      "style": {
+        "navigationBarTitleText": "谈心谈话"
+      }
+    }, {
+      "path": "talk/add",
+      "style": {
+        "navigationBarTitleText": "新增谈话"
+      }
+    }, {
+      "path": "classcheck/index",
+      "style": {
+        "navigationBarTitleText": "查课记录"
+      }
+    }, {
+      "path": "classcheck/add",
+      "style": {
+        "navigationBarTitleText": "新增查课"
+      }
+    }, {
+      "path": "classcheck/confirm",
+      "style": {
+        "navigationBarTitleText": "抽查确认"
+      }
+    }, {
+      "path": "leave/index",
+      "style": {
+        "navigationBarTitleText": "请假审批"
+      }
+    }, {
+      "path": "leave/add",
+      "style": {
+        "navigationBarTitleText": "新增请假"
+      }
+    }, {
+      "path": "leave/detail",
+      "style": {
+        "navigationBarTitleText": "请假详情"
+      }
+    }, {
+      "path": "todo/index",
+      "style": {
+        "navigationBarTitleText": "待办事项"
+      }
+    }]
   }, {
-    "path": "pages/mine/info/index",
-    "style": {
-      "navigationBarTitleText": "个人信息"
-    }
-  }, {
-    "path": "pages/mine/info/edit",
-    "style": {
-      "navigationBarTitleText": "编辑资料"
-    }
-  }, {
-    "path": "pages/mine/pwd/index",
-    "style": {
-      "navigationBarTitleText": "修改密码"
-    }
-  }, {
-    "path": "pages/mine/setting/index",
-    "style": {
-      "navigationBarTitleText": "应用设置"
-    }
-  }, {
-    "path": "pages/mine/help/index",
-    "style": {
-      "navigationBarTitleText": "常见问题"
-    }
-  }, {
-    "path": "pages/mine/about/index",
-    "style": {
-      "navigationBarTitleText": "关于我们"
-    }
-  }, {
-    "path": "pages/common/webview/index",
-    "style": {
-      "navigationBarTitleText": "浏览网页"
-    }
-  }, {
-    "path": "pages/common/textview/index",
-    "style": {
-      "navigationBarTitleText": "浏览文本"
-    }
-  }, {
-    "path": "pages/work/stuinfo/index",
-    "style": {
-      "navigationBarTitleText": "我的学生"
-    }
-  }, {
-    "path": "pages/work/classcheck/index",
-    "style": {
-      "navigationBarTitleText": "查课记录"
-    }
-  }, {
-    "path": "pages/work/classcheck/add",
-    "style": {
-      "navigationBarTitleText": "新建查课"
-    }
-  }, {
-    "path": "pages/work/classcheck/confirm",
-    "style": {
-      "navigationBarTitleText": "抽查确认"
-    }
-  }, {
-    "path": "pages/work/talk/index",
-    "style": {
-      "navigationBarTitleText": "谈心谈话"
-    }
-  }, {
-    "path": "pages/work/talk/add",
-    "style": {
-      "navigationBarTitleText": "新增谈话"
-    }
-  }, {
-    "path": "pages/work/leave/index",
-    "style": {
-      "navigationBarTitleText": "请假管理"
-    }
-  }, {
-    "path": "pages/work/leave/add",
-    "style": {
-      "navigationBarTitleText": "新增请假"
-    }
-  }, {
-    "path": "pages/work/leave/detail",
-    "style": {
-      "navigationBarTitleText": "请假详情"
-    }
-  }, {
-    "path": "pages/work/todo/index",
-    "style": {
-      "navigationBarTitleText": "待办事项"
-    }
-  }, {
-    "path": "pages/student/tab",
-    "style": {
-      "navigationBarTitleText": "校园",
-      "navigationStyle": "custom"
-    }
-  }, {
-    "path": "pages/student/index",
-    "style": {
-      "navigationBarTitleText": "校园广场"
-    }
-  }, {
-    "path": "pages/student/add",
-    "style": {
-      "navigationBarTitleText": "发布内容"
-    }
-  }, {
-    "path": "pages/student/campus/index",
-    "style": {
-      "navigationBarTitleText": "墙"
-    }
-  }, {
-    "path": "pages/student/me",
-    "style": {
-      "navigationBarTitleText": "我的"
-    }
-  }, {
-    "path": "pages/auth/chooseIdentity",
-    "style": {
-      "navigationBarTitleText": "选择身份",
-      "navigationStyle": "custom"
-    }
-  }, {
-    "path": "pages/auth/teacherAuth",
-    "style": {
-      "navigationBarTitleText": "教师实名认证",
-      "navigationStyle": "custom"
-    }
-  }, {
-    "path": "pages/auth/studentAuth",
-    "style": {
-      "navigationBarTitleText": "学生实名认证",
-      "navigationStyle": "custom"
-    }
+    "root": "pages/sub-common",
+    "pages": [{
+      "path": "webview/index",
+      "style": {
+        "navigationBarTitleText": "浏览网页"
+      }
+    }, {
+      "path": "textview/index",
+      "style": {
+        "navigationBarTitleText": "浏览文本"
+      }
+    }]
   }],
   "tabBar": {
     "color": "#000000",

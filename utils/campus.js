@@ -8,15 +8,16 @@ const baseUrl = config.baseURL
 
 
 export function handleCampusUrl(avatar) {
-	if (typeof(avatar) !== 'undefined') {
-		if (avatar.trim().toLowerCase().substring(0, 4) == "http") {
-			return avatar;
-		} else {
-			return baseUrl + avatar;
-		}
+	// 如果 avatar 为空，返回空字符串
+	if (!avatar || typeof(avatar) === 'undefined') {
+		return ''
 	}
-
-
+	
+	if (avatar.trim().toLowerCase().substring(0, 4) == "http") {
+		return avatar;
+	} else {
+		return baseUrl + avatar;
+	}
 }
 
 // 大致的计算时间差
