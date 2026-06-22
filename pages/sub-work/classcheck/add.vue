@@ -36,7 +36,7 @@
         </picker>
       </view>
       <view class="header-row" v-if="form.courseName || form.classRoom || form.classTeacher">
-        <text class="h-course">{{ form.courseName }} {{ form.classRoom ? '\u00b7 ' + form.classRoom : '' }} {{ form.classTeacher ? '\u00b7 ' + form.classTeacher : '' }}</text>
+        <text class="h-course">{{ form.courseName }} {{ form.classRoom ? '| ' + form.classRoom : '' }} {{ form.classTeacher ? '| ' + form.classTeacher : '' }}</text>
       </view>
     </view>
 
@@ -155,7 +155,7 @@
 import { getMyClasses, getClassStudents, addClassCheck, updateClassCheck, getClassCheck, checkDuplicate } from '@/api/stumanage/classcheck'
 import { listClassinfo } from '@/api/stumanage/classinfo'
 import { listLeave } from '@/api/stumanage/leave'
-import { getStatsByMajor } from '@/api/stumanage/stats'
+import { getMajorList } from '@/api/stumanage/stats'
 import { getTeacherinfoByUserId } from '@/api/stumanage/teacherinfo'
 import upload from '@/utils/upload'
 import request from '@/utils/request'
@@ -270,9 +270,26 @@ export default {
     // 加载班级列表（内部会根据角色自动加载筛选选项）
     this.loadClasses()
     
+    // 从课表等页面传入的参数
     if (options.bjdm) {
       this.form.bjdm = options.bjdm
       this.form.bjmc = decodeURIComponent(options.bjmc || '')
+    }
+    if (options.checkDate) {
+      this.form.checkDate = options.checkDate
+    }
+    if (options.lessonNo) {
+      this.form.lessonNo = parseInt(options.lessonNo, 10) || 1
+      this.lessonIndex = this.form.lessonNo - 1
+    }
+    if (options.courseName) {
+      this.form.courseName = decodeURIComponent(options.courseName || '')
+    }
+    if (options.classRoom) {
+      this.form.classRoom = decodeURIComponent(options.classRoom || '')
+    }
+    if (options.classTeacher) {
+      this.form.classTeacher = decodeURIComponent(options.classTeacher || '')
     }
     if (options.id) {
       this.editId = options.id
@@ -402,9 +419,23 @@ export default {
       } else {
         this.filterForm.nj = this.gradeOptions[idx]
       }
-      // 清空班级选择
+      // 清空班级和专业选择
       this.form.bjdm = ''
       this.students = []
+      this.filterForm.zydm = ''
+      // 书记角色：按年级动态刷新招生计划专业列表
+      if (this.isSecretaryRole && this._xydm) {
+        const nj = this.filterForm.nj || undefined
+        getMajorList(this._xydm, nj).then(res => {
+          if (res.code === 200 && res.data) {
+            this.majorList = res.data.map(m => ({
+              zydm: m.zydm,
+              zymc: m.zyname || m.zymc || m.zydm
+            }))
+            this.majorNames = ['全部专业', ...this.majorList.map(m => m.zymc)]
+          }
+        }).catch(() => {})
+      }
     },
     // 根据当前时间自动设置日期和课节
     initDateTime() {
@@ -422,7 +453,7 @@ export default {
       this.form.lessonNo = lessonIdx + 1
     },
     loadClasses() {
-      // 书记角色：获取学院所有班级（与“我的学生”页面一致）
+      // 书记角色：获取学院所有班级（与"我的学生"页面一致）
       if (this.isSecretaryRole) {
         // 先获取教师信息得到学院代码
         return getTeacherinfoByUserId().then(teacherRes => {
@@ -433,25 +464,24 @@ export default {
             this.majorNames = []
             return
           }
-          
-          
-          // 并行加载专业统计和班级列表
+              
+          // 保存学院代码，年级切换时需要
+          this._xydm = xydm
+              
+          // 并行加载：招生计划专业列表（不限年级）+ 班级列表
           return Promise.all([
-            getStatsByMajor(xydm),
+            getMajorList(xydm),
             listClassinfo({ xydm, pageNum: 1, pageSize: 999 })
           ]).then(([majorRes, classRes]) => {
-            // 加载专业统计（与“我的学生”页面一致）
+            // 加载招生计划专业列表（zyname 即为展示名称）
             if (majorRes.code === 200 && majorRes.data) {
               this.majorList = majorRes.data.map(m => ({
                 zydm: m.zydm,
-                zymc: m.zymc,
-                studentCount: m.studentCount,
-                classCount: m.classCount
+                zymc: m.zyname || m.zymc || m.zydm
               }))
               this.majorNames = ['全部专业', ...this.majorList.map(m => m.zymc)]
-              
             }
-            
+                
             // 加载班级列表
             let data = classRes.rows || classRes.data || []
             if (!Array.isArray(data)) {
@@ -463,13 +493,13 @@ export default {
             }
             this.classList = data
             this.classNames = this.classList.map(c => c.bjjc || c.bjname)
-            
-            
+                
             // 加载年级选项
             this.loadGradeOptions()
-            
+                
             if (this.form.bjdm) {
               this.loadStudents(this.form.bjdm)
+              this.checkExistingRecord()
             }
           })
         }).catch((err) => {
@@ -477,7 +507,7 @@ export default {
           this.majorList = []
           this.majorNames = []
         })
-      } 
+      }
       // 辅导员角色：获取我的班级
       else {
         return getMyClasses().then(res => {
@@ -499,6 +529,7 @@ export default {
           
           if (this.form.bjdm) {
             this.loadStudents(this.form.bjdm)
+            this.checkExistingRecord()
           }
         }).catch((err) => {
           // 加载失败静默处理

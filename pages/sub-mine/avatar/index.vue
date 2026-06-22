@@ -3,7 +3,7 @@
 		<view class="page-body">
 			<!-- 证件照预览 -->
 			<view class="photo-preview">
-				<image v-if="imageSrc" :src="imageSrc" mode="aspectFill" class="preview-image"></image>
+				<image v-if="imageSrc" :src="imageSrc" mode="aspectFill" class="preview-image" @error="imageSrc = ''"></image>
 				<view v-else class="preview-placeholder">
 					<uni-icons type="camera" size="60" color="#ccc"></uni-icons>
 					<text class="placeholder-text">点击选择证件照</text>

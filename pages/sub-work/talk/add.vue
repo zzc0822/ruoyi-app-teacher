@@ -169,7 +169,7 @@
 </template>
 
 <script>
-import { addTalk, updateTalk, getTalk, getMyStudents, getViolationStudents, getTalkAttachments } from '@/api/stumanage/talk'
+import { addTalk, updateTalk, getTalk, getMyStudents, getViolationStudents, getTalkAttachments, getDeadlineConfig } from '@/api/stumanage/talk'
 import { getClassCheck } from '@/api/stumanage/classcheck'
 import upload from '@/utils/upload'
 import config from '@/config'
@@ -215,6 +215,7 @@ export default {
   },
   onLoad(options) {
     this.initDateTime()
+    this.loadDeadlineConfig()
     if (options.id) {
       this.editId = options.id
       this.loadDetail(options.id)
@@ -235,10 +236,21 @@ export default {
       const now = new Date()
       this.talkDate = this.formatDate(now)
       this.talkTime = this.formatTime(now)
-      // 违纪谈话默认截止2天后
+      // 默认截止2天后，配置加载后会覆盖
       const dl = new Date(now.getTime() + 2 * 86400000)
       this.deadlineDate = this.formatDate(dl)
       this.deadlineTime = '23:59'
+    },
+    loadDeadlineConfig() {
+      getDeadlineConfig().then(res => {
+        const cfg = res.data || {}
+        const days = parseInt(cfg.talkDisciplinary, 10)
+        if (!isNaN(days) && days >= 0) {
+          const now = new Date()
+          const dl = new Date(now.getTime() + days * 86400000)
+          this.deadlineDate = this.formatDate(dl)
+        }
+      }).catch(() => {})
     },
     formatDate(d) {
       return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
@@ -343,7 +355,7 @@ export default {
       }
       this._searchTimer = setTimeout(() => {
         getMyStudents(this.stuKeyword).then(res => {
-          this.searchResult = res.data || []
+          this.searchResult = res.rows || res.data || []
           this.violationList = []
           this.showViolationList = false
         }).catch(() => {})
@@ -352,7 +364,7 @@ export default {
     searchStudents() {
       if (!this.stuKeyword) return
       getMyStudents(this.stuKeyword).then(res => {
-        this.searchResult = res.data || []
+        this.searchResult = res.rows || res.data || []
         this.violationList = []
         this.showViolationList = false
       }).catch(() => {})

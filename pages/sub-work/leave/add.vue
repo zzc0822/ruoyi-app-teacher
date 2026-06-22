@@ -138,7 +138,7 @@
 </template>
 
 <script>
-import { addLeave, saveLeaveAttachments } from '@/api/stumanage/leave'
+import { applyLeave } from '@/api/stumanage/leave'
 import { listStuinfo } from '@/api/stumanage/stuinfo'
 import upload from '@/utils/upload'
 
@@ -304,7 +304,12 @@ export default {
         this.showStudentDropdown = false
         return
       }
-      listStuinfo({ pageNum: 1, pageSize: 20, xsname: key }).then(res => {
+      // 纯数字按学号查询，否则按姓名查询
+      const isNumber = /^\d+$/.test(key)
+      const query = isNumber
+        ? { pageNum: 1, pageSize: 20, xh: key }
+        : { pageNum: 1, pageSize: 20, xsname: key }
+      listStuinfo(query).then(res => {
         this.studentOptions = res.rows || []
         this.showStudentDropdown = this.studentOptions.length > 0
       }).catch(() => {
@@ -500,45 +505,24 @@ export default {
         }
       }
 
-      // 辅导员自动审批逻辑
+      // 由后端根据 leaveDays 自动处理审批状态，前端不再预设 approvalStatus
+      // 只传 approvalLevel 作为提示给后端判断流程
       const days = this.form.leaveDays || 0
-      if (days <= 3) {
-        this.form.approvalStatus = 'approved'
-        this.form.approvalLevel = 'counselor'
-      } else {
-        this.form.approvalStatus = 'forward'
-        this.form.approvalLevel = 'secretary'
-      }
+      this.form.approvalLevel = days <= 3 ? 'counselor' : 'secretary'
+      delete this.form.approvalStatus  // 清除前端预设的状态，由后端 apply 接口控制
 
       this.submitting = true
-      addLeave(this.form).then(res => {
+      // 附件先上传完成后一并提交（uploadedFiles 已通过 uploadPhoto 异步上传）
+      applyLeave(this.form).then(res => {
         const newId = res.data
-        // 保存请假佐证附件
-        if (newId && this.uploadedFiles.length > 0) {
-          saveLeaveAttachments(newId, this.uploadedFiles).then(() => {
-            uni.showToast({ title: days <= 3 ? '提交成功，已自动审批' : '提交成功，已转上级审批', icon: 'success', duration: 2000 })
-            setTimeout(() => { 
-              // 跳转到请假列表页
-              uni.redirectTo({ 
-                url: '/pages/work/leave/index' 
-              }) 
-            }, 1500)
-          }).catch(() => {
-            uni.showToast({ title: '提交成功但附件保存失败', icon: 'none', duration: 2000 })
-            setTimeout(() => { 
-              uni.redirectTo({ 
-                url: '/pages/work/leave/index' 
-              }) 
-            }, 1500)
-          })
+        if (newId) {
+          uni.showToast({ title: days <= 3 ? '提交成功，待审批' : '提交成功，已转上级审批', icon: 'success', duration: 2000 })
         } else {
-          uni.showToast({ title: days <= 3 ? '提交成功，已自动审批' : '提交成功，已转上级审批', icon: 'success', duration: 2000 })
-          setTimeout(() => { 
-            uni.redirectTo({ 
-              url: '/pages/work/leave/index' 
-            }) 
-          }, 1500)
+          uni.showToast({ title: '提交成功', icon: 'success', duration: 2000 })
         }
+        setTimeout(() => {
+          uni.navigateBack()
+        }, 1500)
       }).catch(err => {
         uni.showToast({ title: '提交失败: ' + (err.msg || err.message || '未知错误'), icon: 'none', duration: 3000 })
       }).finally(() => {

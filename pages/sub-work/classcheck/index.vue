@@ -29,98 +29,56 @@
       </view>
     </view>
 
-    <!-- 今日班级课表（预留） -->
+    <!-- 今日班级课表 -->
     <view class="card">
       <view class="card-header">
         <text class="card-title">今日班级课表</text>
-        <text class="card-tip" v-if="!isSecretaryRole">课表功能开发中</text>
-        <text class="card-tip" v-else>{{ classList.length }}个班级</text>
       </view>
       
-      <!-- 书记角色：按专业分组显示 -->
-      <view v-if="isSecretaryRole">
-        <scroll-view scroll-y class="major-scroll-view" v-if="groupedClasses.length > 0">
-          <view class="major-group" v-for="major in groupedClasses" :key="major.zydm">
-            <!-- 专业头部 -->
-            <view class="major-header" @click="toggleMajorExpand(major.zydm)">
-              <view class="major-info">
-                <text class="major-name">{{ major.zymc }}</text>
-                <text class="major-count">{{ major.classes.length }}个班</text>
-              </view>
-              <view class="header-right">
-                <text class="major-total">{{ major.studentCount }}人</text>
-                <uni-icons :type="expandedMajors[major.zydm] ? 'top' : 'bottom'" size="16" color="#999"></uni-icons>
-              </view>
-            </view>
-            
-            <!-- 展开后的班级列表 -->
-            <view class="class-list" v-if="expandedMajors[major.zydm]">
-              <view 
-                class="schedule-row" 
-                v-for="(cls, idx) in major.classes" 
-                :key="cls.bjdm"
-                @click="goAddCheck(cls)"
-              >
-                <view class="sr-left">
-                  <view class="sr-dot" :style="'background:' + classColors[idx % classColors.length]"></view>
-                  <view class="sr-info">
-                    <view class="sr-name-row">
-                      <text class="sr-name">{{ cls.bjjc || cls.bjname }}</text>
-                      <text class="sr-count">应到{{ cls.bcrs || 0 }}</text>
-                      <text class="sr-leave-count" v-if="cls.todayLeaveCount > 0">请假{{ cls.todayLeaveCount }}</text>
-                    </view>
-                    <view class="sr-detail" v-if="cls._courseName">
-                      <text class="sr-detail-item sr-course-name">📖 {{ cls._courseName }}</text>
-                      <text class="sr-detail-item sr-room">📍 {{ cls._classRoom || '待定' }}</text>
-                      <text class="sr-detail-item sr-teacher">👤 {{ cls._classTeacher || '待定' }}</text>
-                    </view>
-                    <view class="sr-detail sr-detail-empty" v-else>
-                      <text class="sr-detail-empty-text">暂无课表信息</text>
-                    </view>
-                  </view>
-                </view>
-                <view class="sr-right">
-                  <uni-icons type="right" size="14" color="#ccc"></uni-icons>
-                </view>
-              </view>
-            </view>
-          </view>
-        </scroll-view>
-        <view class="empty-tip" v-else>
-          <text>加载中...</text>
+      <!-- 日期/节次选择器 -->
+      <view class="schedule-selector">
+        <view class="selector-group">
+          <uni-icons type="left" size="14" color="#666" @click="changeScheduleDate(-1)"></uni-icons>
+          <text class="selector-text">{{ selectedDateText }}</text>
+          <uni-icons type="right" size="14" color="#666" @click="changeScheduleDate(1)"></uni-icons>
+        </view>
+        <view class="selector-group">
+          <uni-icons type="top" size="14" color="#666" @click="changeScheduleSection(-1)"></uni-icons>
+          <text class="selector-text">{{ currentSectionText }}</text>
+          <uni-icons type="bottom" size="14" color="#666" @click="changeScheduleSection(1)"></uni-icons>
         </view>
       </view>
       
-      <!-- 辅导员角色：平铺显示 -->
-      <view v-else>
-        <view class="schedule-list" v-if="classList.length > 0">
-          <view class="schedule-row" v-for="(cls, idx) in classList" :key="cls.bjdm" @click="goAddCheck(cls)">
-            <view class="sr-left">
-              <view class="sr-dot" :style="'background:' + classColors[idx % classColors.length]"></view>
-              <view class="sr-info">
-                <view class="sr-name-row">
-                  <text class="sr-name">{{ cls.bjjc || cls.bjname }}</text>
-                  <text class="sr-count">应到{{ cls.bcrs || 0 }}</text>
-                  <text class="sr-leave-count" v-if="cls.todayLeaveCount > 0">请假{{ cls.todayLeaveCount }}</text>
-                </view>
-                <view class="sr-detail" v-if="cls._courseName">
-                  <text class="sr-detail-item sr-course-name">📖 {{ cls._courseName }}</text>
-                  <text class="sr-detail-item sr-room">📍 {{ cls._classRoom || '待定' }}</text>
-                  <text class="sr-detail-item sr-teacher">👤 {{ cls._classTeacher || '待定' }}</text>
-                </view>
-                <view class="sr-detail sr-detail-empty" v-else>
-                  <text class="sr-detail-empty-text">暂无课表信息</text>
-                </view>
+      <view class="schedule-list" v-if="todayScheduleList.length > 0">
+        <view 
+          class="schedule-row" 
+          :class="{ checked: isClassChecked(item.bjdm) }"
+          v-for="(item, idx) in todayScheduleList" 
+          :key="idx" 
+          @click.stop="goAddCheck(item)"
+        >
+          <view class="sr-left">
+            <view class="sr-dot" :style="'background:' + classColors[idx % classColors.length]"></view>
+            <view class="sr-info">
+              <view class="sr-name-row">
+                <text class="sr-name">{{ item.bjjc || item.bjname }}</text>
+                <text class="sr-check-tag" v-if="isClassChecked(item.bjdm)">已查课</text>
+                <text class="sr-check-tag pending" v-else>未查课</text>
+              </view>
+              <view class="sr-detail">
+                <text class="sr-detail-item sr-course-name">📖 {{ item.courseName }}</text>
+                <text class="sr-detail-item sr-room">📍 {{ item.classroom }}</text>
+                <text class="sr-detail-item sr-teacher">👤 {{ item.teacherName }}</text>
               </view>
             </view>
-            <view class="sr-right">
-              <uni-icons type="right" size="14" color="#ccc"></uni-icons>
-            </view>
+          </view>
+          <view class="sr-right">
+            <uni-icons type="right" size="14" color="#ccc"></uni-icons>
           </view>
         </view>
-        <view class="empty-tip" v-else>
-          <text>加载中...</text>
-        </view>
+      </view>
+      <view class="empty-tip" v-else>
+        <text>当前节次暂无课表</text>
       </view>
     </view>
 
@@ -252,7 +210,7 @@
               <image
                 v-for="(att, ai) in item.attachmentList"
                 :key="ai"
-                :src="att.thumbnailBase64 || ''"
+                :src="att.thumbnailBase64 || (baseUrl + '/profile' + att.filePath) || ''"
                 mode="aspectFill"
                 class="ci-photo"
                 @click.stop="previewPhoto(item.attachmentList, ai)"
@@ -267,7 +225,8 @@
 </template>
 
 <script>
-import { listClassCheck, getWeeklyStats, getMyClasses } from '@/api/stumanage/classcheck'
+import { listClassCheck, getClassCheckStats, getMyClasses } from '@/api/stumanage/classcheck'
+import { getTodaySchedules } from '@/api/stumanage/schedule'
 import { getStatsByCounselor } from '@/api/stumanage/stats'
 import { isSecretary } from '@/utils/role'
 import config from '@/config'
@@ -292,7 +251,13 @@ export default {
       weekDays: ['周一', '周二', '周三', '周四', '周五', '周六', '周日'],  // 星期标题
       expandedMajors: {},  // 专业展开状态
       secretaryCollege: '',  // 书记所在学院代码
-      majorStats: []  // 专业统计数据
+      majorStats: [],  // 专业统计数据
+      currentWeekday: 1,  // 当前星期几（1-7，周一=1）
+      currentSection: 1,  // 当前节次
+      selectedDate: new Date(),  // 选中的日期
+      selectedSection: 1,  // 选中的节次
+      todayScheduleList: [],  // 当前节次的课表列表
+      checkedClasses: {}  // 已查课班级集合：key=bjdm-selectedDate-selectedSection
     }
   },
   computed: {
@@ -313,7 +278,26 @@ export default {
     hasCounselorData() {
       return this.counselorStats && this.counselorStats.length > 0
     },
-    // 按专业分组班级（书记角色）
+    // 当前星期几中文
+    currentWeekdayText() {
+      const map = ['周日', '周一', '周二', '周三', '周四', '周五', '周六']
+      return map[this.selectedDate.getDay()]
+    },
+    // 当前选中日期文本
+    selectedDateText() {
+      const m = this.selectedDate.getMonth() + 1
+      const d = this.selectedDate.getDate()
+      return `${this.currentWeekdayText} ${m}/${d}`
+    },
+    // 当前节次标题
+    currentSectionText() {
+      return `第${this.selectedSection}节`
+    },
+    // 选中的星期几（1-7）
+    selectedWeekday() {
+      const day = this.selectedDate.getDay()
+      return day === 0 ? 7 : day
+    },
     groupedClasses() {
       if (!this.isSecretaryRole || this.majorStats.length === 0) {
         return []
@@ -339,6 +323,9 @@ export default {
   onLoad() {
     // 确保用户信息已加载
     this.ensureUserInfoLoaded()
+    
+    // 计算当前星期几和节次
+    this.computeCurrentTime()
     
     // 检查角色（内部会调用loadClasses）
     this.checkRole()
@@ -366,6 +353,112 @@ export default {
       this.$set(this.expandedMajors, zydm, !this.expandedMajors[zydm])
     },
     
+    // 计算当前星期几和节次（初始化选中值）
+    computeCurrentTime() {
+      const now = new Date()
+      this.selectedDate = now
+      
+      // 根据当前时间计算节次（默认上课时间，非上课时间默认第1节）
+      const minutes = now.getHours() * 60 + now.getMinutes()
+      const sections = [
+        { no: 1, start: 8 * 60, end: 8 * 60 + 45 },
+        { no: 2, start: 8 * 60 + 55, end: 9 * 60 + 40 },
+        { no: 3, start: 10 * 60, end: 10 * 60 + 45 },
+        { no: 4, start: 10 * 60 + 55, end: 11 * 60 + 40 },
+        { no: 5, start: 14 * 60 + 30, end: 15 * 60 + 15 },
+        { no: 6, start: 15 * 60 + 25, end: 16 * 60 + 10 },
+        { no: 7, start: 16 * 60 + 20, end: 17 * 60 + 5 },
+        { no: 8, start: 17 * 60 + 15, end: 18 * 60 },
+        { no: 9, start: 19 * 60 + 30, end: 20 * 60 + 15 },
+        { no: 10, start: 20 * 60 + 25, end: 21 * 60 + 10 }
+      ]
+      const matched = sections.find(s => minutes >= s.start && minutes <= s.end)
+      this.selectedSection = matched ? matched.no : 1
+    },
+    
+    // 加载当天课表，并过滤当前节次
+    loadTodaySchedules() {
+      getTodaySchedules(this.selectedWeekday).then(res => {
+        const data = res.data || []
+        const classMap = {}
+        this.classList.forEach(cls => {
+          classMap[cls.bjdm] = cls
+        })
+        
+        const list = []
+        data.forEach(item => {
+          const bjdm = item.bjdm
+          // 只保留当前用户所带班级（辅导员）或本学院班级（书记）
+          const cls = classMap[bjdm]
+          if (!cls) return
+          const schedules = (item.schedules || []).filter(s => s.startSection === this.selectedSection)
+          schedules.forEach(s => {
+            list.push({
+              bjdm,
+              bjjc: cls.bjjc || item.className || cls.bjname || bjdm,
+              bjname: cls.bjname || item.className || bjdm,
+              courseName: s.courseName || '-',
+              classroom: s.classroom || '-',
+              teacherName: s.teacherName || '-'
+            })
+          })
+        })
+        
+        this.todayScheduleList = list
+        this.loadCheckedStatus()
+      }).catch(() => {
+        this.todayScheduleList = []
+        this.checkedClasses = {}
+      })
+    },
+    
+    // 切换课表日期
+    changeScheduleDate(offset) {
+      const d = new Date(this.selectedDate)
+      d.setDate(d.getDate() + offset)
+      this.selectedDate = d
+      this.loadTodaySchedules()
+    },
+    
+    // 切换课表节次
+    changeScheduleSection(offset) {
+      let section = this.selectedSection + offset
+      if (section < 1) section = 1
+      if (section > 10) section = 10
+      this.selectedSection = section
+      this.loadTodaySchedules()
+    },
+    
+    // 加载查课记录，标记已查课班级
+    loadCheckedStatus() {
+      const y = this.selectedDate.getFullYear()
+      const m = String(this.selectedDate.getMonth() + 1).padStart(2, '0')
+      const d = String(this.selectedDate.getDate()).padStart(2, '0')
+      const dateStr = `${y}-${m}-${d}`
+      
+      listClassCheck({ 
+        checkDate: dateStr, 
+        pageNum: 1, 
+        pageSize: 999 
+      }).then(res => {
+        const rows = res.rows || []
+        const checked = {}
+        rows.forEach(item => {
+          if (item.bjdm && item.lessonNo == this.selectedSection) {
+            checked[item.bjdm] = true
+          }
+        })
+        this.checkedClasses = checked
+      }).catch(() => {
+        this.checkedClasses = {}
+      })
+    },
+    
+    // 判断是否已查课
+    isClassChecked(bjdm) {
+      return !!this.checkedClasses[bjdm]
+    },
+    
     loadClasses() {
       // 书记角色：获取学院所有班级
       if (this.isSecretaryRole) {
@@ -381,6 +474,7 @@ export default {
           cls._classTeacher = ''  // 预留：任课教师
           return cls
         })
+        this.loadTodaySchedules()
       }).catch(() => {})
     },
     
@@ -401,40 +495,58 @@ export default {
         const xydm = teacherRes.data.xydm
         this.secretaryCollege = xydm
         
-        // 加载专业统计数据（与“我的学生”页面一致）
-        const { getStatsByMajor } = await import('@/api/stumanage/stats')
-        const majorRes = await getStatsByMajor(xydm)
-        
-        
-        if (majorRes.code === 200 && majorRes.data) {
-          const colors = ['#2979ff', '#18bc37', '#f3a044', '#9c27b0', '#00bcd4', '#ff9800']
-          
-          this.majorStats = (majorRes.data || []).map((m, i) => ({
-            ...m,
-            color: colors[i % colors.length],
-            malePercent: m.studentCount > 0 ? Math.round((m.maleCount / m.studentCount) * 100) : 0,
-            femalePercent: m.studentCount > 0 ? Math.round((m.femaleCount / m.studentCount) * 100) : 0,
-            avgClassSize: m.classCount > 0 ? Math.round(m.studentCount / m.classCount) : 0,
-            classes: []  // 初始化班级列表
-          }))
-          
-          
-          // 加载班级数据
-          const { listClassinfo } = await import('@/api/stumanage/classinfo')
-          const classRes = await listClassinfo({ 
-            xydm: xydm,
-            pageNum: 1,
-            pageSize: 999
-          })
-          
-          
-          this.classList = (classRes.rows || []).map(cls => {
-            cls._courseName = ''
-            cls._classRoom = ''
-            cls._classTeacher = ''
-            return cls
+        // 并行加载：招生计划专业列表（名称准确）+ 专业统计（数量数据）+ 班级列表
+        const { getMajorList, getStatsByMajor } = await import('@/api/stumanage/stats')
+        const { listClassinfo } = await import('@/api/stumanage/classinfo')
+        const [majorListRes, statsRes, classRes] = await Promise.all([
+          getMajorList(xydm),
+          getStatsByMajor(xydm),
+          listClassinfo({ xydm, pageNum: 1, pageSize: 999 })
+        ])
+                
+        const colors = ['#2979ff', '#18bc37', '#f3a044', '#9c27b0', '#00bcd4', '#ff9800']
+                
+        // 用统计数据建立 zydm -> 统计 的索引（兼容 majorCode/zydm 两种字段名）
+        const statsMap = {}
+        if (statsRes.code === 200 && statsRes.data) {
+          statsRes.data.forEach(m => {
+            const key = m.zydm || m.majorCode || ''
+            if (key) statsMap[key] = m
           })
         }
+                
+        // 以招生计划专业列表为权威，合并统计数据
+        if (majorListRes.code === 200 && majorListRes.data) {
+          this.majorStats = majorListRes.data.map((m, i) => {
+            const stat = statsMap[m.zydm] || {}
+            const studentCount = stat.studentCount || 0
+            const maleCount = stat.maleCount || 0
+            const femaleCount = stat.femaleCount || 0
+            const classCount = stat.classCount || 0
+            return {
+              zydm: m.zydm,
+              zymc: m.zyname || m.zymc || m.zydm,
+              studentCount,
+              maleCount,
+              femaleCount,
+              classCount,
+              color: colors[i % colors.length],
+              malePercent: studentCount > 0 ? Math.round((maleCount / studentCount) * 100) : 0,
+              femalePercent: studentCount > 0 ? Math.round((femaleCount / studentCount) * 100) : 0,
+              avgClassSize: classCount > 0 ? Math.round(studentCount / classCount) : 0,
+              classes: []
+            }
+          })
+        }
+                
+        // 加载班级数据
+        this.classList = (classRes.rows || []).map(cls => {
+          cls._courseName = ''
+          cls._classRoom = ''
+          cls._classTeacher = ''
+          return cls
+        })
+        this.loadTodaySchedules()
       } catch (err) {
         this.classList = []
         this.majorStats = []
@@ -486,7 +598,7 @@ export default {
       const y = this.statsDate.getFullYear()
       const m = String(this.statsDate.getMonth() + 1).padStart(2, '0')
       const d = String(this.statsDate.getDate()).padStart(2, '0')
-      getWeeklyStats({ endDate: y + '-' + m + '-' + d }).then(res => {
+      getClassCheckStats({ endDate: y + '-' + m + '-' + d }).then(res => {
         this.todayStats = res.data.todayStats || {}
       }).catch(() => {})
     },
@@ -507,13 +619,27 @@ export default {
       }
     },
     goAdd() {
-      uni.navigateTo({ url: '/pages/work/classcheck/add' })
+      uni.navigateTo({ url: '/pages/sub-work/classcheck/add' })
     },
     goAddCheck(cls) {
-      uni.navigateTo({ url: '/pages/work/classcheck/add?bjdm=' + cls.bjdm + '&bjmc=' + encodeURIComponent(cls.bjname || '') })
+      if (!cls || !cls.bjdm) return
+      const y = this.selectedDate.getFullYear()
+      const m = String(this.selectedDate.getMonth() + 1).padStart(2, '0')
+      const d = String(this.selectedDate.getDate()).padStart(2, '0')
+      const dateStr = `${y}-${m}-${d}`
+      const params = [
+        'bjdm=' + cls.bjdm,
+        'bjmc=' + encodeURIComponent(cls.bjname || ''),
+        'checkDate=' + dateStr,
+        'lessonNo=' + this.selectedSection,
+        'courseName=' + encodeURIComponent(cls.courseName || ''),
+        'classRoom=' + encodeURIComponent(cls.classroom || ''),
+        'classTeacher=' + encodeURIComponent(cls.teacherName || '')
+      ]
+      uni.navigateTo({ url: '/pages/sub-work/classcheck/add?' + params.join('&') })
     },
     goDetail(item) {
-      uni.navigateTo({ url: '/pages/work/classcheck/add?id=' + item.id })
+      uni.navigateTo({ url: '/pages/sub-work/classcheck/add?id=' + item.id })
     },
     previewPhoto(attachmentList, index) {
       // 优先使用后端返回的base64缩略图，否则拼HTTP全路径
@@ -794,6 +920,30 @@ export default {
 }
 
 /* ===== 课表列表 ===== */
+.schedule-selector {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20rpx;
+  padding: 16rpx 20rpx;
+  background: #f8f9fa;
+  border-radius: 12rpx;
+}
+
+.selector-group {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+}
+
+.selector-text {
+  font-size: 26rpx;
+  color: #333;
+  font-weight: 500;
+  min-width: 120rpx;
+  text-align: center;
+}
+
 .schedule-list {
   max-height: 400rpx;
   overflow-y: auto;
@@ -805,10 +955,30 @@ export default {
   justify-content: space-between;
   padding: 16rpx 0;
   border-bottom: 1rpx solid #f5f5f5;
+  transition: background 0.2s;
+}
+
+.schedule-row.checked {
+  background: #f0f9ff;
+  border-radius: 8rpx;
+  padding: 16rpx 12rpx;
 }
 
 .schedule-row:last-child {
   border-bottom: none;
+}
+
+.sr-check-tag {
+  font-size: 18rpx;
+  padding: 2rpx 10rpx;
+  border-radius: 6rpx;
+  background: #18bc37;
+  color: #fff;
+  margin-left: 8rpx;
+}
+
+.sr-check-tag.pending {
+  background: #f3a044;
 }
 
 .sr-left {

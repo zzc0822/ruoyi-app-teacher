@@ -142,7 +142,6 @@
 
 <script>
 import { listLeave, approvalLeave } from '@/api/stumanage/leave'
-import { listStuinfo } from '@/api/stumanage/stuinfo'
 import config from '@/config'
 
 export default {
@@ -168,7 +167,8 @@ export default {
       overdueCount: 0,
       // 学生选择
       showStudentPicker: false,
-      studentList: []
+      studentList: [],
+      selectedStudent: null
     }
   },
   onShow() {
@@ -189,53 +189,40 @@ export default {
         this.showStudentPicker = true
       }
     },
-    // 搜索学生列表
+    // 搜索学生列表（直接按姓名或学号搜索请假记录关联的学生）
     searchStudents() {
       const key = this.searchKey.trim()
       if (!key) {
         this.studentList = []
         this.showStudentPicker = false
-        this.refresh() // 清空搜索时显示全部请假记录
+        this.refresh()
         return
       }
-      // 先查询所有请假记录，按学号分组
-      listLeave({ pageNum: 1, pageSize: 1000, xsname: key }).then(leaveRes => {
-        const leaveRecords = leaveRes.rows || []
-        if (leaveRecords.length === 0) {
+      // 纯数字按学号查询，否则按姓名查询
+      const isNumber = /^\d+$/.test(key)
+      const query = isNumber
+        ? { pageNum: 1, pageSize: 20, xh: key }
+        : { pageNum: 1, pageSize: 20, xsname: key }
+      // 直接查请假列表，提取唯一学生
+      listLeave({ ...query, pageSize: 200 }).then(leaveRes => {
+        const records = leaveRes.rows || []
+        if (records.length === 0) {
           this.studentList = []
           this.showStudentPicker = false
           return
         }
-        
-        // 提取唯一的学号列表
-        const xhSet = new Set(leaveRecords.map(r => r.xh))
-        const xhList = Array.from(xhSet)
-        
-        // 查询这些学生的详细信息
-        const studentPromises = xhList.map(xh => {
-          return listStuinfo({ pageNum: 1, pageSize: 1, xh: xh }).then(stuRes => {
-            const students = stuRes.rows || []
-            return students.length > 0 ? students[0] : null
-          }).catch(() => null)
+        // 按学号去重，并统计每个学生的请假数量
+        const map = {}
+        records.forEach(r => {
+          if (!map[r.xh]) {
+            map[r.xh] = { xh: r.xh, xsname: r.xsname, bjjc: r.bjjc, bjmc: r.bjmc, totalCount: 0, pendingCount: 0 }
+          }
+          map[r.xh].totalCount++
+          if (r.approvalStatus === 'pending') map[r.xh].pendingCount++
         })
-        
-        Promise.all(studentPromises).then(students => {
-          const validStudents = students.filter(s => s !== null)
-          
-          // 为每个学生计算待审批数量
-          const countPromises = validStudents.map(stu => {
-            const studentLeaves = leaveRecords.filter(r => r.xh === stu.xh)
-            stu.pendingCount = studentLeaves.filter(r => r.approvalStatus === 'pending').length
-            stu.totalCount = studentLeaves.length
-            return stu
-          })
-          
-          Promise.all(countPromises).then(results => {
-            this.studentList = results
-            this.showStudentPicker = this.studentList.length > 0
-          })
-        })
-      }).catch(err => {
+        this.studentList = Object.values(map)
+        this.showStudentPicker = this.studentList.length > 0
+      }).catch(() => {
         this.studentList = []
         this.showStudentPicker = false
       })
@@ -243,6 +230,7 @@ export default {
     // 选择学生
     selectStudent(stu) {
       this.showStudentPicker = false
+      this.selectedStudent = stu
       // 加载该学生的请假记录
       this.queryParam.xh = stu.xh
       this.queryParam.xsname = undefined
@@ -255,6 +243,7 @@ export default {
       this.searchKey = ''
       this.studentList = []
       this.showStudentPicker = false
+      this.selectedStudent = null
       this.queryParam.xh = undefined
       this.queryParam.xsname = undefined
       this.queryParam.pageNum = 1
@@ -347,10 +336,10 @@ export default {
       }
     },
     goAdd() {
-      uni.navigateTo({ url: '/pages/work/leave/add' })
+      uni.navigateTo({ url: '/pages/sub-work/leave/add' })
     },
     goDetail(item) {
-      uni.navigateTo({ url: `/pages/work/leave/detail?id=${item.id}` })
+      uni.navigateTo({ url: `/pages/sub-work/leave/detail?id=${item.id}` })
     },
     quickApprove(item, e) {
       uni.showModal({

@@ -4,7 +4,7 @@
     <view class="header-section">
       <view class="header-content">
         <!-- 教师照片（有照片时显示） -->
-        <image v-if="teacherPhoto" @click="handleToAvatar" :src="teacherPhoto" class="teacher-avatar" mode="aspectFill"></image>
+        <image v-if="teacherPhoto" @click="handleToAvatar" :src="teacherPhoto" class="teacher-avatar" mode="aspectFill" @error="teacherPhoto = ''"></image>
         <!-- 教师照片（无照片时显示占位符，也可点击） -->
         <view v-else @click="handleToAvatar" class="avatar-placeholder">
           <uni-icons type="person" size="48" color="#999"></uni-icons>
@@ -204,25 +204,25 @@ export default {
       }, 500)
     },
       handleToInfo() {
-        this.$tab.navigateTo('/pages/mine/info/index')
+        this.$tab.navigateTo('/pages/sub-mine/info/index')
       },
       handleToEditInfo() {
-        this.$tab.navigateTo('/pages/mine/info/edit')
+        this.$tab.navigateTo('/pages/sub-mine/info/edit')
       },
       handleToSetting() {
-        this.$tab.navigateTo('/pages/mine/setting/index')
+        this.$tab.navigateTo('/pages/sub-mine/setting/index')
       },
       handleToLogin() {
         this.$tab.reLaunch('/pages/login')
       },
       handleToAvatar() {
-        this.$tab.navigateTo('/pages/mine/avatar/index')
+        this.$tab.navigateTo('/pages/sub-mine/avatar/index')
       },
       handleHelp() {
-        this.$tab.navigateTo('/pages/mine/help/index')
+        this.$tab.navigateTo('/pages/sub-mine/help/index')
       },
       handleAbout() {
-        this.$tab.navigateTo('/pages/mine/about/index')
+        this.$tab.navigateTo('/pages/sub-mine/about/index')
       },
       handleJiaoLiuQun() {
         this.$modal.showToast('QQ群：①133713780(满)、②146013835(满)、③189091635')

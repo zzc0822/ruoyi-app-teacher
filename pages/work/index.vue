@@ -64,11 +64,11 @@ import { getRandomQuote } from '@/api/stumanage/workquote'
 
 // 全量功能定义
 const ALL_FUNCS = [
-  { key: 'stuinfo', name: '我的学生', icon: 'person-filled', color: 'blue', url: '/pages/work/stuinfo/index' },
-  { key: 'classcheck', name: '查课管理', icon: 'checkbox-filled', color: 'green', url: '/pages/work/classcheck/index' },
-  { key: 'talk', name: '谈心谈话', icon: 'chat-filled', color: 'orange', url: '/pages/work/talk/index' },
-  { key: 'leave', name: '请假管理', icon: 'paperplane-filled', color: 'red', url: '/pages/work/leave/index' },
-  { key: 'todo', name: '待办事项', icon: 'flag-filled', color: 'purple', url: '/pages/work/todo/index' }
+  { key: 'stuinfo', name: '我的学生', icon: 'person-filled', color: 'blue', url: '/pages/sub-work/stuinfo/index' },
+  { key: 'classcheck', name: '查课管理', icon: 'checkbox-filled', color: 'green', url: '/pages/sub-work/classcheck/index' },
+  { key: 'talk', name: '谈心谈话', icon: 'chat-filled', color: 'orange', url: '/pages/sub-work/talk/index' },
+  { key: 'leave', name: '请假管理', icon: 'paperplane-filled', color: 'red', url: '/pages/sub-work/leave/index' },
+  { key: 'todo', name: '待办事项', icon: 'flag-filled', color: 'purple', url: '/pages/sub-work/todo/index' }
 ]
 
 // 默认常用功能 key
@@ -263,19 +263,19 @@ export default {
     },
     // 跳转到学生列表
     goStudentList() {
-      uni.navigateTo({ url: '/pages/work/stuinfo/index' })
+      uni.navigateTo({ url: '/pages/sub-work/stuinfo/index' })
     },
     // 跳转到请假列表
     goLeaveList() {
-      uni.navigateTo({ url: '/pages/work/leave/index' })
+      uni.navigateTo({ url: '/pages/sub-work/leave/index' })
     },
     // 跳转到请假详情
     goLeaveDetail(item) {
-      uni.navigateTo({ url: `/pages/work/leave/detail?id=${item.id}` })
+      uni.navigateTo({ url: `/pages/sub-work/leave/detail?id=${item.id}` })
     },
     // 跳转到查课列表
     goClassCheckList() {
-      uni.navigateTo({ url: '/pages/work/classcheck/index' })
+      uni.navigateTo({ url: '/pages/sub-work/classcheck/index' })
     },
     loadCommonKeys() {
       const saved = uni.getStorageSync(STORAGE_KEY)
@@ -304,7 +304,7 @@ export default {
       uni.navigateTo({ url: item.url })
     },
     goTodo() {
-      uni.navigateTo({ url: '/pages/work/todo/index' })
+      uni.navigateTo({ url: '/pages/sub-work/todo/index' })
     },
     removeCommon(idx) {
       this.commonKeys.splice(idx, 1)

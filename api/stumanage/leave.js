@@ -1,6 +1,11 @@
 import request from '@/utils/request'
 
-// 查询请假申请列表
+/**
+ * 请假管理公共API（移动端）
+ * 使用ruoyi-api模块的公共接口
+ */
+
+// 获取请假列表
 export function listLeave(query) {
   return request({
     url: '/api/leave/list',
@@ -9,7 +14,7 @@ export function listLeave(query) {
   })
 }
 
-// 查询请假申请详细
+// 获取请假详情
 export function getLeave(id) {
   return request({
     url: '/api/leave/' + id,
@@ -17,25 +22,16 @@ export function getLeave(id) {
   })
 }
 
-// 新增请假申请
-export function addLeave(data) {
+// 提交请假申请
+export function applyLeave(data) {
   return request({
-    url: '/api/leave',
+    url: '/api/leave/apply',
     method: 'post',
     data: data
   })
 }
 
-// 修改请假申请
-export function updateLeave(data) {
-  return request({
-    url: '/api/leave',
-    method: 'put',
-    data: data
-  })
-}
-
-// 审批请假申请
+// 审批请假
 export function approvalLeave(data) {
   return request({
     url: '/api/leave/approval',
@@ -44,27 +40,19 @@ export function approvalLeave(data) {
   })
 }
 
-// 删除请假申请
-export function delLeave(ids) {
+// 获取我的请假列表（学生端）
+export function getMyLeaves(query) {
   return request({
-    url: '/api/leave/' + ids,
-    method: 'delete'
+    url: '/api/leave/myLeaves',
+    method: 'get',
+    params: query
   })
 }
 
-// 保存请假附件记录
-export function saveLeaveAttachments(leaveId, fileList) {
+// 获取待审批的请假列表
+export function getPendingLeaves() {
   return request({
-    url: '/api/attachment',
-    method: 'post',
-    data: { businessId: leaveId, category: 'leave', fileList: fileList }
-  })
-}
-
-// 获取请假统计数据
-export function getLeaveStats() {
-  return request({
-    url: '/api/leave/stats',
+    url: '/api/leave/pending',
     method: 'get'
   })
 }

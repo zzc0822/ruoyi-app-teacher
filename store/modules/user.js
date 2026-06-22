@@ -80,10 +80,15 @@ const user = {
           }
           const userid = (isEmpty(user) || isEmpty(user.userId)) ? "" : user.userId
           const username = (isEmpty(user) || isEmpty(user.userName)) ? "" : user.userName
-          const userType = user.userType || ''
+          // 从 user 对象中获取 userType，如果不存在则默认为 '00'（教师）
+          const userType = user.userType || '00'
+          
+          console.log('[GetInfo] 用户信息:', { userId: userid, userName: username, userType: userType })
+          console.log('[GetInfo] 角色列表:', res.roles)
           
           // 验证是否为教师账号
           if (userType !== '00' || (res.roles && res.roles.includes('student'))) {
+            console.error('[GetInfo] 账号验证失败 - userType:', userType, ', roles:', res.roles)
             removeToken()
             removeUserId()
             storage.clean()
@@ -135,7 +140,18 @@ const user = {
         uni.login({
           provider: 'weixin',
           success: (loginRes) => {
-            wxBind(loginRes.code, userInfo.username.trim(), userInfo.password).then(res => {
+            // 对密码进行 trim 处理，避免前后空格导致密码错误
+            const cleanPassword = (userInfo.password || '').trim()
+            console.log('[WxBind] 登录调试信息:')
+            console.log('  - 原始用户名:', userInfo.username)
+            console.log('  - 原始密码:', userInfo.password)
+            console.log('  - 原始密码JSON:', JSON.stringify(userInfo.password))
+            console.log('  - 处理后用户名:', userInfo.username.trim())
+            console.log('  - 处理后密码:', cleanPassword)
+            console.log('  - 处理后密码长度:', cleanPassword.length)
+            console.log('  - 处理后密码JSON:', JSON.stringify(cleanPassword))
+            wxBind(loginRes.code, userInfo.username.trim(), cleanPassword).then(res => {
+              console.log('[WxBind] 后端返回结果:', JSON.stringify(res))
               setToken(res.token)
               commit('SET_TOKEN', res.token)
               if (res.user && res.user.userId) {
@@ -144,6 +160,8 @@ const user = {
                 if (res.user.avatar) {
                   commit('SET_AVATAR', res.user.avatar)
                 }
+              } else {
+                console.log('[WxBind] 后端未返回user信息，将在GetInfo中获取')
               }
               resolve(res)
             }).catch(error => {

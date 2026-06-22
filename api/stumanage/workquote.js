@@ -6,7 +6,7 @@ import request from '@/utils/request'
  */
 export function getRandomQuote() {
   return request({
-    url: '/api/workquote/random',
+    url: '/api/work-stats/workquote/random',
     method: 'get'
   })
 }

@@ -1,18 +1,23 @@
 import request from '@/utils/request'
 
-// 查询谈话记录列表
+/**
+ * 谈话管理公共API（移动端）
+ * 使用ruoyi-api模块的公共接口
+ */
+
+// 获取谈话记录列表
 export function listTalk(query) {
   return request({
-    url: '/api/mini/talk/list',
+    url: '/api/talk/list',
     method: 'get',
     params: query
   })
 }
 
-// 查询谈话记录详细
+// 获取谈话记录详情
 export function getTalk(id) {
   return request({
-    url: '/api/mini/talk/' + id,
+    url: '/api/talk/' + id,
     method: 'get'
   })
 }
@@ -20,7 +25,7 @@ export function getTalk(id) {
 // 新增谈话记录
 export function addTalk(data) {
   return request({
-    url: '/api/mini/talk',
+    url: '/api/talk',
     method: 'post',
     data: data
   })
@@ -29,66 +34,56 @@ export function addTalk(data) {
 // 修改谈话记录
 export function updateTalk(data) {
   return request({
-    url: '/api/mini/talk',
+    url: '/api/talk',
     method: 'put',
     data: data
   })
 }
 
 // 删除谈话记录
-export function delTalk(ids) {
+export function deleteTalk(ids) {
   return request({
-    url: '/api/mini/talk/delete',
-    method: 'post',
-    data: ids
+    url: '/api/talk/' + ids,
+    method: 'delete'
   })
 }
 
-// 获取待谈话记录
+// 获取我的学生列表（支持学号/姓名模糊搜索）
+export function getMyStudents(keyword) {
+  const params = {}
+  if (/^\d+$/.test(keyword)) {
+    params.xh = keyword
+  } else {
+    params.xsname = keyword
+  }
+  return request({
+    url: '/api/mini/stuinfo/list',
+    method: 'get',
+    params: { pageNum: 1, pageSize: 20, ...params }
+  })
+}
+
+// 获取待跟进的谈话记录
 export function getPendingTalks() {
   return request({
-    url: '/api/mini/talk/pending',
+    url: '/api/talk/pending',
     method: 'get'
   })
 }
 
-// 获取我的学生
-export function getMyStudents(keyword) {
+// 获取违纪学生列表
+export function getViolationStudents(checkDate, bjdm) {
   return request({
-    url: '/api/mini/talk/myStudents',
+    url: '/api/talk/violationStudents',
     method: 'get',
-    params: { keyword }
+    params: { checkDate, bjdm }
   })
 }
 
-// 获取谈话附件列表
-export function getTalkAttachments(talkId) {
+// 获取限时谈话配置
+export function getDeadlineConfig() {
   return request({
-    url: '/api/mini/talk/attachment/' + talkId,
-    method: 'get'
-  })
-}
-
-// 删除谈话附件
-export function deleteTalkAttachment(id) {
-  return request({
-    url: '/api/mini/talk/attachment/delete/' + id,
-    method: 'post'
-  })
-}
-
-// 获取谈话统计数据
-export function getTalkStats() {
-  return request({
-    url: '/api/mini/talk/stats',
-    method: 'get'
-  })
-}
-
-// 获取违纪学生列表（用于谈话对象选择）
-export function getViolationStudents() {
-  return request({
-    url: '/api/mini/talk/violationStudents',
+    url: '/api/talk/deadlineConfig',
     method: 'get'
   })
 }

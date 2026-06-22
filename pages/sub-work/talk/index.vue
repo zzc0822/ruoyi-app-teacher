@@ -204,10 +204,10 @@ export default {
       this.getList()
     },
     goAdd() {
-      uni.navigateTo({ url: '/pages/work/talk/add' })
+      uni.navigateTo({ url: '/pages/sub-work/talk/add' })
     },
     goDetail(item) {
-      uni.navigateTo({ url: '/pages/work/talk/add?id=' + item.id })
+      uni.navigateTo({ url: '/pages/sub-work/talk/add?id=' + item.id })
     },
     formatTalkCategory(val) {
       const map = { daily: '日常谈心', disciplinary: '违纪谈话' }

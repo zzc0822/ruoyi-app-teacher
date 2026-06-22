@@ -1,7 +1,15 @@
 // 应用全局配置
 module.exports = {
-  baseUrl: 'http://192.168.1.134:8080',
-  // baseUrl: 'http://172.17.201.241:8080',
+  // 后端服务协议，部署 HTTPS 时改为 'https'
+  protocol: 'http',
+  // 后端服务主机，可以是 IP 或域名
+  host: '192.168.1.135',
+  // 后端服务端口号
+  port: 8080,
+  // 自动拼接完整 baseUrl（兼容旧代码直接读取 config.baseUrl）
+  get baseUrl() {
+    return `${this.protocol}://${this.host}:${this.port}`
+  },
   // 应用信息
   appInfo: {
     // 应用名称

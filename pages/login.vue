@@ -164,10 +164,18 @@
       },
       // 微信绑定登录
       async wxBindLogin() {
+        // 调试日志
+        console.log('=== 小程序登录调试 ===')
+        console.log('原始用户名:', this.loginForm.username)
+        console.log('原始密码长度:', this.loginForm.password?.length)
+        console.log('原始密码JSON:', JSON.stringify(this.loginForm.password))
+        
         this.$store.dispatch('WxBind', this.loginForm).then(() => {
+          console.log('登录成功')
           this.$modal.closeLoading()
           this.loginSuccess()
-        }).catch(() => {
+        }).catch((err) => {
+          console.error('登录失败:', err)
           // 绑定失败
         })
       },
@@ -184,8 +192,10 @@
       },
       // 登录成功后，处理函数
       loginSuccess(result) {
+        console.log('=== loginSuccess 开始 ===')
         // 设置用户信息
         this.$store.dispatch('GetInfo').then(async res => {
+          console.log('GetInfo 成功:', JSON.stringify(res))
           
           // 清除旧的角色配置缓存（避免使用上一次的角色）
           uni.removeStorageSync('roleConfig')
@@ -196,21 +206,26 @@
           
           // 获取角色配置
           const roleConfig = await initRoleConfig()
+          console.log('角色配置:', JSON.stringify(roleConfig))
           
           // 检查实名认证状态
           const authStatus = await checkRealNameAuth()
+          console.log('实名认证状态:', JSON.stringify(authStatus))
           
           // 根据认证状态跳转页面
           if (authStatus.needAuth) {
             // 需要实名认证，跳转到身份选择页
+            console.log('需要实名认证，跳转到身份选择页')
             this.$tab.reLaunch('/pages/auth/chooseIdentity')
           } else {
             // 已认证，跳转到对应首页
             const homePage = roleConfig?.homePage || '/pages/index'
+            console.log('跳转到首页:', homePage)
             
             this.$tab.reLaunch(homePage)
           }
         }).catch(err => {
+          console.error('GetInfo 失败:', err)
           
           // 统一提示“账号不存在”，不暴露具体原因
           this.$modal.msgError('账号不存在')

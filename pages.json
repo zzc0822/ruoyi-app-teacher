@@ -120,7 +120,7 @@
       }
     }]
   }, {
-    "root": "pages/sub-common",
+    "root": "pages/common",
     "pages": [{
       "path": "webview/index",
       "style": {

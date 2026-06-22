@@ -133,15 +133,26 @@
               <text class="chart-title">按辅导员统计</text>
               <text class="chart-subtitle">{{ counselorPieData.length }}位辅导员</text>
             </view>
-            <view class="chart-container">
-              <canvas canvas-id="counselorPieChart" class="pie-canvas" @touchmove.stop.prevent></canvas>
-              <scroll-view scroll-y class="chart-legend-scroll" v-if="counselorPieData.length > 0">
-                <view class="legend-item" v-for="(item, index) in counselorPieData" :key="index">
-                  <view class="legend-dot" :style="'background:' + item.color"></view>
-                  <text class="legend-label">{{ item.name }}</text>
-                  <text class="legend-value">{{ item.value }}人 ({{ item.percent }}%)</text>
+            <view class="counselor-bar-list" v-if="counselorPieData.length > 0">
+              <view class="counselor-bar-item" v-for="(item, index) in displayedCounselors" :key="index">
+                <view class="counselor-bar-label">
+                  <view class="counselor-bar-dot" :style="'background:' + item.color"></view>
+                  <text class="counselor-bar-name">{{ item.name }}</text>
                 </view>
-              </scroll-view>
+                <view class="counselor-bar-row">
+                  <view class="counselor-bar-track">
+                    <view class="counselor-bar-fill" :style="'width:' + item.percent + '%; background:' + item.color"></view>
+                  </view>
+                  <text class="counselor-bar-value">{{ item.value }}人</text>
+                </view>
+              </view>
+              <view class="counselor-expand-btn" v-if="counselorPieData.length > 5" @click="toggleCounselorExpand">
+                <text class="counselor-expand-text">{{ counselorExpanded ? '收起' : '展开更多' }}</text>
+                <uni-icons :type="counselorExpanded ? 'top' : 'bottom'" size="14" color="#2979ff"></uni-icons>
+              </view>
+            </view>
+            <view class="chart-empty" v-else>
+              <text class="empty-text">暂无辅导员数据</text>
             </view>
           </view>
         </view>
@@ -284,7 +295,7 @@
         @click="selectClass(cls.bjdm)"
       >
         <view class="side-bar" :class="{ 'bar-active': activeBjdm === cls.bjdm }" :style="'background:' + classColors[idx % classColors.length]"></view>
-        <text class="side-text" v-if="sidebarExpanded">{{ cls.bjjc || (cls.bjname && cls.bjname.substring(0, 4)) }}</text>
+        <text class="side-text" v-if="sidebarExpanded">{{ cls.bjjc || (cls.bjname && cls.bjname.substring(0, 6)) }}</text>
         <text class="side-sub" v-if="sidebarExpanded">{{ cls.bcrs || 0 }}</text>
       </view>
     </view>
@@ -320,8 +331,9 @@
           <text class="card-title">搜索结果 ({{ searchResults.length }})</text>
           <view class="stu-row" v-for="(stu, idx) in searchResults" :key="stu.xh" @click="showDetail(stu)">
             <text class="stu-name link">{{ stu.xsname }}</text>
-            <text :class="['stu-sex', stu.sex === '0' ? 'male' : 'female']">{{ stu.sex === '0' ? '♂' : '♀' }}</text>
+            <text :class="['stu-sex', stu.sexName === '男' ? 'male' : stu.sexName === '女' ? 'female' : 'unknown']">{{ stu.sexName === '男' ? '♂' : stu.sexName === '女' ? '♀' : '?' }}</text>
             <text class="stu-xh">{{ stu.xh }}</text>
+            <text class="stu-zzmm">{{ stu.zzmmName || '-' }}</text>
             <text class="stu-cls">{{ stu.bjmc }}</text>
           </view>
         </view>
@@ -365,8 +377,9 @@
           <view class="stu-row" v-for="(stu, idx) in filteredStudents" :key="stu.xh" @click="showDetail(stu)">
             <text class="stu-idx">{{ idx + 1 }}</text>
             <text class="stu-name link">{{ stu.xsname }}</text>
-            <text :class="['stu-sex', stu.sex === '0' ? 'male' : 'female']">{{ stu.sex === '0' ? '♂' : '♀' }}</text>
+            <text :class="['stu-sex', stu.sexName === '男' ? 'male' : stu.sexName === '女' ? 'female' : 'unknown']">{{ stu.sexName === '男' ? '♂' : stu.sexName === '女' ? '♀' : '?' }}</text>
             <text class="stu-xh">{{ stu.xh }}</text>
+            <text class="stu-zzmm">{{ stu.zzmmName || '-' }}</text>
             <text :class="['stu-status', isOnLeave(stu.xh) ? 'on-leave' : 'on-campus']">
               {{ isOnLeave(stu.xh) ? '请假' : '在校' }}
             </text>
@@ -387,12 +400,12 @@
         <view class="dp-body" v-if="detailStu">
           <view class="dp-top">
             <image v-if="detailStu.photo && !detailStu._photoErr" class="dp-photo" :src="stuPhotoUrl(detailStu.photo)" mode="aspectFill" @error="onPhotoError"></image>
-            <view v-else class="dp-avatar" :class="detailStu.sex === '0' ? 'avatar-male' : 'avatar-female'">
+            <view v-else class="dp-avatar" :class="detailStu.sexName === '男' ? 'avatar-male' : detailStu.sexName === '女' ? 'avatar-female' : 'avatar-unknown'">
               <text class="dp-avatar-text">{{ (detailStu.xsname && detailStu.xsname.substring(0,1)) || '' }}</text>
             </view>
             <view class="dp-top-info">
               <text class="dp-name">{{ detailStu.xsname }}</text>
-              <text class="dp-sub">{{ detailStu.sex === '0' ? '男' : '女' }} · {{ detailStu.xh }}</text>
+              <text class="dp-sub">{{ detailStu.sexName || '未知' }} · {{ detailStu.xh }}</text>
             </view>
           </view>
           <view class="dp-grid">
@@ -496,9 +509,9 @@ export default {
         totalStudents: 0,
         maleCount: 0,
         femaleCount: 0,
-        partyMemberCount: 0,    // 党员（中共预备党员+中共党员）
-        leagueMemberCount: 0,   // 团员（共青团员）
-        massCount: 0,           // 群众
+        partyMemberCount: 0,    // 中共党员（含预备党员）
+        leagueMemberCount: 0,   // 共青团员
+        massCount: 0,           // 群众（含其他政治面貌）
         totalClasses: 0
       },
       majorStats: [],
@@ -511,6 +524,8 @@ export default {
       secretaryCollege: null,
       // 专业展开状态
       expandedMajors: {},
+      // 辅导员统计展开状态
+      counselorExpanded: false,
       // 全部班级弹窗
       currentMajorName: '',
       currentMajorClasses: []
@@ -523,6 +538,14 @@ export default {
     activeClassColor() {
       const idx = this.classList.findIndex(c => c.bjdm === this.activeBjdm)
       return idx >= 0 ? this.classColors[idx % this.classColors.length] : '#2979ff'
+    },
+    // 显示的辅导员列表（默认前5名）
+    displayedCounselors() {
+      if (!this.counselorPieData || this.counselorPieData.length === 0) return []
+      if (this.counselorExpanded || this.counselorPieData.length <= 5) {
+        return this.counselorPieData
+      }
+      return this.counselorPieData.slice(0, 5)
     },
     filteredStudents() {
       if (!this.searchKey) return this.studentList
@@ -586,17 +609,17 @@ export default {
       }
     },
     
-    // 加载所有统计数据（使用后端API）
+    // 加载所有统计数据（使用后端 API，前端只做渲染）
     loadAllStats() {
       if (!this.secretaryCollege) return
       
-      // 并行请求三个统计API
+      // 并行请求三个统计 API
       Promise.all([
         getCollegeSummary(this.secretaryCollege),
         getStatsByMajor(this.secretaryCollege),
         getStatsByCounselor(this.secretaryCollege)
       ]).then(([summaryRes, majorRes, counselorRes]) => {
-        // 汇总数据
+        // 汇总数据：后端已按展示维度聚合，前端直接赋值
         const summary = summaryRes.data || {}
         this.summaryData = {
           totalStudents: summary.totalStudents || 0,
@@ -608,7 +631,7 @@ export default {
           massCount: summary.massCount || 0
         }
         
-        // 专业统计
+        // 专业统计：后端已返回标准字段 zydm/zymc，无需再做字段映射
         const colors = ['#2979ff', '#18bc37', '#f3a044', '#9c27b0', '#00bcd4', '#ff9800', '#795548', '#e43d33', '#607d8b', '#8bc34a']
         this.majorStats = (majorRes.data || []).map((m, i) => ({
           ...m,
@@ -628,22 +651,11 @@ export default {
           color: colors[i % colors.length]
         }))
         
-        // 辅导员统计
-        const counselorData = counselorRes.data || []
-        this.counselorStats = counselorData.map(c => ({
-          fdyJsid: c.fdyJsid || c.fdyjsid,
-          fdyName: c.fdyName || c.fdyname || '未知辅导员',
-          classCount: c.classCount || 0,
-          studentCount: c.studentCount || 0
-        }))
-        
-        // 计算辅导员饼图数据（过滤掉studentCount为0的）
-        const validCounselors = this.counselorStats.filter(c => c.studentCount > 0)
-        const totalCounselorStudents = validCounselors.reduce((sum, c) => sum + c.studentCount, 0)
-        this.counselorPieData = validCounselors.map((c, i) => ({
-          name: c.fdyName,
-          value: c.studentCount,
-          percent: totalCounselorStudents > 0 ? Math.round((c.studentCount / totalCounselorStudents) * 100) : 0,
+        // 辅导员统计：后端已过滤 studentCount<=0 并计算好 percent，前端直接渲染
+        this.counselorPieData = (counselorRes.data || []).map((c, i) => ({
+          name: c.fdyName || c.fdyname || '未知辅导员',
+          value: c.studentCount || 0,
+          percent: c.percent || 0,
           color: colors[i % colors.length]
         }))
         
@@ -653,7 +665,6 @@ export default {
         // 绘制饼图
         this.$nextTick(() => {
           this.drawMajorPieChart()
-          this.drawCounselorPieChart()
         })
       }).catch(err => {
         // 加载失败静默处理
@@ -769,51 +780,6 @@ export default {
       ctx.draw()
     },
     
-    // 绘制辅导员饼图
-    drawCounselorPieChart() {
-      if (this.counselorPieData.length === 0) return
-      
-      const ctx = uni.createCanvasContext('counselorPieChart', this)
-      const width = 150
-      const height = 100
-      const centerX = width / 2
-      const centerY = height / 2
-      const radius = 35
-      
-      const total = this.counselorPieData.reduce((sum, item) => sum + item.value, 0)
-      if (total === 0) return
-      
-      let startAngle = -Math.PI / 2
-      this.counselorPieData.forEach((item) => {
-        const angle = (item.value / total) * 2 * Math.PI
-        const endAngle = startAngle + angle
-        
-        ctx.beginPath()
-        ctx.moveTo(centerX, centerY)
-        ctx.arc(centerX, centerY, radius, startAngle, endAngle)
-        ctx.closePath()
-        ctx.setFillStyle(item.color)
-        ctx.fill()
-        
-        startAngle = endAngle
-      })
-      
-      // 绘制中心圆
-      ctx.beginPath()
-      ctx.arc(centerX, centerY, 18, 0, 2 * Math.PI)
-      ctx.setFillStyle('#ffffff')
-      ctx.fill()
-      
-      // 绘制中心文字
-      ctx.setFillStyle('#333333')
-      ctx.setFontSize(12)
-      ctx.setTextAlign('center')
-      ctx.setTextBaseline('middle')
-      ctx.fillText(total + '人', centerX, centerY)
-      
-      ctx.draw()
-    },
-    
     // 显示专业详情
     showMajorDetail(major) {
       uni.showModal({
@@ -826,6 +792,11 @@ export default {
     // 切换专业展开/折叠
     toggleMajorExpand(zydm) {
       this.$set(this.expandedMajors, zydm, !this.expandedMajors[zydm])
+    },
+    
+    // 切换辅导员统计展开/折叠
+    toggleCounselorExpand() {
+      this.counselorExpanded = !this.counselorExpanded
     },
     
     // 加载班级列表
@@ -1175,7 +1146,7 @@ export default {
 }
 
 .sidebar.expanded {
-  width: 100rpx;
+  width: 140rpx;
 }
 
 .sidebar.collapsed {
@@ -1353,17 +1324,32 @@ export default {
 .stu-sex {
   font-size: 22rpx;
   flex-shrink: 0;
+  width: 28rpx;
+  text-align: center;
   &.male { color: #2979ff; }
   &.female { color: #e43d33; }
+  &.unknown { color: #999; }
 }
 
 .stu-xh {
   font-size: 20rpx;
   color: #999;
+  width: 180rpx;
+  flex-shrink: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.stu-zzmm {
+  font-size: 20rpx;
+  color: #666;
   flex: 1;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  text-align: right;
+  padding-right: 8rpx;
 }
 
 .stu-cls {
@@ -1515,6 +1501,10 @@ export default {
 
 .dp-avatar.avatar-female {
   background: #fce8ec;
+}
+
+.dp-avatar.avatar-unknown {
+  background: #f0f0f0;
 }
 
 .dp-avatar-text {
@@ -2422,11 +2412,11 @@ export default {
 }
 
 /* 辅导员横向条形图 */
-.counselor-bars {
-  padding: 20rpx;
+.counselor-bar-list {
+  padding: 20rpx 0;
   display: flex;
   flex-direction: column;
-  gap: 20rpx;
+  gap: 24rpx;
 }
 
 .counselor-bar-item {
@@ -2435,42 +2425,20 @@ export default {
   gap: 10rpx;
 }
 
-.counselor-info {
+.counselor-bar-label {
   display: flex;
   align-items: center;
   gap: 12rpx;
 }
 
-.counselor-rank {
-  width: 36rpx;
-  height: 36rpx;
+.counselor-bar-dot {
+  width: 16rpx;
+  height: 16rpx;
   border-radius: 50%;
-  background: #f0f0f0;
-  color: #666;
-  font-size: 22rpx;
-  font-weight: bold;
-  display: flex;
-  align-items: center;
-  justify-content: center;
   flex-shrink: 0;
 }
 
-.counselor-bar-item:nth-child(1) .counselor-rank {
-  background: #ffd700;
-  color: #fff;
-}
-
-.counselor-bar-item:nth-child(2) .counselor-rank {
-  background: #c0c0c0;
-  color: #fff;
-}
-
-.counselor-bar-item:nth-child(3) .counselor-rank {
-  background: #cd7f32;
-  color: #fff;
-}
-
-.counselor-name {
+.counselor-bar-name {
   flex: 1;
   font-size: 26rpx;
   color: #333;
@@ -2480,36 +2448,50 @@ export default {
   white-space: nowrap;
 }
 
-.bar-wrapper {
+.counselor-bar-row {
   display: flex;
   align-items: center;
   gap: 16rpx;
-  margin-left: 48rpx;
 }
 
-.bar-bg {
+.counselor-bar-track {
   flex: 1;
-  height: 32rpx;
+  height: 24rpx;
   background: #f5f5f5;
-  border-radius: 16rpx;
+  border-radius: 12rpx;
   overflow: hidden;
-  position: relative;
 }
 
-.bar-fill {
+.counselor-bar-fill {
   height: 100%;
-  border-radius: 16rpx;
+  border-radius: 12rpx;
   transition: width 0.3s ease;
   min-width: 4rpx;
 }
 
-.bar-value {
+.counselor-bar-value {
   font-size: 24rpx;
   color: #666;
   font-weight: 500;
   flex-shrink: 0;
-  min-width: 60rpx;
+  min-width: 80rpx;
   text-align: right;
+}
+
+.counselor-expand-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8rpx;
+  padding: 20rpx 0 8rpx;
+  margin-top: 8rpx;
+  border-top: 1rpx solid #f0f0f0;
+}
+
+.counselor-expand-text {
+  font-size: 26rpx;
+  color: #2979ff;
+  font-weight: 500;
 }
 
 // 全部班级弹窗样式
