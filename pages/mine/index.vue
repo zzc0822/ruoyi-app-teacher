@@ -166,7 +166,7 @@ export default {
         this.teacherInfo = res.data
         if (this.teacherInfo) {
           // 教师姓名
-          this.teacherName = this.teacherInfo.xm || ''
+          this.teacherName = this.teacherInfo.teacherName || ''
           // 学院名称
           this.teacherCollege = this.teacherInfo.xyname || ''
           // 职务（优先显示行政职务，其次显示专业技术职务）

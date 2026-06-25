@@ -61,7 +61,7 @@
           @click="onStuClick(stu)"
         >
           <view :style="'display:flex;align-items:center;justify-content:center;padding:14rpx 4rpx;border-radius:12rpx;height:60rpx;' + stuBg(stu)">
-            <text style="font-size:24rpx;color:#333;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:80%;">{{ stu.xsname }}</text>
+            <text style="font-size:24rpx;color:#333;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:80%;">{{ stu.studentName }}</text>
             <text v-if="isOnLeave(stu.xh)" style="font-size:20rpx;color:#2979ff;margin-left:4rpx;font-weight:bold;">假</text>
             <text v-else-if="getClickCount(stu.xh) === 1" style="font-size:20rpx;color:#f3a044;margin-left:4rpx;font-weight:bold;">迟</text>
             <text v-else-if="getClickCount(stu.xh) === 2" style="font-size:20rpx;color:#ff9800;margin-left:4rpx;font-weight:bold;">退</text>
@@ -108,7 +108,7 @@
         </view>
         <view class="leave-item" v-for="(leave, index) in leaveList" :key="index">
           <view class="leave-info">
-            <text class="leave-name">{{ leave.xsname }}</text>
+            <text class="leave-name">{{ leave.studentName }}</text>
             <text class="leave-reason">{{ leave.leaveReason || '未填写原因' }}</text>
           </view>
           <text class="leave-time">{{ formatDate(leave.startTime) }}</text>
@@ -646,7 +646,7 @@ export default {
         // 请假详细列表（用于书记）
         this.leaveList = leaves.map(l => ({
           xh: l.xh,
-          xsname: l.xsname || l.studentName || '',
+          studentName: l.studentName || l.studentName || '',
           leaveReason: l.leaveReason || l.qjyy || '',
           startTime: l.startTime,
           endTime: l.endTime
@@ -802,7 +802,7 @@ export default {
           .filter(xh => this.clickMap[xh] > 0)
           .map(xh => ({
             xh,
-            xsname: (this.students.find(s => s.xh === xh) || {}).xsname || '',
+            studentName: (this.students.find(s => s.xh === xh) || {}).studentName || '',
             absentType: absentTypes[this.clickMap[xh]] || 'truant'
           }))
         totalStudents = this.students.length

@@ -330,8 +330,8 @@
         <view class="card" v-if="searchResults.length > 0">
           <text class="card-title">搜索结果 ({{ searchResults.length }})</text>
           <view class="stu-row" v-for="(stu, idx) in searchResults" :key="stu.xh" @click="showDetail(stu)">
-            <text class="stu-name link">{{ stu.xsname }}</text>
-            <text :class="['stu-sex', stu.sexName === '男' ? 'male' : stu.sexName === '女' ? 'female' : 'unknown']">{{ stu.sexName === '男' ? '♂' : stu.sexName === '女' ? '♀' : '?' }}</text>
+            <text class="stu-name link">{{ stu.studentName }}</text>
+            <text :class="['stu-sex', stu.genderName === '男' ? 'male' : stu.genderName === '女' ? 'female' : 'unknown']">{{ stu.genderName === '男' ? '♂' : stu.genderName === '女' ? '♀' : '?' }}</text>
             <text class="stu-xh">{{ stu.xh }}</text>
             <text class="stu-zzmm">{{ stu.zzmmName || '-' }}</text>
             <text class="stu-cls">{{ stu.bjmc }}</text>
@@ -365,7 +365,7 @@
         <view class="card" v-if="classLeaves.length > 0">
           <text class="card-title">今日请假 ({{ classLeaves.length }})</text>
           <view class="leave-row" v-for="(item, idx) in classLeaves" :key="idx">
-            <text class="lr-name">{{ item.xsname }}</text>
+            <text class="lr-name">{{ item.studentName }}</text>
             <text class="lr-type">{{ formatLeaveType(item.leaveType) }}</text>
             <text class="lr-days">{{ item.leaveDays }}天</text>
           </view>
@@ -376,8 +376,8 @@
           <text class="card-title">学生名单 ({{ filteredStudents.length }})</text>
           <view class="stu-row" v-for="(stu, idx) in filteredStudents" :key="stu.xh" @click="showDetail(stu)">
             <text class="stu-idx">{{ idx + 1 }}</text>
-            <text class="stu-name link">{{ stu.xsname }}</text>
-            <text :class="['stu-sex', stu.sexName === '男' ? 'male' : stu.sexName === '女' ? 'female' : 'unknown']">{{ stu.sexName === '男' ? '♂' : stu.sexName === '女' ? '♀' : '?' }}</text>
+            <text class="stu-name link">{{ stu.studentName }}</text>
+            <text :class="['stu-sex', stu.genderName === '男' ? 'male' : stu.genderName === '女' ? 'female' : 'unknown']">{{ stu.genderName === '男' ? '♂' : stu.genderName === '女' ? '♀' : '?' }}</text>
             <text class="stu-xh">{{ stu.xh }}</text>
             <text class="stu-zzmm">{{ stu.zzmmName || '-' }}</text>
             <text :class="['stu-status', isOnLeave(stu.xh) ? 'on-leave' : 'on-campus']">
@@ -400,12 +400,12 @@
         <view class="dp-body" v-if="detailStu">
           <view class="dp-top">
             <image v-if="detailStu.photo && !detailStu._photoErr" class="dp-photo" :src="stuPhotoUrl(detailStu.photo)" mode="aspectFill" @error="onPhotoError"></image>
-            <view v-else class="dp-avatar" :class="detailStu.sexName === '男' ? 'avatar-male' : detailStu.sexName === '女' ? 'avatar-female' : 'avatar-unknown'">
-              <text class="dp-avatar-text">{{ (detailStu.xsname && detailStu.xsname.substring(0,1)) || '' }}</text>
+            <view v-else class="dp-avatar" :class="detailStu.genderName === '男' ? 'avatar-male' : detailStu.genderName === '女' ? 'avatar-female' : 'avatar-unknown'">
+              <text class="dp-avatar-text">{{ (detailStu.studentName && detailStu.studentName.substring(0,1)) || '' }}</text>
             </view>
             <view class="dp-top-info">
-              <text class="dp-name">{{ detailStu.xsname }}</text>
-              <text class="dp-sub">{{ detailStu.sexName || '未知' }} · {{ detailStu.xh }}</text>
+              <text class="dp-name">{{ detailStu.studentName }}</text>
+              <text class="dp-sub">{{ detailStu.genderName || '未知' }} · {{ detailStu.xh }}</text>
             </view>
           </view>
           <view class="dp-grid">
@@ -423,7 +423,7 @@
             </view>
             <view class="dp-cell">
               <text class="dp-label">年级</text>
-              <text class="dp-value">{{ detailStu.nj || '-' }}</text>
+              <text class="dp-value">{{ detailStu.grade || '-' }}</text>
             </view>
             <view class="dp-cell">
               <text class="dp-label">宿舍</text>
@@ -552,7 +552,7 @@ export default {
       const key = this.searchKey.trim()
       if (!key) return this.studentList
       return this.studentList.filter(s =>
-        (s.xsname && s.xsname.indexOf(key) >= 0) ||
+        (s.studentName && s.studentName.indexOf(key) >= 0) ||
         (s.xh && s.xh.indexOf(key) >= 0)
       )
     }
@@ -829,13 +829,13 @@ export default {
       if (this.isSecretaryRole) {
         // 搜索学生（全院范围）
         if (this.searchType === 'all' || this.searchType === 'student') {
-          listStuinfo({ pageNum: 1, pageSize: 50, xsname: key }).then(res => {
+          listStuinfo({ pageNum: 1, pageSize: 50, studentName: key }).then(res => {
             const students = res.rows || []
             students.forEach(stu => {
               this.searchResults.push({
                 type: 'student',
                 id: stu.xh,
-                title: stu.xsname,
+                title: stu.studentName,
                 desc: `${stu.xh} | ${stu.bjmc} | ${stu.zymc}`,
                 data: stu
               })
@@ -854,7 +854,7 @@ export default {
                 this.searchResults.push({
                   type: 'student',
                   id: stu.xh,
-                  title: stu.xsname,
+                  title: stu.studentName,
                   desc: `${stu.xh} | ${stu.bjmc} | ${stu.zymc}`,
                   data: stu
                 })
@@ -906,13 +906,13 @@ export default {
         // 教师视图：原有搜索逻辑
         // 搜索学生
         if (this.searchType === 'all' || this.searchType === 'student') {
-          listStuinfo({ pageNum: 1, pageSize: 20, xsname: key }).then(res => {
+          listStuinfo({ pageNum: 1, pageSize: 20, studentName: key }).then(res => {
             const students = res.rows || []
             students.forEach(stu => {
               this.searchResults.push({
                 type: 'student',
                 id: stu.xh,
-                title: stu.xsname,
+                title: stu.studentName,
                 desc: `${stu.xh} | ${stu.bjmc} | ${stu.zymc}`,
                 data: stu
               })
@@ -1046,7 +1046,7 @@ export default {
           }
           if (cls._students) {
             cls._students.forEach(s => {
-              if ((s.xsname && s.xsname.indexOf(key) >= 0) || (s.xh && s.xh.indexOf(key) >= 0)) {
+              if ((s.studentName && s.studentName.indexOf(key) >= 0) || (s.xh && s.xh.indexOf(key) >= 0)) {
                 all.push(s)
               }
             })
@@ -1066,7 +1066,7 @@ export default {
         this.classList.forEach(cls => {
           if (cls._students) {
             cls._students.forEach(s => {
-              if ((s.xsname && s.xsname.indexOf(key) >= 0) || (s.xh && s.xh.indexOf(key) >= 0)) {
+              if ((s.studentName && s.studentName.indexOf(key) >= 0) || (s.xh && s.xh.indexOf(key) >= 0)) {
                 all.push(s)
               }
             })
@@ -1085,7 +1085,7 @@ export default {
           this.classList.forEach(c => {
             if (c._students) {
               c._students.forEach(s => {
-                if ((s.xsname && s.xsname.indexOf(key) >= 0) || (s.xh && s.xh.indexOf(key) >= 0)) {
+                if ((s.studentName && s.studentName.indexOf(key) >= 0) || (s.xh && s.xh.indexOf(key) >= 0)) {
                   all.push(s)
                 }
               })

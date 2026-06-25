@@ -9,6 +9,23 @@ export function listStuinfo(query) {
   })
 }
 
+// 获取当前登录学生详细信息（学生端小程序）
+export function getMyInfo() {
+  return request({
+    url: '/api/stuinfo/myInfo',
+    method: 'get'
+  })
+}
+
+// 学生端更新本人联系电话（同步记录历史电话）
+export function updateMyPhone(phone) {
+  return request({
+    url: '/api/stuinfo/updatePhone',
+    method: 'post',
+    data: { phone }
+  })
+}
+
 // 查询学生信息详细
 export function getStuinfo(xh) {
   return request({

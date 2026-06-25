@@ -199,8 +199,8 @@ export default {
       }
       
       getTeacherinfoByUserId(userId).then(res => {
-        if (res.data && res.data.xm) {
-          this.nickName = res.data.xm
+        if (res.data && res.data.teacherName) {
+          this.nickName = res.data.teacherName
         } else {
           this.nickName = this.$store.getters.name || ''
         }

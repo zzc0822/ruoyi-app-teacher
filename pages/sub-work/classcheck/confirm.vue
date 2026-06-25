@@ -77,7 +77,7 @@
       </view>
       <view class="unregistered-list">
         <view class="unregistered-item" v-for="(leave, index) in unregisteredLeaves" :key="index">
-          <text class="unregistered-name">{{ leave.xsname }}</text>
+          <text class="unregistered-name">{{ leave.studentName }}</text>
           <text class="unregistered-reason">{{ leave.leaveReason || '未填写原因' }}</text>
           <button class="btn-register" size="mini" @click="registerLeave(leave)">登记</button>
         </view>
@@ -151,7 +151,7 @@
               @click.stop="submitting ? null : onStuClick(stu)"
             >
               <view :class="['student-btn', getStuClass(stu)]">
-                <text class="student-name">{{ stu.xsname }}</text>
+                <text class="student-name">{{ stu.studentName }}</text>
                 <text :class="['student-status', getStuStatusClass(stu)]" v-if="getStuStatus(stu)">{{ getStuStatus(stu) }}</text>
               </view>
             </view>
@@ -455,7 +455,7 @@ export default {
         .filter(xh => this.clickMap[xh] > 0)
         .map(xh => ({
           xh,
-          xsname: (this.students.find(s => s.xh === xh) || {}).xsname || '',
+          studentName: (this.students.find(s => s.xh === xh) || {}).studentName || '',
           absentType: absentTypes[this.clickMap[xh]] || 'truant'
         }))
     },

@@ -6,7 +6,7 @@
 			<view class="content-box-top woo-box-flex">
 				<view class="content-box-avatar">
 					<u--image shape="circle" width="50px" height="50px"
-						:src="handleCampusUrl(contentObj.params && contentObj.params.avatar ? contentObj.params.avatar : '')">
+						:src="handleCampusUrl((contentObj.params && contentObj.params.avatar) || '')">
 					</u--image>
 				</view>
 
@@ -153,7 +153,7 @@
 			},
 			//判断是否被点赞
 			isZan(contentId) {
-				if (this.loveContentIds.indexOf(contentId) == -1) {
+				if (!this.loveContentIds || this.loveContentIds.indexOf(contentId) == -1) {
 					this.zanBoolean = false;
 				} else {
 					this.zanBoolean = true;

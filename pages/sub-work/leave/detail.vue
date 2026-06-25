@@ -23,7 +23,7 @@
         <view class="info-grid">
           <view class="info-cell">
             <text class="info-label">姓名</text>
-            <text class="info-value">{{ detail.xsname }}</text>
+            <text class="info-value">{{ detail.studentName }}</text>
           </view>
           <view class="info-cell">
             <text class="info-label">学号</text>
@@ -36,6 +36,10 @@
           <view class="info-cell">
             <text class="info-label">辅导员</text>
             <text class="info-value">{{ detail.counselorName || '-' }}</text>
+          </view>
+          <view class="info-cell" v-if="detail.contactPhone">
+            <text class="info-label">联系电话</text>
+            <text class="info-value">{{ detail.contactPhone }}</text>
           </view>
         </view>
       </view>
@@ -209,7 +213,7 @@ export default {
       const statusText = { approved: '批准', rejected: '拒绝', forward: '转上级审批' }
       uni.showModal({
         title: `确认${statusText[status]}`,
-        content: `${statusText[status]} ${this.detail.xsname} 的请假申请？`,
+        content: `${statusText[status]} ${this.detail.studentName} 的请假申请？`,
         editable: status === 'rejected',
         placeholderText: status === 'rejected' ? '请输入拒绝理由' : '',
         success: (res) => {

@@ -47,7 +47,7 @@
       <view class="tag-input-box">
         <view class="tag-list" v-if="form.studentList.length > 0">
           <view class="tag-item" v-for="(stu, idx) in form.studentList" :key="stu.xh + '-' + idx">
-            <text class="tag-name">{{ stu.xsname }}</text>
+            <text class="tag-name">{{ stu.studentName }}</text>
             <text v-if="stu.violationType === 'late'" class="tag-vi vi-late">迟</text>
             <text v-else-if="stu.violationType === 'early_leave'" class="tag-vi vi-early">退</text>
             <text v-else-if="stu.violationType === 'truant'" class="tag-vi vi-truant">旷</text>
@@ -70,7 +70,7 @@
       <view class="dropdown-list" v-if="searchResult.length > 0">
         <view class="dropdown-item" v-for="stu in searchResult" :key="stu.xh" @tap.stop="addStudent(stu)">
           <view class="item-main">
-            <text class="item-name">{{ stu.xsname }}</text>
+            <text class="item-name">{{ stu.studentName }}</text>
             <text class="item-sub">{{ stu.xh }}</text>
           </view>
           <text class="item-extra">{{ stu.bjjc || stu.bjname || '' }}</text>
@@ -94,7 +94,7 @@
             </text>
             <view class="vp-info" v-if="stu">
               <view class="vp-name-row">
-                <text class="vp-name">{{ stu.xsname || '' }}</text>
+                <text class="vp-name">{{ stu.studentName || '' }}</text>
                 <text class="vp-bjjc" v-if="stu.bjjc">{{ stu.bjjc }}</text>
                 <text class="vp-stats" v-if="stu.violationCount != null">违纪{{ stu.violationCount }}次 已谈{{ stu.talkCount || 0 }}次</text>
               </view>
@@ -276,7 +276,7 @@ export default {
         
         // 加载学生列表
         this.form.studentList = (data.studentList || []).map(s => ({
-          xh: s.xh, xsname: s.xsname, bjdm: s.bjdm || '',
+          xh: s.xh, studentName: s.studentName, bjdm: s.bjdm || '',
           violationType: s.violationType || null, checkDetailId: s.checkDetailId || null,
           checkId: s.checkId || null, studentRemark: s.studentRemark || '',
         }))
@@ -404,7 +404,7 @@ export default {
         return
       }
       this.form.studentList.push({
-        xh: stu.xh, xsname: stu.xsname, bjdm: stu.bjdm || '',
+        xh: stu.xh, studentName: stu.studentName, bjdm: stu.bjdm || '',
         violationType: null, checkDetailId: null, checkId: null, studentRemark: '',
       })
       this.searchResult = []
@@ -421,7 +421,7 @@ export default {
         return
       }
       this.form.studentList.push({
-        xh: stu.xh, xsname: stu.xsname || '', bjdm: stu.bjdm || '',
+        xh: stu.xh, studentName: stu.studentName || '', bjdm: stu.bjdm || '',
         violationType: stu.absentType, checkDetailId: detailId,
         checkId: checkId, studentRemark: '',
       })
@@ -452,7 +452,7 @@ export default {
         violationStudents.forEach(stu => {
           this.addViolationStudent({
             xh: stu.xh,
-            xsname: stu.xsname,
+            studentName: stu.studentName,
             bjdm: stu.bjdm || '',
             absentType: stu.absentType,
             checkDetailId: stu.id,
@@ -653,7 +653,7 @@ export default {
         // 设置谈话状态：新增时默认为pending（待谈话）
         talkStatus: this.editId ? undefined : 'pending',
         studentList: this.form.studentList.map(s => ({
-          xh: s.xh, xsname: s.xsname, bjdm: s.bjdm || '',
+          xh: s.xh, studentName: s.studentName, bjdm: s.bjdm || '',
           violationType: s.violationType || null, checkDetailId: s.checkDetailId || null,
           checkId: s.checkId || null, studentRemark: s.studentRemark || '',
         })),

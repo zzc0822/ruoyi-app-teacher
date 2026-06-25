@@ -56,3 +56,12 @@ export function getPendingLeaves() {
     method: 'get'
   })
 }
+
+// 获取请假扣分提示（学生端提交前展示）
+export function getLeaveScoreHint(query) {
+  return request({
+    url: '/api/leave/scoreHint',
+    method: 'get',
+    params: query
+  })
+}

@@ -29,7 +29,7 @@
       <view class="search-input-wrap">
         <uni-easyinput 
           v-model="searchKey" 
-          :placeholder="selectedStudent ? '已选择: ' + selectedStudent.xsname : '搜索学生姓名/学号'"
+          :placeholder="selectedStudent ? '已选择: ' + selectedStudent.studentName : '搜索学生姓名/学号'"
           @input="onSearchInput"
           @confirm="searchStudents" 
           clearable 
@@ -47,7 +47,7 @@
         <scroll-view scroll-y class="dropdown-list">
           <view class="dropdown-item" v-for="stu in studentList" :key="stu.xh" @click="selectStudent(stu)">
             <view class="student-main">
-              <text class="student-name">{{ stu.xsname }}</text>
+              <text class="student-name">{{ stu.studentName }}</text>
               <text class="student-xh">{{ stu.xh }}</text>
             </view>
             <view class="student-extra">
@@ -77,7 +77,7 @@
       <view class="list-item" v-for="(item, index) in list" :key="index" @click="goDetail(item)">
         <view class="item-header">
           <view class="item-left">
-            <text class="item-name">{{ item.xsname }}</text>
+            <text class="item-name">{{ item.studentName }}</text>
             <text class="item-class">{{ item.bjjc || item.bjmc || '' }}</text>
           </view>
           <text :class="['item-status', 'status-' + item.approvalStatus]">
@@ -154,7 +154,7 @@ export default {
         pageNum: 1,
         pageSize: 20,
         approvalStatus: undefined,
-        xsname: undefined,
+        studentName: undefined,
         xh: undefined
       },
       list: [],
@@ -202,7 +202,7 @@ export default {
       const isNumber = /^\d+$/.test(key)
       const query = isNumber
         ? { pageNum: 1, pageSize: 20, xh: key }
-        : { pageNum: 1, pageSize: 20, xsname: key }
+        : { pageNum: 1, pageSize: 20, studentName: key }
       // 直接查请假列表，提取唯一学生
       listLeave({ ...query, pageSize: 200 }).then(leaveRes => {
         const records = leaveRes.rows || []
@@ -215,7 +215,7 @@ export default {
         const map = {}
         records.forEach(r => {
           if (!map[r.xh]) {
-            map[r.xh] = { xh: r.xh, xsname: r.xsname, bjjc: r.bjjc, bjmc: r.bjmc, totalCount: 0, pendingCount: 0 }
+            map[r.xh] = { xh: r.xh, studentName: r.studentName, bjjc: r.bjjc, bjmc: r.bjmc, totalCount: 0, pendingCount: 0 }
           }
           map[r.xh].totalCount++
           if (r.approvalStatus === 'pending') map[r.xh].pendingCount++
@@ -233,7 +233,7 @@ export default {
       this.selectedStudent = stu
       // 加载该学生的请假记录
       this.queryParam.xh = stu.xh
-      this.queryParam.xsname = undefined
+      this.queryParam.studentName = undefined
       this.queryParam.pageNum = 1
       this.list = []
       this.getList()
@@ -245,7 +245,7 @@ export default {
       this.showStudentPicker = false
       this.selectedStudent = null
       this.queryParam.xh = undefined
-      this.queryParam.xsname = undefined
+      this.queryParam.studentName = undefined
       this.queryParam.pageNum = 1
       this.list = []
       this.getList()
@@ -280,7 +280,7 @@ export default {
     handleSearch() {
       const key = this.searchKey.trim()
       // 同时按姓名和学号模糊查询（后端会用OR连接）
-      this.queryParam.xsname = key || undefined
+      this.queryParam.studentName = key || undefined
       this.queryParam.xh = key || undefined
       this.queryParam.pageNum = 1
       this.list = []
@@ -288,7 +288,7 @@ export default {
     },
     handleClear() {
       this.searchKey = ''
-      this.queryParam.xsname = undefined
+      this.queryParam.studentName = undefined
       this.queryParam.xh = undefined
       this.queryParam.pageNum = 1
       this.list = []
@@ -344,7 +344,7 @@ export default {
     quickApprove(item, e) {
       uni.showModal({
         title: '确认批准',
-        content: `批准 ${item.xsname} 的请假申请？`,
+        content: `批准 ${item.studentName} 的请假申请？`,
         success: (res) => {
           if (res.confirm) {
             approvalLeave({
@@ -364,7 +364,7 @@ export default {
     quickReject(item, e) {
       uni.showModal({
         title: '确认拒绝',
-        content: `拒绝 ${item.xsname} 的请假申请？`,
+        content: `拒绝 ${item.studentName} 的请假申请？`,
         editable: true,
         placeholderText: '请输入拒绝理由',
         success: (res) => {

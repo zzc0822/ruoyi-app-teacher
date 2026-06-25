@@ -22,11 +22,11 @@
             <uni-forms-item label="工号" name="gh">
               <uni-easyinput v-model="teacher.gh" disabled placeholder="工号" />
             </uni-forms-item>
-            <uni-forms-item label="姓名" name="xm">
-              <uni-easyinput v-model="teacher.xm" disabled placeholder="姓名" />
+            <uni-forms-item label="姓名" name="teacherName">
+              <uni-easyinput v-model="teacher.teacherName" disabled placeholder="姓名" />
             </uni-forms-item>
-            <uni-forms-item label="性别" name="xb">
-              <uni-data-select v-model="teacher.xb" :localdata="dict.xb" />
+            <uni-forms-item label="性别" name="gender">
+              <uni-data-select v-model="teacher.gender" :localdata="dict.gender" />
             </uni-forms-item>
             <uni-forms-item label="出生日期" name="csrqStr">
               <uni-easyinput v-model="teacher.csrqStr" disabled placeholder="出生日期" />
@@ -123,8 +123,8 @@ export default {
       teacher: {
         jsid: null,
         gh: '',
-        xm: '',
-        xb: '',
+        teacherName: '',
+        gender: '',
         sfzh: '',
         csrq: '',
         csrqStr: '',
@@ -152,7 +152,7 @@ export default {
       roleList: [],
       // 字典数据（对应系统字典）
       dict: {
-        xb: [  // 性别
+        gender: [  // 性别
           { text: '男', value: '0' },
           { text: '女', value: '1' },
           { text: '未知', value: '2' }
@@ -285,8 +285,8 @@ export default {
             const submitData = {
               jsid: this.teacher.jsid,  // 主键
               gh: this.teacher.gh,      // 工号
-              xm: this.teacher.xm,      // 姓名
-              xb: this.teacher.xb,      // 性别
+              teacherName: this.teacher.teacherName,      // 姓名
+              gender: this.teacher.gender,      // 性别
               sfzh: this.teacher.sfzh,  // 身份证号
               xl: this.teacher.xl,      // 学历
               xw: this.teacher.xw,      // 学位

@@ -1,64 +1,69 @@
 <template>
   <view class="normal-login-container">
-    <view class="logo-content align-center justify-center flex">
-      <image style="width: 100rpx;height: 100rpx;" :src="globalConfig.appInfo.logo" mode="widthFix">
-      </image>
-      <text class="title">智慧学工系统</text>
-    </view>
+    <view class="login-bg"></view>
+    <view class="login-overlay"></view>
     
-    <view class="login-form-content">
-      <!-- 教师登录表单 -->
-      <view class="teacher-login-form">
-        <view class="input-item flex align-center">
-          <view class="iconfont icon-user icon"></view>
-          <input v-model="loginForm.username" class="input" type="text" placeholder="请输入账号（工号/手机号）" maxlength="30" />
-        </view>
-        <view class="input-item flex align-center">
-          <view class="iconfont icon-password icon"></view>
-          <input v-model="loginForm.password" type="password" class="input" placeholder="请输入密码" maxlength="20" />
-        </view>
-        <!-- 非小程序环境显示验证码 -->
-        <view class="input-item flex align-center" style="width: 60%;margin: 0px;" v-if="captchaEnabled && !isWxEnv">
-          <view class="iconfont icon-code icon"></view>
-          <input v-model="loginForm.code" type="number" class="input" placeholder="请输入验证码" maxlength="4" />
-          <view class="login-code"> 
+    <view class="login-card">
+      <view class="logo-content">
+        <image class="logo-img" :src="globalConfig.appInfo.logo" mode="widthFix"></image>
+        <text class="title">智慧学工系统</text>
+        <text class="subtitle">统一身份认证</text>
+      </view>
+      
+      <view class="login-form-content">
+        <!-- 账号登录表单 -->
+        <view class="account-login-form">
+          <view class="input-item">
+            <view class="iconfont icon-user icon"></view>
+            <input v-model="loginForm.username" class="input" type="text" placeholder="请输入账号（工号/手机号）" maxlength="30" />
+          </view>
+          <view class="input-item">
+            <view class="iconfont icon-password icon"></view>
+            <input v-model="loginForm.password" type="password" class="input" placeholder="请输入密码" maxlength="20" />
+          </view>
+          <!-- 非小程序环境显示验证码 -->
+          <view class="code-row" v-if="captchaEnabled && !isWxEnv">
+            <view class="input-item code-input">
+              <view class="iconfont icon-code icon"></view>
+              <input v-model="loginForm.code" type="number" class="input" placeholder="请输入验证码" maxlength="4" />
+            </view>
             <image :src="codeUrl" @click="getCode" class="login-code-img"></image>
           </view>
         </view>
-      </view>
-      
-      <!-- 登录按钮 -->
-      <view class="teacher-login-mode">
-        <view class="action-btn">
-          <button @click="handleLogin" class="login-btn cu-btn block bg-blue lg round">{{ isWxEnv ? '绑定并登录' : '登录' }}</button>
+        
+        <!-- 登录按钮 -->
+        <view class="action-area">
+          <button @click="handleLogin" class="login-btn primary">{{ isWxEnv ? '绑定并登录' : '登录' }}</button>
+          
+          <!-- 微信小程序环境：显示一键登录按钮 -->
+          <view class="wx-quick-login" v-if="isWxEnv">
+            <view class="divider">
+              <view class="divider-line"></view>
+              <text class="divider-text">或</text>
+              <view class="divider-line"></view>
+            </view>
+            <button 
+              open-type="getPhoneNumber" 
+              @getphonenumber="handleGetPhoneNumber" 
+              class="login-btn outline"
+            >
+              <text class="iconfont icon-phone btn-icon"></text>
+              一键手机号登录
+            </button>
+          </view>
         </view>
         
-        <!-- 微信小程序环境：显示一键登录按钮 -->
-        <view class="wx-quick-login" v-if="isWxEnv">
-          <view class="divider">
-            <text class="divider-text">或</text>
+        <!-- 底部链接 -->
+        <view class="bottom-links">
+          <view class="reg text-center" v-if="register">
+            <text class="text-grey1">没有账号？</text>
+            <text @click="handleUserRegister" class="text-blue">立即注册</text>
           </view>
-          <button 
-            open-type="getPhoneNumber" 
-            @getphonenumber="handleGetPhoneNumber" 
-            class="phone-login-btn cu-btn block bg-green lg round"
-          >
-            <text class="iconfont icon-phone"></text>
-            一键手机号登录
-          </button>
-        </view>
-      </view>
-      
-      <!-- 底部链接（所有角色都显示） -->
-      <view class="bottom-links">
-        <view class="reg text-center" v-if="register">
-          <text class="text-grey1">没有账号？</text>
-          <text @click="handleUserRegister" class="text-blue">立即注册</text>
-        </view>
-        <view class="xieyi text-center">
-          <text class="text-grey1">登录即代表同意</text>
-          <text @click="handleUserAgrement" class="text-blue">《用户协议》</text>
-          <text @click="handlePrivacy" class="text-blue">《隐私协议》</text>
+          <view class="xieyi text-center">
+            <text class="text-grey1">登录即代表同意</text>
+            <text @click="handleUserAgrement" class="text-blue">《用户协议》</text>
+            <text @click="handlePrivacy" class="text-blue">《隐私协议》</text>
+          </view>
         </view>
       </view>
     </view>
@@ -280,192 +285,194 @@
 
 <style lang="scss" scoped>
   page {
-    background-color: #ffffff;
+    background-color: #0f172a;
   }
 
   .normal-login-container {
+    position: relative;
     width: 100%;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+  }
 
-    .logo-content {
-      width: 100%;
-      font-size: 21px;
-      text-align: center;
-      padding-top: 10%;
+  .login-bg {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 50%, #0f172a 100%);
+    z-index: 0;
+  }
 
-      image {
-        border-radius: 4px;
+  .login-overlay {
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at 30% 20%, rgba(37, 99, 235, 0.25) 0%, transparent 50%),
+                radial-gradient(circle at 70% 80%, rgba(124, 58, 237, 0.2) 0%, transparent 50%);
+    z-index: 1;
+  }
+
+  .login-card {
+    position: relative;
+    z-index: 2;
+    width: 84%;
+    max-width: 640rpx;
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 32rpx;
+    padding: 60rpx 40rpx 50rpx;
+    box-shadow: 0 24rpx 60rpx rgba(0, 0, 0, 0.35);
+    backdrop-filter: blur(12rpx);
+  }
+
+  .logo-content {
+    text-align: center;
+    margin-bottom: 50rpx;
+
+    .logo-img {
+      width: 120rpx;
+      height: 120rpx;
+      border-radius: 24rpx;
+      margin-bottom: 24rpx;
+    }
+
+    .title {
+      display: block;
+      font-size: 42rpx;
+      font-weight: bold;
+      color: #1e293b;
+      letter-spacing: 2rpx;
+    }
+
+    .subtitle {
+      display: block;
+      font-size: 26rpx;
+      color: #64748b;
+      margin-top: 12rpx;
+    }
+  }
+
+  .login-form-content {
+    .input-item {
+      display: flex;
+      align-items: center;
+      background-color: #f1f5f9;
+      height: 96rpx;
+      border-radius: 48rpx;
+      padding: 0 32rpx;
+      margin-bottom: 28rpx;
+
+      .icon {
+        font-size: 40rpx;
+        color: #64748b;
+        margin-right: 20rpx;
       }
 
-      .title {
-        margin-left: 10px;
-        font-weight: bold;
+      .input {
+        flex: 1;
+        font-size: 30rpx;
+        color: #1e293b;
+        background: transparent;
       }
     }
 
-    .login-form-content {
-      text-align: center;
-      margin: 20px auto;
-      margin-top: 15%;
-      width: 80%;
+    .code-row {
+      display: flex;
+      align-items: center;
+      gap: 20rpx;
+      margin-bottom: 28rpx;
 
-      .input-item {
-        margin: 20px auto;
-        background-color: #f5f6f7;
-        height: 45px;
-        border-radius: 20px;
-
-        .icon {
-          font-size: 38rpx;
-          margin-left: 10px;
-          color: #999;
-        }
-
-        .input {
-          width: 100%;
-          font-size: 14px;
-          line-height: 20px;
-          text-align: left;
-          padding-left: 15px;
-        }
-
+      .code-input {
+        flex: 1;
+        margin-bottom: 0;
       }
 
-      .wx-bind-tip {
-        margin-bottom: 15px;
+      .login-code-img {
+        width: 200rpx;
+        height: 96rpx;
+        border-radius: 24rpx;
+      }
+    }
 
-        .tip-text {
-          font-size: 14px;
-          color: #999;
+    .action-area {
+      margin-top: 40rpx;
+    }
+
+    .login-btn {
+      width: 100%;
+      height: 96rpx;
+      line-height: 96rpx;
+      border-radius: 48rpx;
+      font-size: 32rpx;
+      font-weight: bold;
+      border: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+
+      &::after {
+        border: none;
+      }
+
+      &.primary {
+        background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+        color: #fff;
+        box-shadow: 0 12rpx 32rpx rgba(37, 99, 235, 0.35);
+      }
+
+      &.outline {
+        background: #fff;
+        color: #2563eb;
+        border: 2rpx solid #2563eb;
+      }
+
+      .btn-icon {
+        margin-right: 12rpx;
+        font-size: 34rpx;
+      }
+    }
+
+    .wx-quick-login {
+      .divider {
+        display: flex;
+        align-items: center;
+        margin: 36rpx 0;
+
+        .divider-line {
+          flex: 1;
+          height: 1rpx;
+          background-color: #e2e8f0;
+        }
+
+        .divider-text {
+          padding: 0 24rpx;
+          font-size: 24rpx;
+          color: #94a3b8;
         }
       }
-      
-      // 学生登录模式
-      .student-login-mode {
-        .student-tip-card {
-          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-          border-radius: 20rpx;
-          padding: 30rpx;
-          margin-bottom: 30rpx;
-          display: flex;
-          align-items: center;
-          
-          .tip-icon {
-            font-size: 40rpx;
-            margin-right: 20rpx;
-          }
-          
-          .tip-text {
-            flex: 1;
-            font-size: 26rpx;
-            color: #fff;
-            line-height: 1.5;
-          }
-        }
-        
-        .input-item {
-          margin: 30rpx auto;
-          background-color: #f5f6f7;
-          height: 80rpx;
-          border-radius: 40rpx;
-          display: flex;
-          align-items: center;
-          padding: 0 30rpx;
-          
-          .icon {
-            font-size: 40rpx;
-            color: #0081ff;
-            margin-right: 20rpx;
-          }
-          
-          .input {
-            flex: 1;
-            font-size: 28rpx;
-            color: #333;
-          }
-        }
-        
-        .student-bind-btn {
-          margin-top: 40rpx;
-          height: 80rpx;
-          font-size: 32rpx;
-          font-weight: bold;
-        }
-        
-        .divider {
-          margin: 40rpx auto;
-          display: flex;
-          align-items: center;
-          
-          &::before,
-          &::after {
-            content: '';
-            flex: 1;
-            height: 1rpx;
-            background-color: #e5e5e5;
-          }
-          
-          .divider-text {
-            padding: 0 30rpx;
-            font-size: 24rpx;
-            color: #999;
-          }
-        }
-        
-        .phone-bind-btn {
-          height: 80rpx;
-          font-size: 32rpx;
-          font-weight: bold;
-        }
-        
-        .student-help {
-          margin-top: 30rpx;
-          text-align: center;
-          
-          .help-text {
-            font-size: 24rpx;
-            color: #999;
-          }
-        }
-      }
-      
-      // 教师登录模式
-      .teacher-login-mode {
-        .login-btn {
-          margin-top: 40px;
-          height: 45px;
-        }
-      }
+    }
+
+    .bottom-links {
+      margin-top: 40rpx;
 
       .reg {
-        margin-top: 15px;
+        margin-bottom: 16rpx;
+        font-size: 26rpx;
       }
-      
+
       .xieyi {
-        color: #333;
-        margin-top: 20px;
+        font-size: 24rpx;
+        color: #64748b;
+        line-height: 1.6;
       }
-      
-      .login-code {
-        height: 38px;
-        float: right;
-      
-        .login-code-img {
-          height: 38px;
-          position: absolute;
-          margin-left: 10px;
-          width: 200rpx;
-        }
+
+      .text-blue {
+        color: #2563eb;
       }
-      
-      .student-bind-btn {
-        margin-top: 20rpx;
-        height: 45px;
-      }
-      
-      // 底部链接
-      .bottom-links {
-        margin-top: 20px;
+
+      .text-grey1 {
+        color: #94a3b8;
       }
     }
   }
-  </style>
+</style>

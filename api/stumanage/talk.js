@@ -54,7 +54,7 @@ export function getMyStudents(keyword) {
   if (/^\d+$/.test(keyword)) {
     params.xh = keyword
   } else {
-    params.xsname = keyword
+    params.studentName = keyword
   }
   return request({
     url: '/api/mini/stuinfo/list',

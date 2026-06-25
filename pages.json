@@ -118,6 +118,26 @@
       "style": {
         "navigationBarTitleText": "待办事项"
       }
+    }, {
+      "path": "activity/index",
+      "style": {
+        "navigationBarTitleText": "活动管理"
+      }
+    }, {
+      "path": "activity/detail",
+      "style": {
+        "navigationBarTitleText": "活动详情"
+      }
+    }, {
+      "path": "activity/add",
+      "style": {
+        "navigationBarTitleText": "新增活动"
+      }
+    }, {
+      "path": "activity/batch",
+      "style": {
+        "navigationBarTitleText": "批量安排"
+      }
     }]
   }, {
     "root": "pages/common",

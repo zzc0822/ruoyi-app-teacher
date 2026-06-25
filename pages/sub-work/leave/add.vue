@@ -1,50 +1,85 @@
 <template>
   <view class="page-container">
-    <!-- 学生选择 -->
+    <!-- 学生信息 -->
     <view class="form-section">
-      <view class="section-title">学生信息</view>
-      <view class="form-item">
-        <text class="form-label required">学生</text>
-        <view class="student-search-wrap">
-          <input 
-            class="form-input student-input" 
-            v-model="stuSearchKey" 
-            placeholder="输入姓名或学号搜索" 
-            @input="onStudentSearch"
-            @focus="onStudentFocus"
-            :disabled="selectedStudent"
-          />
-          <uni-icons 
-            v-if="selectedStudent" 
-            type="closeempty" 
-            size="16" 
-            color="#999" 
-            @click="clearStudent"
-          ></uni-icons>
+      <view class="section-title">
+        <text class="title-icon">👤</text>
+        <text>学生信息</text>
+      </view>
+      <!-- 教师端：手动搜索学生 -->
+      <view v-if="!isStudentMode">
+        <view class="form-item">
+          <text class="form-label required">学生</text>
+          <view class="student-search-wrap">
+            <input 
+              class="form-input student-input" 
+              v-model="stuSearchKey" 
+              placeholder="输入姓名或学号搜索" 
+              @input="onStudentSearch"
+              @focus="onStudentFocus"
+              :disabled="selectedStudent"
+            />
+            <uni-icons 
+              v-if="selectedStudent" 
+              type="closeempty" 
+              size="16" 
+              color="#999" 
+              @click="clearStudent"
+            ></uni-icons>
+          </view>
+        </view>
+        <!-- 搜索结果下拉 -->
+        <view class="student-dropdown" v-if="showStudentDropdown && studentOptions.length > 0">
+          <scroll-view scroll-y class="student-list">
+            <view class="student-item" v-for="stu in studentOptions" :key="stu.xh" @click="selectStudent(stu)">
+              <view class="student-info">
+                <text class="student-name">{{ stu.studentName }}</text>
+                <text class="student-xh">{{ stu.xh }}</text>
+              </view>
+              <text class="student-class">{{ stu.bjjc || stu.bjmc || '' }}</text>
+            </view>
+          </scroll-view>
         </view>
       </view>
-      <!-- 搜索结果下拉 -->
-      <view class="student-dropdown" v-if="showStudentDropdown && studentOptions.length > 0">
-        <scroll-view scroll-y class="student-list">
-          <view class="student-item" v-for="stu in studentOptions" :key="stu.xh" @click="selectStudent(stu)">
-            <view class="student-info">
-              <text class="student-name">{{ stu.xsname }}</text>
-              <text class="student-xh">{{ stu.xh }}</text>
-            </view>
-            <text class="student-class">{{ stu.bjjc || stu.bjmc || '' }}</text>
-          </view>
-        </scroll-view>
+      <!-- 学生端：展示本人信息 -->
+      <view class="info-grid" v-if="selectedStudent">
+        <view class="info-cell">
+          <text class="info-label">姓名</text>
+          <text class="info-value">{{ form.studentName || '-' }}</text>
+        </view>
+        <view class="info-cell">
+          <text class="info-label">学号</text>
+          <text class="info-value">{{ form.xh || '-' }}</text>
+        </view>
+        <view class="info-cell">
+          <text class="info-label">班级</text>
+          <text class="info-value">{{ form.bjjc || form.bjmc || '-' }}</text>
+        </view>
+        <view class="info-cell">
+          <text class="info-label">辅导员</text>
+          <text class="info-value">{{ form.counselorName || '-' }}</text>
+        </view>
       </view>
-      <!-- 已选学生信息 -->
-      <view class="form-item" v-if="selectedStudent">
-        <text class="form-label">班级</text>
-        <text class="form-input readonly">{{ form.bjjc || form.bjmc || '-' }}</text>
+      <!-- 联系电话 -->
+      <view class="form-item phone-item" v-if="selectedStudent">
+        <text class="form-label required">联系电话</text>
+        <input 
+          class="form-input" 
+          v-model="form.contactPhone" 
+          placeholder="请输入联系电话" 
+          maxlength="11"
+          type="number"
+        />
+        <text class="phone-tip" v-if="form.contactPhone && form.contactPhone !== originalPhone">已修改，提交时将同步保存</text>
       </view>
     </view>
 
     <!-- 请假信息 -->
     <view class="form-section">
-      <view class="section-title">请假信息</view>
+      <view class="section-title">
+        <text class="title-icon">📋</text>
+        <text>请假信息</text>
+      </view>
       <view class="type-tags">
         <view 
           v-for="type in leaveTypes" 
@@ -66,13 +101,16 @@
       </view>
       <view class="form-item full">
         <text class="form-label required">事由</text>
-        <textarea class="form-textarea" v-model="form.leaveReason" placeholder="请描述请假事由" maxlength="300" />
+        <textarea class="form-textarea" v-model="form.leaveReason" placeholder="请详细描述请假事由（病假建议上传相关佐证）" maxlength="300" />
       </view>
     </view>
 
     <!-- 时间信息 -->
     <view class="form-section">
-      <view class="section-title">时间信息</view>
+      <view class="section-title">
+        <text class="title-icon">🕒</text>
+        <text>时间信息</text>
+      </view>
       <view class="form-row-2">
         <view class="form-item">
           <text class="form-label required">离校</text>
@@ -99,24 +137,35 @@
           <text class="form-input readonly highlight">{{ leaveDaysText }}</text>
         </view>
         <view class="form-item">
-          <text class="form-label">交通</text>
+          <text class="form-label">离校方式</text>
           <picker :range="transportNames" @change="onTransportChange">
             <view class="form-value-picker">
-              <text :class="['form-input', form.transportType ? '' : 'placeholder']">{{ transportName || '请选择' }}</text>
+              <text :class="['form-input', form.transportType ? '' : 'placeholder']">{{ transportName || '请选择离校方式' }}</text>
               <uni-icons type="arrowright" size="16" color="#999"></uni-icons>
             </view>
           </picker>
         </view>
       </view>
+      <!-- 扣分提示 -->
+      <view class="score-hint" v-if="scoreHint">
+        <uni-icons type="info-filled" size="14" color="#F56C6C"></uni-icons>
+        <text class="score-hint-text">
+          本次请假属于「{{ scoreHint.sceneName }}」，审批通过后将扣除 {{ Math.abs(scoreHint.points) }} 积分
+        </text>
+      </view>
       <view class="form-item" v-if="form.transportType">
-        <text class="form-label">车次</text>
-        <input class="form-input" v-model="form.transportInfo" placeholder="如：G1234、CA1234" />
+        <text class="form-label">{{ transportInfoLabel }}</text>
+        <input class="form-input" v-model="form.transportInfo" :placeholder="transportInfoPlaceholder" />
       </view>
     </view>
 
     <!-- 佐证材料 -->
     <view class="form-section">
-      <view class="section-title">佐证材料</view>
+      <view class="section-title">
+        <text class="title-icon">📎</text>
+        <text>佐证材料</text>
+        <text class="section-sub">{{ uploadedFiles.length }}/5</text>
+      </view>
       <view class="attach-row">
         <view class="attach-btn" @click="takePhoto"><text>📷 拍照</text></view>
         <view class="attach-btn" @click="chooseImage"><text>🖼 相册</text></view>
@@ -127,7 +176,7 @@
           <view class="attach-del" @click="removePhoto(idx)"><text>x</text></view>
         </view>
       </view>
-      <text class="attach-tip">最多5张，每张不超过5MB</text>
+      <text class="attach-tip">病假、事假建议上传医院证明、车票等佐证材料，最多5张，每张不超过5MB</text>
     </view>
 
     <!-- 提交按钮 -->
@@ -138,8 +187,8 @@
 </template>
 
 <script>
-import { applyLeave } from '@/api/stumanage/leave'
-import { listStuinfo } from '@/api/stumanage/stuinfo'
+import { applyLeave, getLeaveScoreHint } from '@/api/stumanage/leave'
+import { listStuinfo, getMyInfo, updateMyPhone } from '@/api/stumanage/stuinfo'
 import upload from '@/utils/upload'
 
 export default {
@@ -147,8 +196,8 @@ export default {
     return {
       form: {
         xh: '',
-        xsname: '',
-        sex: '',
+        studentName: '',
+        gender: '',
         sfzh: '',
         xydm: '',
         xymc: '',
@@ -167,17 +216,21 @@ export default {
         leaveDays: null,
         destination: '广东省广州市越秀区',
         transportType: '',
-        transportInfo: ''
+        transportInfo: '',
+        contactPhone: ''
       },
       startDate: '',
       endDate: '',
       photoList: [],
       uploadedFiles: [],
       submitting: false,
+      scoreHint: null,
       stuSearchKey: '',
       studentOptions: [],
       showStudentDropdown: false,
       selectedStudent: false,
+      isStudentMode: false,
+      originalPhone: '',
       // 行政区域
       regionArray: ['广东省', '广州市', '越秀区'],
       // 日期时间选择器
@@ -228,6 +281,19 @@ export default {
     transportName() {
       const t = this.transportTypes.find(t => t.value === this.form.transportType)
       return t ? t.label : ''
+    },
+    transportInfoLabel() {
+      const map = { train: '车次', plane: '航班号', bus: '车牌/班线', other: '交通信息' }
+      return map[this.form.transportType] || '交通信息'
+    },
+    transportInfoPlaceholder() {
+      const map = {
+        train: '如：G1234',
+        plane: '如：CA1234',
+        bus: '如：粤A12345 / 广州-深圳快线',
+        other: '请填写交通工具信息'
+      }
+      return map[this.form.transportType] || '请填写交通工具信息'
     }
   },
   onLoad(options) {
@@ -239,8 +305,43 @@ export default {
     
     // 初始化默认日期时间
     this.initDefaultDateTime()
+    
+    // 学生端自动填充本人信息
+    this.loadMyInfo()
   },
   methods: {
+    // 加载当前登录学生信息
+    loadMyInfo() {
+      getMyInfo().then(res => {
+        const stu = res.data || res
+        if (stu && stu.xh) {
+          this.isStudentMode = true
+          this.syncStudentFromMyInfo(stu)
+        }
+      }).catch(() => {
+        // 非学生角色，保持教师手动选择模式
+        this.isStudentMode = false
+      })
+    },
+    // 同步学生信息到表单
+    syncStudentFromMyInfo(stu) {
+      this.form.xh = stu.xh || ''
+      this.form.studentName = stu.studentName || ''
+      this.form.gender = stu.gender || ''
+      this.form.bjdm = stu.bjdm || ''
+      this.form.bjmc = stu.bjmc || ''
+      this.form.bjjc = stu.bjjc || ''
+      this.form.xymc = stu.xymc || ''
+      this.form.xydm = stu.xydm || ''
+      this.form.zymc = stu.zymc || ''
+      this.form.zydm = stu.zydm || ''
+      this.form.counselorName = stu.counselorName || ''
+      this.form.counselorId = stu.counselorId || null
+      this.form.contactPhone = stu.phone || ''
+      this.originalPhone = stu.phone || ''
+      this.stuSearchKey = `${stu.studentName || ''} (${stu.xh || ''})`
+      this.selectedStudent = true
+    },
     // 初始化默认日期时间
     initDefaultDateTime() {
       const now = new Date()
@@ -308,7 +409,7 @@ export default {
       const isNumber = /^\d+$/.test(key)
       const query = isNumber
         ? { pageNum: 1, pageSize: 20, xh: key }
-        : { pageNum: 1, pageSize: 20, xsname: key }
+        : { pageNum: 1, pageSize: 20, studentName: key }
       listStuinfo(query).then(res => {
         this.studentOptions = res.rows || []
         this.showStudentDropdown = this.studentOptions.length > 0
@@ -319,8 +420,8 @@ export default {
     },
     selectStudent(stu) {
       this.form.xh = stu.xh
-      this.form.xsname = stu.xsname
-      this.form.sex = stu.sex || ''
+      this.form.studentName = stu.studentName
+      this.form.gender = stu.gender || ''
       this.form.bjdm = stu.bjdm || ''
       this.form.bjmc = stu.bjmc || ''
       this.form.bjjc = stu.bjjc || ''
@@ -330,16 +431,20 @@ export default {
       this.form.zydm = stu.zydm || ''
       this.form.counselorName = stu.counselorName || ''
       this.form.counselorId = stu.counselorId || null
-      this.stuSearchKey = `${stu.xsname} (${stu.xh})`
+      this.form.contactPhone = stu.phone || ''
+      this.originalPhone = stu.phone || ''
+      this.stuSearchKey = `${stu.studentName} (${stu.xh})`
       this.selectedStudent = true
       this.showStudentDropdown = false
     },
     clearStudent() {
       this.form.xh = ''
-      this.form.xsname = ''
+      this.form.studentName = ''
       this.form.bjdm = ''
       this.form.bjmc = ''
       this.form.bjjc = ''
+      this.form.contactPhone = ''
+      this.originalPhone = ''
       this.stuSearchKey = ''
       this.selectedStudent = false
       this.studentOptions = []
@@ -406,7 +511,7 @@ export default {
       }
     },
     calcDays() {
-      if (!this.form.startTime || !this.form.endTime) { this.form.leaveDays = null; return }
+      if (!this.form.startTime || !this.form.endTime) { this.form.leaveDays = null; this.scoreHint = null; return }
       const s = new Date(this.form.startTime.replace(/ /g, 'T'))
       const e = new Date(this.form.endTime.replace(/ /g, 'T'))
       const diffMs = e - s
@@ -417,6 +522,21 @@ export default {
       } else {
         this.form.leaveDays = Math.ceil(diffHours / 12) * 0.5
       }
+      this.fetchScoreHint()
+    },
+    fetchScoreHint() {
+      const startDate = this.form.startTime ? this.form.startTime.split(' ')[0] : ''
+      const endDate = this.form.endTime ? this.form.endTime.split(' ')[0] : ''
+      if (!startDate || !endDate) return
+      getLeaveScoreHint({
+        startTime: startDate,
+        endTime: endDate,
+        leaveDays: this.form.leaveDays
+      }).then(res => {
+        this.scoreHint = res.data || null
+      }).catch(() => {
+        this.scoreHint = null
+      })
     },
     formatDateStr(d) {
       const y = d.getFullYear()
@@ -474,12 +594,14 @@ export default {
     // 提交
     submitForm() {
       if (!this.form.xh) { uni.showToast({ title: '请选择学生', icon: 'none' }); return }
+      if (!this.form.contactPhone) { uni.showToast({ title: '请输入联系电话', icon: 'none' }); return }
+      if (!/^1[3-9]\d{9}$/.test(this.form.contactPhone)) { uni.showToast({ title: '联系电话格式不正确', icon: 'none' }); return }
       if (!this.form.leaveType) { uni.showToast({ title: '请选择请假类型', icon: 'none' }); return }
       if (!this.form.leaveReason) { uni.showToast({ title: '请填写请假事由', icon: 'none' }); return }
       if (!this.form.startTime) { uni.showToast({ title: '请选择离校时间', icon: 'none' }); return }
       if (!this.form.endTime) { uni.showToast({ title: '请选择返校时间', icon: 'none' }); return }
-      
-      // 验证查课时间（如果是从抽查确认页面进入）
+          
+      // 验证查课时间（如果是从抽查确认页面传入）
       if (this.checkDate && this.lessonNo) {
         // 将查课日期转换为 Date 对象
         const checkDateStr = this.checkDate.replace(/-/g, '/')
@@ -512,11 +634,26 @@ export default {
       delete this.form.approvalStatus  // 清除前端预设的状态，由后端 apply 接口控制
 
       this.submitting = true
-      // 附件先上传完成后一并提交（uploadedFiles 已通过 uploadPhoto 异步上传）
-      applyLeave(this.form).then(res => {
+
+      // 若联系电话发生变更，先同步保存到学生信息（记录历史电话）
+      const phoneChanged = this.isStudentMode && this.form.contactPhone && this.form.contactPhone !== this.originalPhone
+      const phonePromise = phoneChanged
+        ? updateMyPhone(this.form.contactPhone).then(() => {
+            this.originalPhone = this.form.contactPhone
+          }).catch(err => {
+            uni.showToast({ title: '电话保存失败：' + (err.msg || err.message || '未知错误'), icon: 'none' })
+            throw err
+          })
+        : Promise.resolve()
+
+      phonePromise.then(() => {
+        // 组装提交数据：表单 + 已上传附件列表
+        const submitData = { ...this.form, fileList: this.uploadedFiles }
+        return applyLeave(submitData)
+      }).then(res => {
         const newId = res.data
         if (newId) {
-          uni.showToast({ title: days <= 3 ? '提交成功，待审批' : '提交成功，已转上级审批', icon: 'success', duration: 2000 })
+          uni.showToast({ title: days <= 3 ? '提交成功，待辅导员审批' : '提交成功，已转上级审批', icon: 'success', duration: 2000 })
         } else {
           uni.showToast({ title: '提交成功', icon: 'success', duration: 2000 })
         }
@@ -556,6 +693,51 @@ export default {
   margin-bottom: 16rpx;
   padding-bottom: 12rpx;
   border-bottom: 1rpx solid #f0f0f0;
+  display: flex;
+  align-items: center;
+  .title-icon { margin-right: 10rpx; font-size: 30rpx; }
+  .section-sub {
+    margin-left: auto;
+    font-size: 24rpx;
+    color: #999;
+    font-weight: normal;
+  }
+}
+
+/* 学生信息网格 */
+.info-grid {
+  display: flex;
+  flex-wrap: wrap;
+  margin-bottom: 8rpx;
+  .info-cell {
+    width: 50%;
+    padding: 12rpx 0;
+    box-sizing: border-box;
+    &:nth-child(odd) { padding-right: 12rpx; }
+    &:nth-child(even) { padding-left: 12rpx; }
+  }
+  .info-label {
+    font-size: 24rpx;
+    color: #999;
+    margin-bottom: 6rpx;
+    display: block;
+  }
+  .info-value {
+    font-size: 26rpx;
+    color: #333;
+    font-weight: 500;
+  }
+}
+
+.phone-item {
+  flex-wrap: wrap;
+  .phone-tip {
+    width: 100%;
+    text-align: right;
+    font-size: 22rpx;
+    color: #F56C6C;
+    margin-top: 6rpx;
+  }
 }
 
 /* 请假类型标签 */
@@ -781,5 +963,24 @@ export default {
   font-weight: 600;
   height: 84rpx;
   line-height: 84rpx;
+}
+
+/* 扣分提示 */
+.score-hint {
+  display: flex;
+  align-items: flex-start;
+  background: #fef0f0;
+  border: 1rpx solid #fde2e2;
+  border-radius: 12rpx;
+  padding: 16rpx 20rpx;
+  margin-top: 16rpx;
+}
+
+.score-hint-text {
+  margin-left: 12rpx;
+  font-size: 26rpx;
+  color: #f56c6c;
+  line-height: 1.5;
+  flex: 1;
 }
 </style>
