@@ -220,8 +220,8 @@ export default {
       getRandomQuote().then(res => {
         if (res.data) {
           this.workQuote = {
-            text: res.data.quoteText || '用心做教育,用爱育未来',
-            author: res.data.quoteAuthor || '学工团队'
+            text: res.data.text || '用心做教育,用爱育未来',
+            author: res.data.author || '学工团队'
           }
           
           // 更新缓存

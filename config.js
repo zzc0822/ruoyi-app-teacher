@@ -4,6 +4,7 @@ module.exports = {
   protocol: 'http',
   // 后端服务主机，可以是 IP 或域名
   host: '192.168.1.135',
+  // host: '172.17.201.241',
   // 后端服务端口号
   port: 8080,
   // 自动拼接完整 baseUrl（兼容旧代码直接读取 config.baseUrl）
