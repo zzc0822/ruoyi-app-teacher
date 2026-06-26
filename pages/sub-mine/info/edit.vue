@@ -152,10 +152,10 @@ export default {
       roleList: [],
       // 字典数据（对应系统字典）
       dict: {
-        gender: [  // 性别
-          { text: '男', value: '0' },
-          { text: '女', value: '1' },
-          { text: '未知', value: '2' }
+        gender: [  // 性别（与系统字典 sys_user_sex 保持一致：1男 2女 0未知）
+          { text: '男', value: '1' },
+          { text: '女', value: '2' },
+          { text: '未知', value: '0' }
         ],
         xl: [  // 学历
           { text: '博士研究生', value: '3' },
