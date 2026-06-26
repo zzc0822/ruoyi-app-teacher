@@ -16,6 +16,14 @@
         <text class="info-value">{{ formatTargetType(activity.targetType) }}</text>
       </view>
       <view class="info-row">
+        <text class="info-label">安排类型</text>
+        <text class="info-value">{{ formatArrangeType(activity.arrangeType) }}</text>
+      </view>
+      <view class="info-row" v-if="activity.arrangeType === '0' && activity.maxNum > 0">
+        <text class="info-label">人数上限</text>
+        <text class="info-value">{{ activity.maxNum }} 人</text>
+      </view>
+      <view class="info-row">
         <text class="info-label">开始时间</text>
         <text class="info-value">{{ activity.startTime }}</text>
       </view>
@@ -156,6 +164,9 @@ export default {
     },
     formatTargetType(val) {
       return val === '1' ? '指定班级' : '全校'
+    },
+    formatArrangeType(val) {
+      return val === '1' ? '固定人员安排' : '自由报名'
     },
     formatStuStatus(val) {
       return STU_STATUS_MAP[val] || val || '未知'

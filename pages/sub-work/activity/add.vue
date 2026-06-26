@@ -30,6 +30,16 @@
         <input class="form-input" v-model="classStr" placeholder="班级代码，多个用逗号分隔" />
       </view>
       <view class="form-item">
+        <text class="form-label">安排类型</text>
+        <picker mode="selector" :range="arrangeArray" :value="arrangeIndex" @change="onArrangeChange">
+          <view class="form-input">{{ arrangeArray[arrangeIndex] }}</view>
+        </picker>
+      </view>
+      <view class="form-item" v-if="form.arrangeType === '0'">
+        <text class="form-label">报名人数上限</text>
+        <input class="form-input" v-model="maxNumStr" type="number" placeholder="0或不填表示不限制" />
+      </view>
+      <view class="form-item">
         <text class="form-label">开始时间</text>
         <picker mode="multiSelector" :range="dateRange" :value="startIndex" @change="onStartChange" @columnchange="onColumnChange">
           <view class="form-input">{{ form.startTime }}</view>
@@ -77,6 +87,8 @@ export default {
         groupName: '',
         category: 'de',
         targetType: '0',
+        arrangeType: '0',
+        maxNum: 0,
         startTime: '',
         endTime: '',
         signupEnd: '',
@@ -84,10 +96,13 @@ export default {
         status: '0'
       },
       classStr: '',
+      maxNumStr: '',
       dimArray: DIM_OPTIONS.map(d => d.label),
       dimIndex: 0,
       targetArray: ['全校', '指定班级'],
       targetIndex: 0,
+      arrangeArray: ['自由报名', '固定人员安排'],
+      arrangeIndex: 0,
       dateRange: [[], [], [], [], []],
       startIndex: [0, 0, 0, 0, 0],
       endIndex: [0, 0, 0, 0, 0],
@@ -128,6 +143,14 @@ export default {
       this.targetIndex = e.detail.value
       this.form.targetType = this.targetIndex === 0 ? '0' : '1'
     },
+    onArrangeChange(e) {
+      this.arrangeIndex = e.detail.value
+      this.form.arrangeType = this.arrangeIndex === 0 ? '0' : '1'
+      if (this.form.arrangeType === '1') {
+        this.maxNumStr = ''
+        this.form.maxNum = 0
+      }
+    },
     onStartChange(e) {
       this.startIndex = e.detail.value
       this.form.startTime = this.parseIndexToDate(this.startIndex)
@@ -155,6 +178,12 @@ export default {
         return
       }
       const data = { ...this.form }
+      if (data.arrangeType === '0') {
+        const num = parseInt(this.maxNumStr, 10)
+        data.maxNum = isNaN(num) || num < 0 ? 0 : num
+      } else {
+        data.maxNum = 0
+      }
       if (data.targetType === '1' && this.classStr) {
         data.classList = this.classStr.split(',').map(s => s.trim()).filter(Boolean)
       }
