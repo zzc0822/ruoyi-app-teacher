@@ -168,7 +168,7 @@ export default {
           // 教师姓名
           this.teacherName = this.teacherInfo.teacherName || ''
           // 学院名称
-          this.teacherCollege = this.teacherInfo.xyname || ''
+          this.teacherCollege = this.teacherInfo.collegeName || ''
           // 职务（优先显示行政职务，其次显示专业技术职务）
           const xzdw = this.teacherInfo.xzdw || ''
           const zyjszc = this.teacherInfo.zyjszc || ''
