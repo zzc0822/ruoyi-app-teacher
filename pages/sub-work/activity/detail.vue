@@ -23,6 +23,10 @@
         <text class="info-label">人数上限</text>
         <text class="info-value">{{ activity.maxNum }} 人</text>
       </view>
+      <view class="info-row" v-if="activity.arrangeType === '0' && activity.signupScopeType && activity.signupScopeType !== 'all'">
+        <text class="info-label">报名范围</text>
+        <text class="info-value">{{ formatScope(activity.signupScopeType, activity.signupScopeValues) }}</text>
+      </view>
       <view class="info-row">
         <text class="info-label">开始时间</text>
         <text class="info-value">{{ activity.startTime }}</text>
@@ -167,6 +171,16 @@ export default {
     },
     formatArrangeType(val) {
       return val === '1' ? '固定人员安排' : '自由报名'
+    },
+    formatScope(type, values) {
+      const typeMap = { college: '学院', major: '专业', class: '班级', gender: '性别' }
+      const typeName = typeMap[type] || type
+      if (type === 'gender') {
+        const valMap = { '1': '男', '2': '女' }
+        const names = (values || '').split(',').map(v => valMap[v] || v).join('、')
+        return `${typeName}：${names}`
+      }
+      return `${typeName}：${values || ''}`
     },
     formatStuStatus(val) {
       return STU_STATUS_MAP[val] || val || '未知'

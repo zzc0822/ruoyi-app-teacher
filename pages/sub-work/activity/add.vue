@@ -39,6 +39,22 @@
         <text class="form-label">报名人数上限</text>
         <input class="form-input" v-model="maxNumStr" type="number" placeholder="0或不填表示不限制" />
       </view>
+      <view class="form-item" v-if="form.arrangeType === '0'">
+        <text class="form-label">报名范围</text>
+        <picker mode="selector" :range="scopeTypeArray" :value="scopeTypeIndex" @change="onScopeTypeChange">
+          <view class="form-input">{{ scopeTypeArray[scopeTypeIndex] }}</view>
+        </picker>
+      </view>
+      <view class="form-item" v-if="form.arrangeType === '0' && form.signupScopeType === 'gender'">
+        <text class="form-label">性别限制</text>
+        <picker mode="selector" :range="genderArray" :value="genderIndex" @change="onGenderChange">
+          <view class="form-input">{{ genderArray[genderIndex] }}</view>
+        </picker>
+      </view>
+      <view class="form-item" v-if="form.arrangeType === '0' && form.signupScopeType && form.signupScopeType !== 'all' && form.signupScopeType !== 'gender'">
+        <text class="form-label">{{ scopeValueLabel }}</text>
+        <input class="form-input" v-model="scopeValueStr" :placeholder="scopeValuePlaceholder" />
+      </view>
       <view class="form-item">
         <text class="form-label">开始时间</text>
         <picker mode="multiSelector" :range="dateRange" :value="startIndex" @change="onStartChange" @columnchange="onColumnChange">
@@ -78,6 +94,19 @@ const DIM_OPTIONS = [
   { label: '创新创业', value: 'chuang' }
 ]
 
+const SCOPE_TYPE_OPTIONS = [
+  { label: '全校', value: 'all' },
+  { label: '学院', value: 'college' },
+  { label: '专业', value: 'major' },
+  { label: '班级', value: 'class' },
+  { label: '性别', value: 'gender' }
+]
+
+const GENDER_OPTIONS = [
+  { label: '男', value: '1' },
+  { label: '女', value: '2' }
+]
+
 export default {
   data() {
     return {
@@ -89,6 +118,8 @@ export default {
         targetType: '0',
         arrangeType: '0',
         maxNum: 0,
+        signupScopeType: 'all',
+        signupScopeValues: '',
         startTime: '',
         endTime: '',
         signupEnd: '',
@@ -97,16 +128,35 @@ export default {
       },
       classStr: '',
       maxNumStr: '',
+      scopeValueStr: '',
       dimArray: DIM_OPTIONS.map(d => d.label),
       dimIndex: 0,
       targetArray: ['全校', '指定班级'],
       targetIndex: 0,
       arrangeArray: ['自由报名', '固定人员安排'],
       arrangeIndex: 0,
+      scopeTypeArray: SCOPE_TYPE_OPTIONS.map(s => s.label),
+      scopeTypeIndex: 0,
+      genderArray: GENDER_OPTIONS.map(g => g.label),
+      genderIndex: 0,
       dateRange: [[], [], [], [], []],
       startIndex: [0, 0, 0, 0, 0],
       endIndex: [0, 0, 0, 0, 0],
       signupIndex: [0, 0, 0, 0, 0]
+    }
+  },
+  computed: {
+    scopeValueLabel() {
+      const map = { college: '学院代码', major: '专业代码', class: '班级代码' }
+      return map[this.form.signupScopeType] || '范围值'
+    },
+    scopeValuePlaceholder() {
+      const map = {
+        college: '多个学院代码用逗号分隔',
+        major: '多个专业代码用逗号分隔',
+        class: '多个班级代码用逗号分隔'
+      }
+      return map[this.form.signupScopeType] || ''
     }
   },
   created() {
@@ -149,7 +199,23 @@ export default {
       if (this.form.arrangeType === '1') {
         this.maxNumStr = ''
         this.form.maxNum = 0
+        this.scopeValueStr = ''
+        this.form.signupScopeType = 'all'
+        this.form.signupScopeValues = ''
+        this.scopeTypeIndex = 0
+        this.genderIndex = 0
       }
+    },
+    onScopeTypeChange(e) {
+      this.scopeTypeIndex = e.detail.value
+      this.form.signupScopeType = SCOPE_TYPE_OPTIONS[this.scopeTypeIndex].value
+      this.scopeValueStr = ''
+      this.form.signupScopeValues = ''
+      this.genderIndex = 0
+    },
+    onGenderChange(e) {
+      this.genderIndex = e.detail.value
+      this.form.signupScopeValues = GENDER_OPTIONS[this.genderIndex].value
     },
     onStartChange(e) {
       this.startIndex = e.detail.value
@@ -181,8 +247,13 @@ export default {
       if (data.arrangeType === '0') {
         const num = parseInt(this.maxNumStr, 10)
         data.maxNum = isNaN(num) || num < 0 ? 0 : num
+        if (data.signupScopeType !== 'all' && data.signupScopeType !== 'gender') {
+          data.signupScopeValues = this.scopeValueStr.split(',').map(s => s.trim()).filter(Boolean).join(',')
+        }
       } else {
         data.maxNum = 0
+        data.signupScopeType = ''
+        data.signupScopeValues = ''
       }
       if (data.targetType === '1' && this.classStr) {
         data.classList = this.classStr.split(',').map(s => s.trim()).filter(Boolean)
