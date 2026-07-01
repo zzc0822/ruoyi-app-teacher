@@ -918,10 +918,10 @@ export default {
     uploadPhoto(filePath) {
       uni.showLoading({ title: '上传中...' })
       upload({
-        url: '/api/mini/classcheck/upload',  // 使用小程序API，不需要权限验证
+        url: '/api/attachment/upload',  // 使用通用附件上传API
         filePath: filePath,
         name: 'file',
-        formData: { bjdm: this.form.bjdm || '' }
+        formData: { businessType: 'classcheck', bjdm: this.form.bjdm || '' }
       }).then(res => {
         uni.hideLoading()
         const data = res.data

@@ -74,6 +74,16 @@
         "navigationBarTitleText": "我的学生"
       }
     }, {
+      "path": "stuinfo/search",
+      "style": {
+        "navigationBarTitleText": "搜索学生"
+      }
+    }, {
+      "path": "stuinfo/detail",
+      "style": {
+        "navigationBarTitleText": "学生详情"
+      }
+    }, {
       "path": "talk/index",
       "style": {
         "navigationBarTitleText": "谈心谈话"
@@ -104,11 +114,6 @@
         "navigationBarTitleText": "请假审批"
       }
     }, {
-      "path": "leave/add",
-      "style": {
-        "navigationBarTitleText": "新增请假"
-      }
-    }, {
       "path": "leave/detail",
       "style": {
         "navigationBarTitleText": "请假详情"
@@ -127,16 +132,6 @@
       "path": "activity/detail",
       "style": {
         "navigationBarTitleText": "活动详情"
-      }
-    }, {
-      "path": "activity/add",
-      "style": {
-        "navigationBarTitleText": "新增活动"
-      }
-    }, {
-      "path": "activity/batch",
-      "style": {
-        "navigationBarTitleText": "批量安排"
       }
     }]
   }, {

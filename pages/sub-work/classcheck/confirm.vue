@@ -293,16 +293,7 @@ export default {
     
     // 补登请假记录
     handleLeaveRegister() {
-      // 直接跳转到请假登记页面，传递查课信息
-      uni.navigateTo({
-        url: '/pages/work/leave/add?bjdm=' + this.checkInfo.bjdm + 
-             '&bjmc=' + encodeURIComponent(this.checkInfo.bjmc || '') +
-             '&checkDate=' + this.checkInfo.checkDate +
-             '&lessonNo=' + this.checkInfo.lessonNo,
-        fail: (err) => {
-          uni.showToast({ title: '跳转失败', icon: 'none' })
-        }
-      })
+      uni.showToast({ title: '代学生请假请前往PC端操作', icon: 'none' })
     },
     
     // 情况说明

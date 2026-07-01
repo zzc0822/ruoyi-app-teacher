@@ -41,7 +41,7 @@
     },
     "quickapp" : {},
     "mp-weixin" : {
-        "appid" : "wx7ef14f2719e9382d",
+        "appid" : "wxaa1c662623c5b006",
         "setting" : {
             "urlCheck" : false,
             "es6" : false,
@@ -58,7 +58,7 @@
                 "desc" : "用于获取谈话地点位置信息"
             }
         },
-        "requiredPrivateInfos" : ["chooseLocation", "getLocation"]
+        "requiredPrivateInfos" : [ "chooseLocation", "getLocation" ]
     },
     "vueVersion" : "2",
     "h5" : {

@@ -18,10 +18,12 @@
           </view>
         </view>
       </view>
-      <view class="add-btn-col" @click="goAdd">
-        <uni-icons type="plusempty" size="28" color="#fff"></uni-icons>
-        <text class="add-btn-label">新增</text>
-      </view>
+    </view>
+
+    <!-- PC端提示 -->
+    <view class="pc-tip-bar">
+      <uni-icons type="info" size="14" color="#e43d33"></uni-icons>
+      <text class="pc-tip-text">代学生请假请前往PC端操作</text>
     </view>
 
     <!-- 搜索栏 -->
@@ -335,9 +337,6 @@ export default {
         this.getList()
       }
     },
-    goAdd() {
-      uni.navigateTo({ url: '/pages/sub-work/leave/add' })
-    },
     goDetail(item) {
       uni.navigateTo({ url: `/pages/sub-work/leave/detail?id=${item.id}` })
     },
@@ -464,7 +463,7 @@ export default {
 }
 
 .stats-card {
-  flex: 0 0 75%;
+  flex: 1;
   background: linear-gradient(135deg, #e43d33, #c62828);
   border-radius: 20rpx;
   padding: 28rpx 24rpx;
@@ -495,22 +494,19 @@ export default {
   margin-top: 6rpx;
 }
 
-.add-btn-col {
-  flex: 1;
-  background: linear-gradient(135deg, #18bc37, #0fad2e);
-  border-radius: 20rpx;
+.pc-tip-bar {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  justify-content: center;
-  gap: 6rpx;
-  padding: 28rpx 12rpx;
+  gap: 8rpx;
+  padding: 16rpx 20rpx;
+  background: #fef0f0;
+  margin: 0 20rpx 12rpx;
+  border-radius: 12rpx;
 }
 
-.add-btn-label {
-  font-size: 22rpx;
-  color: #fff;
-  font-weight: 500;
+.pc-tip-text {
+  font-size: 24rpx;
+  color: #e43d33;
 }
 
 /* ===== 搜索栏 ===== */

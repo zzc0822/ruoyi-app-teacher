@@ -3,7 +3,7 @@ import request from '@/utils/request'
 // 查询待办列表
 export function listTodo() {
   return request({
-    url: '/api/mini/todo/list',
+    url: '/api/todo/list',
     method: 'get'
   })
 }
@@ -11,7 +11,7 @@ export function listTodo() {
 // 获取未读待办数量
 export function getUnreadCount() {
   return request({
-    url: '/api/mini/todo/unreadCount',
+    url: '/api/todo/unreadCount',
     method: 'get'
   })
 }
@@ -19,7 +19,7 @@ export function getUnreadCount() {
 // 新增待办
 export function addTodo(data) {
   return request({
-    url: '/api/mini/todo',
+    url: '/api/todo',
     method: 'post',
     data: data
   })
@@ -28,7 +28,7 @@ export function addTodo(data) {
 // 删除待办
 export function delTodo(id) {
   return request({
-    url: '/api/mini/todo/delete/' + id,
+    url: '/api/todo/delete/' + id,
     method: 'post'
   })
 }
@@ -36,7 +36,7 @@ export function delTodo(id) {
 // 标记已读
 export function markRead(id) {
   return request({
-    url: '/api/mini/todo/read/' + id,
+    url: '/api/todo/read/' + id,
     method: 'post'
   })
 }

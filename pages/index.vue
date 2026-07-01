@@ -7,6 +7,15 @@
       </view>
     </view>
 
+    <!-- 学生查询入口 -->
+    <view class="search-card" @click="goSearchStudent">
+      <view class="search-input-box">
+        <uni-icons type="search" size="18" color="#999"></uni-icons>
+        <text class="search-placeholder">搜索学生（学号/姓名）</text>
+      </view>
+      <uni-icons type="arrowright" size="16" color="#ccc"></uni-icons>
+    </view>
+
     <!-- 统计概览 -->
     <view class="stats-section">
       <view class="stats-card" @click="goWork">
@@ -28,12 +37,36 @@
     </view>
 
     <!-- 待办提醒 -->
-    <view class="section-card" v-if="todoList.length > 0">
+    <view class="section-card">
       <view class="section-header">
         <text class="section-title">📋 我的待办</text>
-        <text class="section-more" @click="goTodoList">更多 ({{ todoTotal }})</text>
+        <text class="section-more" @click="goTodoList" v-if="todoTotal > 0">更多 ({{ todoTotal }})</text>
       </view>
-      <view class="todo-item" v-for="(item, index) in todoList" :key="index" @click="handleTodoClick(item)">
+      <!-- 周日历条 -->
+      <view class="week-calendar">
+        <view class="week-arrow" @click="changeWeek(-1)" v-if="weekOffset < 0">
+          <uni-icons type="left" size="16" color="#999"></uni-icons>
+        </view>
+        <view class="week-arrow week-arrow-disabled" v-else>
+          <uni-icons type="left" size="16" color="#ddd"></uni-icons>
+        </view>
+        <view class="week-days">
+          <view 
+            v-for="(day, idx) in weekDays" :key="idx" 
+            :class="['week-day-item', { 'is-today': day.isToday, 'is-selected': day.isSelected, 'is-weekend': day.isWeekend }]"
+            @click="selectDay(day)"
+          >
+            <text class="week-day-label">{{ day.label }}</text>
+            <text class="week-day-num">{{ day.date }}</text>
+            <view class="week-day-dot" v-if="day.hasTodo"></view>
+          </view>
+        </view>
+        <view class="week-arrow" @click="changeWeek(1)">
+          <uni-icons type="right" size="16" color="#999"></uni-icons>
+        </view>
+      </view>
+      <!-- 待办列表 -->
+      <view class="todo-item" v-for="(item, index) in displayedTodos" :key="index" @click="handleTodoClick(item)">
         <view class="todo-left">
           <view :class="['todo-dot', 'dot-' + item.urgency]" v-if="item.urgency"></view>
           <view class="todo-content">
@@ -44,6 +77,9 @@
             <text class="todo-time" v-if="item.deadline">截止: {{ formatDeadline(item.deadline) }}</text>
           </view>
         </view>
+      </view>
+      <view class="todo-empty" v-if="displayedTodos.length === 0">
+        <text class="todo-empty-text">{{ selectedDay ? '当天暂无待办' : '暂无待办事项' }}</text>
       </view>
     </view>
 
@@ -75,56 +111,8 @@
           <view class="quick-icon icon-red">
             <uni-icons type="paperplane-filled" size="26" color="#fff"></uni-icons>
           </view>
-          <text class="quick-name">请假登记</text>
+          <text class="quick-name">请假审批</text>
         </view>
-      </view>
-    </view>
-
-    <!-- 当天课表（仅书记角色显示） -->
-    <view class="section-card" v-if="false">
-      <view class="section-header">
-        <text class="section-title">📅 课表</text>
-      </view>
-      
-      <!-- 日期选择器 -->
-      <view class="date-selector">
-        <view class="date-btn" @click="changeDate(-1)">
-          <uni-icons type="left" size="16" color="#2979ff"></uni-icons>
-        </view>
-        <view class="date-display">
-          <text class="date-text">{{ selectedDateText }}</text>
-          <text class="weekday-text">{{ scheduleWeekday }}</text>
-        </view>
-        <view class="date-btn" @click="changeDate(1)">
-          <uni-icons type="right" size="16" color="#2979ff"></uni-icons>
-        </view>
-      </view>
-
-      <!-- 课表列表 -->
-      <view v-if="todayScheduleList.length > 0" class="schedule-list">
-        <view class="schedule-class" v-for="(classItem, index) in todayScheduleList" :key="index">
-          <view class="schedule-class-header" @click="toggleClass(index)">
-            <view class="header-left">
-              <uni-icons :type="classItem.expanded ? 'down' : 'right'" size="16" color="#2979ff"></uni-icons>
-              <text class="schedule-class-name">{{ classItem.className }}</text>
-            </view>
-            <text class="schedule-class-count">{{ classItem.count }}节</text>
-          </view>
-          <view class="schedule-items" v-if="classItem.expanded">
-            <view class="schedule-item-compact" v-for="(item, idx) in classItem.schedules" :key="idx">
-              <view class="item-period">
-                <text class="period-text">{{ item.startSection }}-{{ item.endSection }}节</text>
-              </view>
-              <view class="item-content">
-                <text class="item-course">{{ item.courseName }}</text>
-                <text class="item-info">{{ item.teacherName }} | {{ item.classroom }}</text>
-              </view>
-            </view>
-          </view>
-        </view>
-      </view>
-      <view v-else class="schedule-empty">
-        <text class="empty-text">当天没有课表</text>
       </view>
     </view>
   </view>
@@ -136,7 +124,6 @@ import { listLeave } from '@/api/stumanage/leave'
 import { listStuinfo } from '@/api/stumanage/stuinfo'
 import { listClassCheck } from '@/api/stumanage/classcheck'
 import { getTeacherinfoByUserId } from '@/api/stumanage/teacherinfo'
-import { getTodaySchedules } from '@/api/stumanage/schedule'
 
 export default {
   data() {
@@ -148,19 +135,16 @@ export default {
       checkCount: '-',
       todoList: [],
       todoTotal: 0, // 待办总数（未过滤前）
-      // 课表相关
-      showSchedule: false,
-      todayScheduleList: [],
-      scheduleWeekday: '',
-      selectedDate: new Date(), // 当前选择的日期
-      selectedDateText: '' // 显示的日期文本
+      weekOffset: 0, // 周偏移（0=本周，-1=上周...）
+      selectedDay: null, // 选中的日期（YYYY-MM-DD），null表示不筛选
+      weekDays: [] // 周日历数据
     }
   },
   onShow() {
     this.loadTeacherName()
     this.loadStats()
     this.loadTodos()
-    // this.loadTodaySchedule()
+    this.buildWeekDays()
     
     // 监听刷新事件
     uni.$on('refreshHomeData', this.loadAllData)
@@ -175,7 +159,65 @@ export default {
       this.loadTeacherName()
       this.loadStats()
       this.loadTodos()
-      // this.loadTodaySchedule()
+      this.buildWeekDays()
+    },
+    // ===== 周日历相关 =====
+    buildWeekDays() {
+      const now = new Date()
+      const dayOfWeek = now.getDay() || 7 // 周日=7
+      const monday = new Date(now)
+      monday.setDate(now.getDate() - dayOfWeek + 1 + this.weekOffset * 7)
+      
+      const labels = ['一', '二', '三', '四', '五', '六', '日']
+      const todayStr = this.formatDateStr(now)
+      const days = []
+      
+      for (let i = 0; i < 7; i++) {
+        const d = new Date(monday)
+        d.setDate(monday.getDate() + i)
+        const dateStr = this.formatDateStr(d)
+        days.push({
+          label: labels[i],
+          date: d.getDate(),
+          fullDate: dateStr,
+          isToday: dateStr === todayStr,
+          isSelected: this.selectedDay === dateStr,
+          isWeekend: i >= 5,
+          hasTodo: this.dayHasTodo(dateStr)
+        })
+      }
+      this.weekDays = days
+    },
+    formatDateStr(d) {
+      const y = d.getFullYear()
+      const m = String(d.getMonth() + 1).padStart(2, '0')
+      const day = String(d.getDate()).padStart(2, '0')
+      return `${y}-${m}-${day}`
+    },
+    dayHasTodo(dateStr) {
+      return this.todoList.some(t => {
+        if (!t.deadline) return false
+        const d = t.deadline.substring(0, 10)
+        return d === dateStr
+      })
+    },
+    changeWeek(offset) {
+      this.weekOffset += offset
+      if (this.weekOffset > 0) this.weekOffset = 0
+      this.selectedDay = null
+      this.buildWeekDays()
+    },
+    selectDay(day) {
+      if (day.isToday && !this.selectedDay) {
+        // 点击今天且未选中，清除筛选
+        this.selectedDay = null
+      } else if (this.selectedDay === day.fullDate) {
+        // 再次点击取消选中
+        this.selectedDay = null
+      } else {
+        this.selectedDay = day.fullDate
+      }
+      this.buildWeekDays()
     },
     // 加载教师姓名
     loadTeacherName() {
@@ -244,6 +286,7 @@ export default {
         // 显示5个待办（增加到5个）
         this.todoList = filtered.slice(0, 5)
         console.log('最终显示的待办:', this.todoList.length)
+        this.buildWeekDays()
       }).catch((err) => {
         console.error('加载待办失败:', err)
         // 静默失败
@@ -305,6 +348,9 @@ export default {
     goMyStudents() {
       uni.navigateTo({ url: '/pages/sub-work/stuinfo/index' })
     },
+    goSearchStudent() {
+      uni.navigateTo({ url: '/pages/sub-work/stuinfo/search' })
+    },
     goAddClassCheck() {
       uni.navigateTo({ url: '/pages/sub-work/classcheck/add' })
     },
@@ -312,68 +358,7 @@ export default {
       uni.navigateTo({ url: '/pages/sub-work/talk/add' })
     },
     goAddLeave() {
-      uni.navigateTo({ url: '/pages/sub-work/leave/add' })
-    },
-    // 加载当天课表
-    loadTodaySchedule() {
-      console.log('=== 开始加载课表 ===')
-      // 获取当前选择的日期
-      const date = this.selectedDate
-      let weekday = date.getDay()
-      if (weekday === 0) weekday = 7 // 周日转为7
-      
-      // 更新日期显示
-      this.updateDateText(date, weekday)
-      
-      // 获取用户角色
-      const roles = this.$store.state.user?.roles || []
-      console.log('当前用户角色:', roles)
-      const isSecretary = roles.includes('secretary')
-      console.log('是否为书记:', isSecretary)
-      
-      // 只有书记角色才显示课表
-      if (!isSecretary) {
-        console.log('不是书记角色，不显示课表')
-        this.showSchedule = false
-        return
-      }
-      
-      this.showSchedule = true
-      console.log('开始调用课表接口, weekday:', weekday)
-      
-      getTodaySchedules(weekday).then(res => {
-        console.log('课表接口返回:', JSON.stringify(res))
-        const list = res.data || []
-        
-        // 设置默认展开状态：第一个展开，其他折叠
-        this.todayScheduleList = list.map((item, index) => ({
-          ...item,
-          expanded: index === 0 // 第一个展开，其他折叠
-        }))
-        
-        console.log('加载课表成功，共', this.todayScheduleList.length, '个班级')
-      }).catch(err => {
-        console.error('加载课表失败:', err)
-        this.todayScheduleList = []
-      })
-    },
-    // 格式化节次时间
-    formatPeriodTime(period) {
-      // 节次时间映射（可根据实际作息时间调整）
-      const timeMap = {
-        1: '8:00-8:45',
-        2: '8:50-9:35',
-        3: '9:55-10:40',
-        4: '10:45-11:30',
-        5: '14:00-14:45',
-        6: '14:50-15:35',
-        7: '15:55-16:40',
-        8: '16:45-17:30',
-        9: '19:00-19:45',
-        10: '19:50-20:35',
-        11: '20:40-21:25'
-      }
-      return timeMap[period] || ''
+      uni.navigateTo({ url: '/pages/sub-work/leave/index' })
     },
     // 获取待办类型标签
     getTodoTypeLabel(type) {
@@ -386,28 +371,15 @@ export default {
         'leave_approval': '请假审批'
       }
       return typeMap[type] || type
-    },
-    // 切换日期
-    changeDate(days) {
-      const newDate = new Date(this.selectedDate)
-      newDate.setDate(newDate.getDate() + days)
-      this.selectedDate = newDate
-      this.loadTodaySchedule() // 重新加载课表
-    },
-    // 更新日期显示
-    updateDateText(date, weekday) {
-      const month = date.getMonth() + 1
-      const day = date.getDate()
-      this.selectedDateText = `${month}月${day}日`
-      
-      const weekdayNames = ['', '周一', '周二', '周三', '周四', '周五', '周六', '周日']
-      this.scheduleWeekday = weekdayNames[weekday]
-    },
-    // 切换班级展开/折叠
-    toggleClass(index) {
-      this.todayScheduleList[index].expanded = !this.todayScheduleList[index].expanded
-      // 强制更新视图
-      this.$forceUpdate()
+    }
+  },
+  computed: {
+    displayedTodos() {
+      if (!this.selectedDay) return this.todoList
+      return this.todoList.filter(t => {
+        if (!t.deadline) return false
+        return t.deadline.substring(0, 10) === this.selectedDay
+      })
     }
   }
 }
@@ -438,9 +410,34 @@ export default {
   text-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.1);
 }
 
+.search-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: -40rpx 24rpx 20rpx;
+  padding: 24rpx;
+  background: #fff;
+  border-radius: 16rpx;
+  box-shadow: 0 4rpx 20rpx rgba(0, 0, 0, 0.06);
+  position: relative;
+  z-index: 1;
+}
+
+.search-input-box {
+  display: flex;
+  align-items: center;
+  flex: 1;
+}
+
+.search-placeholder {
+  margin-left: 12rpx;
+  font-size: 28rpx;
+  color: #999;
+}
+
 .stats-section {
   display: flex;
-  margin: -40rpx 24rpx 20rpx;
+  margin: 0 24rpx 20rpx;
   gap: 16rpx;
 }
 
@@ -493,6 +490,102 @@ export default {
 .section-more {
   font-size: 24rpx;
   color: #2979ff;
+}
+
+/* 周日历 */
+.week-calendar {
+  display: flex;
+  align-items: center;
+  background: #f8f9fb;
+  border-radius: 12rpx;
+  padding: 16rpx 8rpx;
+  margin-bottom: 20rpx;
+}
+
+.week-arrow {
+  width: 48rpx;
+  height: 48rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.week-arrow-disabled {
+  opacity: 0.4;
+}
+
+.week-days {
+  flex: 1;
+  display: flex;
+  justify-content: space-between;
+}
+
+.week-day-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 8rpx 0;
+  width: 72rpx;
+  border-radius: 12rpx;
+  position: relative;
+  transition: all 0.2s;
+}
+
+.week-day-label {
+  font-size: 22rpx;
+  color: #999;
+  margin-bottom: 4rpx;
+}
+
+.week-day-num {
+  font-size: 30rpx;
+  color: #333;
+  font-weight: 500;
+}
+
+.week-day-item.is-weekend .week-day-label {
+  color: #f3a044;
+}
+
+.week-day-item.is-today {
+  background: #2979ff;
+}
+
+.week-day-item.is-today .week-day-label,
+.week-day-item.is-today .week-day-num {
+  color: #fff;
+}
+
+.week-day-item.is-selected {
+  background: #e8f0fe;
+}
+
+.week-day-item.is-selected .week-day-num {
+  color: #2979ff;
+  font-weight: bold;
+}
+
+.week-day-dot {
+  width: 8rpx;
+  height: 8rpx;
+  border-radius: 50%;
+  background: #e43d33;
+  margin-top: 6rpx;
+}
+
+.week-day-item.is-today .week-day-dot {
+  background: #fff;
+}
+
+.todo-empty {
+  padding: 30rpx 0;
+  text-align: center;
+}
+
+.todo-empty-text {
+  font-size: 26rpx;
+  color: #ccc;
 }
 
 .todo-item {
@@ -619,166 +712,5 @@ export default {
 .quick-name {
   font-size: 24rpx;
   color: #333;
-}
-
-/* 课表样式 */
-.date-selector {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 20rpx 0;
-  margin-bottom: 20rpx;
-  background: linear-gradient(135deg, #f5f7fa 0%, #e8ecf1 100%);
-  border-radius: 16rpx;
-}
-
-.date-btn {
-  width: 60rpx;
-  height: 60rpx;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: #fff;
-  border-radius: 50%;
-  box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.1);
-}
-
-.date-btn:active {
-  background: #f0f0f0;
-}
-
-.date-display {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4rpx;
-}
-
-.date-text {
-  font-size: 32rpx;
-  font-weight: bold;
-  color: #333;
-}
-
-.weekday-text {
-  font-size: 24rpx;
-  color: #2979ff;
-}
-
-.schedule-list {
-  margin-top: 10rpx;
-}
-
-.schedule-class {
-  margin-bottom: 20rpx;
-  padding: 16rpx;
-  background: #f9f9f9;
-  border-radius: 12rpx;
-}
-
-.schedule-class:last-child {
-  margin-bottom: 0;
-}
-
-.schedule-class-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 12rpx;
-  padding: 8rpx 12rpx;
-  background: #fff;
-  border-radius: 8rpx;
-  cursor: pointer;
-}
-
-.schedule-class-header:active {
-  background: #f0f0f0;
-}
-
-.header-left {
-  display: flex;
-  align-items: center;
-  gap: 8rpx;
-  flex: 1;
-}
-
-.schedule-class-name {
-  font-size: 28rpx;
-  font-weight: bold;
-  color: #2979ff;
-}
-
-.schedule-class-count {
-  font-size: 22rpx;
-  color: #999;
-  background: #fff;
-  padding: 2rpx 10rpx;
-  border-radius: 8rpx;
-}
-
-.schedule-items {
-  display: flex;
-  flex-direction: column;
-  gap: 8rpx;
-}
-
-.schedule-item-compact {
-  display: flex;
-  align-items: center;
-  padding: 10rpx 12rpx;
-  background: #fff;
-  border-radius: 8rpx;
-  gap: 12rpx;
-}
-
-.item-period {
-  min-width: 100rpx;
-  text-align: center;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  padding: 6rpx 12rpx;
-  border-radius: 6rpx;
-  flex-shrink: 0;
-}
-
-.period-text {
-  font-size: 22rpx;
-  color: #fff;
-  font-weight: bold;
-  white-space: nowrap;
-}
-
-.item-content {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 4rpx;
-}
-
-.item-course {
-  font-size: 26rpx;
-  font-weight: bold;
-  color: #333;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.item-info {
-  font-size: 22rpx;
-  color: #666;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.schedule-empty {
-  text-align: center;
-  padding: 60rpx 0;
-}
-
-.empty-text {
-  font-size: 28rpx;
-  color: #999;
 }
 </style>

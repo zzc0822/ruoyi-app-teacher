@@ -22,15 +22,6 @@ export function getLeave(id) {
   })
 }
 
-// 提交请假申请
-export function applyLeave(data) {
-  return request({
-    url: '/api/leave/apply',
-    method: 'post',
-    data: data
-  })
-}
-
 // 审批请假
 export function approvalLeave(data) {
   return request({
@@ -57,11 +48,3 @@ export function getPendingLeaves() {
   })
 }
 
-// 获取请假扣分提示（学生端提交前展示）
-export function getLeaveScoreHint(query) {
-  return request({
-    url: '/api/leave/scoreHint',
-    method: 'get',
-    params: query
-  })
-}

@@ -18,10 +18,12 @@
           </view>
         </view>
       </view>
-      <view class="add-btn-col" @click="goAdd">
-        <uni-icons type="plusempty" size="28" color="#fff"></uni-icons>
-        <text class="add-btn-label">新增</text>
-      </view>
+    </view>
+
+    <!-- PC端提示 -->
+    <view class="pc-tip-bar">
+      <uni-icons type="info" size="14" color="#2979ff"></uni-icons>
+      <text class="pc-tip-text">活动管理请前往PC端操作</text>
     </view>
 
     <!-- 搜索栏 -->
@@ -189,9 +191,6 @@ export default {
       this.list = []
       this.getList()
     },
-    goAdd() {
-      uni.navigateTo({ url: '/pages/sub-work/activity/add' })
-    },
     goDetail(item) {
       uni.navigateTo({ url: `/pages/sub-work/activity/detail?id=${item.id}` })
     },
@@ -253,19 +252,18 @@ export default {
   color: #999;
   margin-top: 4px;
 }
-.add-btn-col {
-  width: 60px;
-  background: #2979ff;
-  border-radius: 10px;
+.pc-tip-bar {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  justify-content: center;
-  color: #fff;
+  gap: 8px;
+  padding: 10px 12px;
+  background: #e8f0ff;
+  margin: 0 12px 8px;
+  border-radius: 8px;
 }
-.add-btn-label {
-  font-size: 12px;
-  margin-top: 4px;
+.pc-tip-text {
+  font-size: 13px;
+  color: #2979ff;
 }
 .search-bar {
   padding: 0 12px 10px;

@@ -29,8 +29,8 @@
       </view>
       
       <view class="summary-card-item">
-        <text class="stats-num blue">{{ summaryData.reserved }}</text>
-        <text class="stats-label">预留</text>
+        <text class="stats-num blue">{{ summaryData.activityCount }}</text>
+        <text class="stats-label">活动总数</text>
       </view>
     </view>
 
@@ -61,6 +61,7 @@ import { listClassCheck } from '@/api/stumanage/classcheck'
 import { getRoleViewConfig } from '@/utils/roleViewConfig'
 import { getWorkStats } from '@/api/stumanage/workstats'
 import { getRandomQuote } from '@/api/stumanage/workquote'
+import { listActivity } from '@/api/stumanage/activity'
 
 // 全量功能定义
 const ALL_FUNCS = [
@@ -68,12 +69,11 @@ const ALL_FUNCS = [
   { key: 'classcheck', name: '查课管理', icon: 'checkbox-filled', color: 'green', url: '/pages/sub-work/classcheck/index' },
   { key: 'talk', name: '谈心谈话', icon: 'chat-filled', color: 'orange', url: '/pages/sub-work/talk/index' },
   { key: 'leave', name: '请假管理', icon: 'paperplane-filled', color: 'red', url: '/pages/sub-work/leave/index' },
-  { key: 'activity', name: '活动管理', icon: 'calendar-filled', color: 'cyan', url: '/pages/sub-work/activity/index' },
   { key: 'todo', name: '待办事项', icon: 'flag-filled', color: 'purple', url: '/pages/sub-work/todo/index' }
 ]
 
 // 默认常用功能 key
-const DEFAULT_COMMON = ['stuinfo', 'classcheck', 'talk', 'leave', 'activity', 'todo']
+const DEFAULT_COMMON = ['stuinfo', 'classcheck', 'talk', 'leave', 'todo']
 
 const STORAGE_KEY = 'work_common_funcs'
 const STATS_CACHE_KEY = 'work_stats_cache'
@@ -96,7 +96,7 @@ export default {
         pendingLeave: '--',
         onLeave: '--',
         talkCount: '--',
-        reserved: '--'
+        activityCount: '--'
       },
       pendingList: [],
       // 学工金句
@@ -148,7 +148,7 @@ export default {
         pendingLeave: '--',
         onLeave: '--',
         talkCount: '--',
-        reserved: '--'
+        activityCount: '--'
       }
     },
     // 加载教师姓名
@@ -194,25 +194,31 @@ export default {
     },
     // 获取工作台统计(包含待审批)
     fetchWorkStats() {
-      return getWorkStats().then(res => {
+      const statsPromise = getWorkStats().then(res => {
         if (res && res.data) {
           this.summaryData.attendanceRate = res.data.attendanceRate || '0%'
           this.summaryData.talkCount = res.data.talkCount || '0'
           this.summaryData.onLeave = res.data.onLeave || '0'
           this.summaryData.pendingLeave = res.data.pendingLeave || '0'
-          
-          // 保存缓存
-          uni.setStorageSync(STATS_CACHE_KEY, {
-            data: {
-              attendanceRate: this.summaryData.attendanceRate,
-              talkCount: this.summaryData.talkCount,
-              onLeave: this.summaryData.onLeave,
-              pendingLeave: this.summaryData.pendingLeave,
-              reserved: this.summaryData.reserved
-            },
-            timestamp: Date.now()
-          })
         }
+      }).catch(() => {})
+      
+      const activityPromise = listActivity({ pageNum: 1, pageSize: 1 }).then(res => {
+        this.summaryData.activityCount = res.total || 0
+      }).catch(() => {})
+      
+      return Promise.all([statsPromise, activityPromise]).then(() => {
+        // 保存缓存
+        uni.setStorageSync(STATS_CACHE_KEY, {
+          data: {
+            attendanceRate: this.summaryData.attendanceRate,
+            talkCount: this.summaryData.talkCount,
+            onLeave: this.summaryData.onLeave,
+            pendingLeave: this.summaryData.pendingLeave,
+            activityCount: this.summaryData.activityCount
+          },
+          timestamp: Date.now()
+        })
       })
     },
     // 随机选择一条金句（从后端获取）

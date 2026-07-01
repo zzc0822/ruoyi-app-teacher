@@ -21,56 +21,12 @@ export function getActivity(id) {
   })
 }
 
-// 创建活动
-export function addActivity(data) {
-  return request({
-    url: '/api/activity',
-    method: 'post',
-    data: data
-  })
-}
-
-// 修改活动
-export function updateActivity(data) {
-  return request({
-    url: '/api/activity',
-    method: 'put',
-    data: data
-  })
-}
-
-// 删除活动
-export function delActivity(ids) {
-  return request({
-    url: '/api/activity/' + ids,
-    method: 'delete'
-  })
-}
-
 // 获取活动学生列表
 export function listActivityStudents(activityId, query) {
   return request({
     url: '/api/activity/' + activityId + '/students',
     method: 'get',
     params: query
-  })
-}
-
-// 批量安排学生
-export function batchArrange(activityId, data) {
-  return request({
-    url: '/api/activity/' + activityId + '/batch',
-    method: 'post',
-    data: data
-  })
-}
-
-// 更新学生参与状态
-export function updateStudentStatus(studentId, status) {
-  return request({
-    url: '/api/activity/student/status',
-    method: 'put',
-    params: { studentId, status }
   })
 }
 

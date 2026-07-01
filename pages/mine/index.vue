@@ -31,25 +31,6 @@
     </view>
 
     <view class="content-section">
-      <view class="mine-actions grid col-4 text-center">
-        <view class="action-item" @click="handleJiaoLiuQun">
-          <view class="iconfont icon-friendfill text-pink icon"></view>
-          <text class="text">交流群</text>
-        </view>
-        <view class="action-item" @click="handleBuilding">
-          <view class="iconfont icon-service text-blue icon"></view>
-          <text class="text">在线客服</text>
-        </view>
-        <view class="action-item" @click="handleBuilding">
-          <view class="iconfont icon-community text-mauve icon"></view>
-          <text class="text">反馈社区</text>
-        </view>
-        <view class="action-item" @click="handleBuilding">
-          <view class="iconfont icon-dianzan text-green icon"></view>
-          <text class="text">点赞我们</text>
-        </view>
-      </view>
-
       <view class="menu-list">
         <view class="list-cell list-cell-arrow" @click="handleToEditInfo">
           <view class="menu-item-box">
@@ -223,12 +204,6 @@ export default {
       },
       handleAbout() {
         this.$tab.navigateTo('/pages/sub-mine/about/index')
-      },
-      handleJiaoLiuQun() {
-        this.$modal.showToast('QQ群：①133713780(满)、②146013835(满)、③189091635')
-      },
-      handleBuilding() {
-        this.$modal.showToast('模块建设中~')
       }
     }
   }
@@ -328,25 +303,6 @@ export default {
     .content-section {
       position: relative;
       top: -50px;
-
-      .mine-actions {
-        margin: 15px 15px;
-        padding: 20px 0px;
-        border-radius: 8px;
-        background-color: white;
-
-        .action-item {
-          .icon {
-            font-size: 28px;
-          }
-
-          .text {
-            display: block;
-            font-size: 13px;
-            margin: 8px 0px;
-          }
-        }
-      }
     }
   }
 </style>

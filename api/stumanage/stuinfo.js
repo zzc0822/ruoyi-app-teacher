@@ -50,6 +50,23 @@ export function getMyStudents() {
   })
 }
 
+// 搜索学生（根据角色自动过滤）
+export function searchStuinfo(keyword) {
+  return request({
+    url: '/api/mini/stuinfo/search',
+    method: 'get',
+    params: { keyword }
+  })
+}
+
+// 获取学生详情（带是否可查看完整信息标记）
+export function getStuinfoDetail(xh) {
+  return request({
+    url: '/api/mini/stuinfo/detail/' + xh,
+    method: 'get'
+  })
+}
+
 // 获取学院-班级树结构
 export function getCollegeClassTree() {
   return request({

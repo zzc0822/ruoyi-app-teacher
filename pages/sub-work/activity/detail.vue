@@ -58,10 +58,6 @@
     <view class="card">
       <view class="section-header">
         <text class="card-title">参与学生</text>
-        <view class="add-stu-btn" @click="goBatchAdd">
-          <uni-icons type="plusempty" size="16" color="#fff"></uni-icons>
-          <text>批量安排</text>
-        </view>
       </view>
       <scroll-view scroll-y class="stu-scroll" @scrolltolower="loadMoreStu">
         <view class="stu-item" v-for="item in studentList" :key="item.id">
@@ -69,10 +65,6 @@
             <text class="stu-name">{{ item.xm || '未知' }}</text>
             <text class="stu-xh">{{ item.xh }}</text>
             <text class="stu-status">{{ formatStuStatus(item.status) }}</text>
-          </view>
-          <view class="stu-actions">
-            <text class="action-text" v-if="item.status === '0'" @click="updateStatus(item, '1')">标记参与</text>
-            <text class="action-text absent" v-if="item.status === '0'" @click="updateStatus(item, '2')">标记弃权</text>
           </view>
         </view>
         <view class="empty-tip" v-if="!stuLoading && studentList.length === 0">
@@ -84,7 +76,7 @@
 </template>
 
 <script>
-import { getActivity, getActivityPhases, listActivityStudents, updateStudentStatus } from '@/api/stumanage/activity'
+import { getActivity, getActivityPhases, listActivityStudents } from '@/api/stumanage/activity'
 
 const STATUS_MAP = { '0': '进行中', '1': '已结束', '2': '草稿' }
 const STU_STATUS_MAP = { '0': '已报名', '1': '已参与', '2': '已弃权' }
@@ -138,27 +130,6 @@ export default {
         this.stuQuery.pageNum++
         this.loadStudents()
       }
-    },
-    updateStatus(item, status) {
-      const label = status === '1' ? '标记为已参与' : '标记为已弃权'
-      uni.showModal({
-        title: '确认',
-        content: `将 ${item.xm || item.xh} ${label}？`,
-        success: (res) => {
-          if (res.confirm) {
-            updateStudentStatus(item.id, status).then(() => {
-              uni.showToast({ title: '操作成功', icon: 'success' })
-              this.stuQuery.pageNum = 1
-              this.loadStudents()
-            }).catch(() => {
-              uni.showToast({ title: '操作失败', icon: 'none' })
-            })
-          }
-        }
-      })
-    },
-    goBatchAdd() {
-      uni.navigateTo({ url: `/pages/sub-work/activity/batch?id=${this.activityId}` })
     },
     formatStatus(val) {
       return STATUS_MAP[val] || val || '未知'
@@ -219,15 +190,6 @@ export default {
   align-items: center;
   margin-bottom: 10px;
 }
-.add-stu-btn {
-  display: flex;
-  align-items: center;
-  background: #2979ff;
-  color: #fff;
-  font-size: 12px;
-  padding: 4px 10px;
-  border-radius: 12px;
-}
 .info-row {
   display: flex;
   padding: 8px 0;
@@ -284,17 +246,6 @@ export default {
   font-size: 12px;
   color: #2979ff;
   margin-top: 2px;
-}
-.stu-actions {
-  display: flex;
-  gap: 10px;
-}
-.action-text {
-  font-size: 13px;
-  color: #2979ff;
-}
-.action-text.absent {
-  color: #ff4d4f;
 }
 .empty-tip {
   text-align: center;
