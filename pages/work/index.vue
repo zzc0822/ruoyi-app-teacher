@@ -69,11 +69,12 @@ const ALL_FUNCS = [
   { key: 'classcheck', name: '查课管理', icon: 'checkbox-filled', color: 'green', url: '/pages/sub-work/classcheck/index' },
   { key: 'talk', name: '谈心谈话', icon: 'chat-filled', color: 'orange', url: '/pages/sub-work/talk/index' },
   { key: 'leave', name: '请假管理', icon: 'paperplane-filled', color: 'red', url: '/pages/sub-work/leave/index' },
-  { key: 'todo', name: '待办事项', icon: 'flag-filled', color: 'purple', url: '/pages/sub-work/todo/index' }
+  { key: 'todo', name: '待办事项', icon: 'flag-filled', color: 'purple', url: '/pages/sub-work/todo/index' },
+  { key: 'party', name: '党务管理', icon: 'star-filled', color: 'red', url: '/pages/sub-work/party/index' }
 ]
 
 // 默认常用功能 key
-const DEFAULT_COMMON = ['stuinfo', 'classcheck', 'talk', 'leave', 'todo']
+const DEFAULT_COMMON = ['stuinfo', 'classcheck', 'talk', 'leave', 'todo', 'party']
 
 const STORAGE_KEY = 'work_common_funcs'
 const STATS_CACHE_KEY = 'work_stats_cache'

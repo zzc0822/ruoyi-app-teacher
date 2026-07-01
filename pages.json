@@ -135,6 +135,67 @@
       }
     }]
   }, {
+    "root": "pages/sub-mine/party",
+    "pages": [{
+      "path": "index",
+      "style": {
+        "navigationBarTitleText": "我的党务"
+      }
+    }, {
+      "path": "progress",
+      "style": {
+        "navigationBarTitleText": "发展进度"
+      }
+    }, {
+      "path": "thought",
+      "style": {
+        "navigationBarTitleText": "思想汇报"
+      }
+    }, {
+      "path": "thoughtAdd",
+      "style": {
+        "navigationBarTitleText": "提交思想汇报"
+      }
+    }, {
+      "path": "training",
+      "style": {
+        "navigationBarTitleText": "培训记录"
+      }
+    }, {
+      "path": "fee",
+      "style": {
+        "navigationBarTitleText": "党费记录"
+      }
+    }, {
+      "path": "application",
+      "style": {
+        "navigationBarTitleText": "入党申请书"
+      }
+    }, {
+      "path": "orgInfo",
+      "style": {
+        "navigationBarTitleText": "组织信息"
+      }
+    }]
+  }, {
+    "root": "pages/sub-work/party",
+    "pages": [{
+      "path": "index",
+      "style": {
+        "navigationBarTitleText": "党务管理"
+      }
+    }, {
+      "path": "members",
+      "style": {
+        "navigationBarTitleText": "党员列表"
+      }
+    }, {
+      "path": "memberDetail",
+      "style": {
+        "navigationBarTitleText": "党员详情"
+      }
+    }]
+  }, {
     "root": "pages/common",
     "pages": [{
       "path": "webview/index",
