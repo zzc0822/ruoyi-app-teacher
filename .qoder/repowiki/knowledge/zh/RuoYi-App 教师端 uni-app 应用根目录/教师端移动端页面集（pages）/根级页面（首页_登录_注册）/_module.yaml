@@ -1,0 +1,10 @@
+schema_version: 1
+module_path: pages/root_pages
+title: 根级页面（首页/登录/注册）
+scope:
+    - pages/index.vue
+    - pages/login.vue
+    - pages/register.vue
+source_files: []
+depends_on: []
+related_to: []

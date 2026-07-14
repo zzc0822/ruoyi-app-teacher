@@ -191,9 +191,9 @@
 </template>
 
 <script>
-import { getClassCheck, confirmClassCheck } from '@/api/stumanage/classcheck'
-import { getClassStudents } from '@/api/stumanage/classcheck'
-import { listLeave } from '@/api/stumanage/leave'
+import { getClassCheck, confirmClassCheck } from '@/api/work/classcheck'
+import { getClassStudents } from '@/api/work/classcheck'
+import { listLeave } from '@/api/work/leave'
 
 export default {
   data() {

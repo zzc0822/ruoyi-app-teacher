@@ -1,0 +1,176 @@
+# 知识卡导出索引文件
+schema_version: 1
+locale: zh-CN
+branch: master
+nodes_managed: true
+exported_at: "2026-07-11T15:44:17Z"
+modules:
+    "":
+        dir_name: RuoYi-App 教师端 uni-app 应用根目录
+        title: RuoYi-App 教师端 uni-app 应用根目录
+        scope:
+            - App.vue
+            - main.js
+            - permission.js
+            - config.js
+            - uni.scss
+            - manifest.json
+            - pages.json
+            - README.md
+            - .gitignore
+            - LICENSE
+            - test-config-driven.js
+        source_files: []
+        children:
+            - api
+            - components
+            - pages
+            - plugins
+            - static_assets
+            - store
+            - utils
+        depends_on: []
+        related_to: []
+    api:
+        dir_name: RuoYi-App 移动端 API 适配层
+        title: RuoYi-App 移动端 API 适配层
+        scope:
+            - api/
+        source_files: []
+        children:
+            - api/shared_api
+            - api/student_management
+            - api/system_admin
+        depends_on: []
+        related_to: []
+    api/shared_api:
+        dir_name: 移动端 API 请求封装层
+        title: 移动端 API 请求封装层
+        scope:
+            - api/ad.js
+            - api/login.js
+            - api/operate.js
+            - api/party.js
+            - api/roleView.js
+            - api/tourist.js
+            - api/userInfo.js
+        source_files: []
+        children: []
+        depends_on: []
+        related_to: []
+    api/student_management:
+        dir_name: 学生管理小程序 API 适配层
+        title: 学生管理小程序 API 适配层
+        scope:
+            - api/stumanage/
+        source_files: []
+        children: []
+        depends_on: []
+        related_to: []
+    api/system_admin:
+        dir_name: 系统管理 API 封装（用户与字典）
+        title: 系统管理 API 封装（用户与字典）
+        scope:
+            - api/system/
+        source_files: []
+        children: []
+        depends_on: []
+        related_to: []
+    components:
+        dir_name: 通用业务组件库（广告、内容卡片、评论、滚动列表）
+        title: 通用业务组件库（广告、内容卡片、评论、滚动列表）
+        scope:
+            - components/
+        source_files: []
+        children: []
+        depends_on: []
+        related_to: []
+    pages:
+        dir_name: 教师端移动端页面集（pages）
+        title: 教师端移动端页面集（pages）
+        scope:
+            - pages/
+        source_files: []
+        children:
+            - pages/auth_and_common
+            - pages/root_pages
+            - pages/sub_mine
+            - pages/sub_work
+        depends_on: []
+        related_to: []
+    pages/auth_and_common:
+        dir_name: 教师认证与通用展示页面
+        title: 教师认证与通用展示页面
+        scope:
+            - pages/auth/
+            - pages/common/
+        source_files: []
+        children: []
+        depends_on: []
+        related_to: []
+    pages/root_pages:
+        dir_name: 根级页面（首页_登录_注册）
+        title: 根级页面（首页/登录/注册）
+        scope:
+            - pages/index.vue
+            - pages/login.vue
+            - pages/register.vue
+        source_files: []
+        children: []
+        depends_on: []
+        related_to: []
+    pages/sub_mine:
+        dir_name: 个人中心子应用（sub-mine）
+        title: 个人中心子应用（sub-mine）
+        scope:
+            - pages/sub-mine/
+        source_files: []
+        children: []
+        depends_on: []
+        related_to: []
+    pages/sub_work:
+        dir_name: 学工管理子应用页面集（活动_查课_请假_党务_学生信息_谈心_待办）
+        title: 学工管理子应用页面集（活动/查课/请假/党务/学生信息/谈心/待办）
+        scope:
+            - pages/sub-work/
+        source_files: []
+        children: []
+        depends_on: []
+        related_to: []
+    plugins:
+        dir_name: Vue 插件与全局能力注入（认证、模态框、页签）
+        title: Vue 插件与全局能力注入（认证、模态框、页签）
+        scope:
+            - plugins/
+        source_files: []
+        children: []
+        depends_on: []
+        related_to: []
+    static_assets:
+        dir_name: 静态资源与 uni_modules 第三方组件库
+        title: 静态资源与 uni_modules 第三方组件库
+        scope:
+            - static/
+            - uni_modules/
+        source_files: []
+        children: []
+        depends_on: []
+        related_to: []
+    store:
+        dir_name: Vuex 全局状态管理（用户认证与权限）
+        title: Vuex 全局状态管理（用户认证与权限）
+        scope:
+            - store/
+        source_files: []
+        children: []
+        depends_on: []
+        related_to: []
+    utils:
+        dir_name: 小程序通用工具集（认证、请求、角色与权限）
+        title: 小程序通用工具集（认证、请求、角色与权限）
+        scope:
+            - utils/
+        source_files: []
+        children: []
+        depends_on: []
+        related_to: []

@@ -116,7 +116,7 @@
 </template>
 
 <script>
-import { listTalk, getPendingTalks, getTalkStats } from '@/api/stumanage/talk'
+import { listTalk, getPendingTalks, getTalkStats } from '@/api/work/talk'
 import config from '@/config'
 
 export default {

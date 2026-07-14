@@ -1,0 +1,9 @@
+schema_version: 1
+module_path: static_assets
+title: 静态资源与 uni_modules 第三方组件库
+scope:
+    - static/
+    - uni_modules/
+source_files: []
+depends_on: []
+related_to: []

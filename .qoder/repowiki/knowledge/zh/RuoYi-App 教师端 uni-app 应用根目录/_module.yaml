@@ -1,0 +1,18 @@
+schema_version: 1
+module_path: ""
+title: RuoYi-App 教师端 uni-app 应用根目录
+scope:
+    - App.vue
+    - main.js
+    - permission.js
+    - config.js
+    - uni.scss
+    - manifest.json
+    - pages.json
+    - README.md
+    - .gitignore
+    - LICENSE
+    - test-config-driven.js
+source_files: []
+depends_on: []
+related_to: []

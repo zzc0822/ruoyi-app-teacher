@@ -1,0 +1,8 @@
+schema_version: 1
+module_path: api/system_admin
+title: 系统管理 API 封装（用户与字典）
+scope:
+    - api/system/
+source_files: []
+depends_on: []
+related_to: []

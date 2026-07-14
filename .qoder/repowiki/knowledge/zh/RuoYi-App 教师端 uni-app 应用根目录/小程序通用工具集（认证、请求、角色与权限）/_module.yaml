@@ -1,0 +1,8 @@
+schema_version: 1
+module_path: utils
+title: 小程序通用工具集（认证、请求、角色与权限）
+scope:
+    - utils/
+source_files: []
+depends_on: []
+related_to: []

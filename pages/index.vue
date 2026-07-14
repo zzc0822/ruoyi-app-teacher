@@ -65,6 +65,19 @@
           <uni-icons type="right" size="16" color="#999"></uni-icons>
         </view>
       </view>
+      <!-- 课程列表 -->
+      <view v-if="selectedDayCourses.length > 0" style="margin-bottom: 20rpx;">
+        <view style="font-size: 26rpx; font-weight: 500; color: #666; margin-bottom: 16rpx;">📚 我的课程（{{ selectedDayCourses.length }}）</view>
+        <view v-for="(course, idx) in selectedDayCourses" :key="'c'+idx" style="display: flex; padding: 16rpx 0; border-bottom: 1rpx solid #f5f5f5;">
+          <view style="width: 120rpx; text-align: center; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12rpx; padding: 12rpx 0; margin-right: 16rpx; flex-shrink: 0;">
+            <text style="font-size: 22rpx; color: #fff; display: block;">{{ course.startSection }}-{{ course.endSection }}节</text>
+          </view>
+          <view style="flex: 1; padding-top: 8rpx;">
+            <text style="font-size: 28rpx; font-weight: 500; color: #333; display: block;">{{ course.courseName }}</text>
+            <text style="font-size: 24rpx; color: #999; display: block; margin-top: 8rpx;">{{ course.className }} · {{ course.classroom || '待定' }}</text>
+          </view>
+        </view>
+      </view>
       <!-- 待办列表 -->
       <view class="todo-item" v-for="(item, index) in displayedTodos" :key="index" @click="handleTodoClick(item)">
         <view class="todo-left">
@@ -113,17 +126,24 @@
           </view>
           <text class="quick-name">请假审批</text>
         </view>
+        <view class="quick-item" @click="goMySchedule">
+          <view class="quick-icon icon-purple">
+            <uni-icons type="calendar-filled" size="26" color="#fff"></uni-icons>
+          </view>
+          <text class="quick-name">我的课表</text>
+        </view>
       </view>
     </view>
   </view>
 </template>
 
 <script>
-import { listTodo, getUnreadCount } from '@/api/stumanage/todo'
-import { listLeave } from '@/api/stumanage/leave'
-import { listStuinfo } from '@/api/stumanage/stuinfo'
-import { listClassCheck } from '@/api/stumanage/classcheck'
-import { getTeacherinfoByUserId } from '@/api/stumanage/teacherinfo'
+import { listTodo, getUnreadCount } from '@/api/work/todo'
+import { listLeave } from '@/api/work/leave'
+import { listStuinfo } from '@/api/student/stuinfo'
+import { listClassCheck } from '@/api/work/classcheck'
+import { getTeacherinfoByUserId } from '@/api/work/teacherinfo'
+import { getMySchedule } from '@/api/work/schedule'
 
 export default {
   data() {
@@ -137,7 +157,11 @@ export default {
       todoTotal: 0, // 待办总数（未过滤前）
       weekOffset: 0, // 周偏移（0=本周，-1=上周...）
       selectedDay: null, // 选中的日期（YYYY-MM-DD），null表示不筛选
-      weekDays: [] // 周日历数据
+      weekDays: [], // 周日历数据
+      // 课表相关
+      myScheduleList: [],
+      isTeacher: false,
+      selectedDayCourses: []
     }
   },
   onShow() {
@@ -145,6 +169,7 @@ export default {
     this.loadStats()
     this.loadTodos()
     this.buildWeekDays()
+    this.loadMySchedule()
     
     // 监听刷新事件
     uni.$on('refreshHomeData', this.loadAllData)
@@ -160,6 +185,7 @@ export default {
       this.loadStats()
       this.loadTodos()
       this.buildWeekDays()
+      this.loadMySchedule()
     },
     // ===== 周日历相关 =====
     buildWeekDays() {
@@ -206,6 +232,7 @@ export default {
       if (this.weekOffset > 0) this.weekOffset = 0
       this.selectedDay = null
       this.buildWeekDays()
+      this.updateSelectedDayCourses()
     },
     selectDay(day) {
       if (day.isToday && !this.selectedDay) {
@@ -218,6 +245,7 @@ export default {
         this.selectedDay = day.fullDate
       }
       this.buildWeekDays()
+      this.updateSelectedDayCourses()
     },
     // 加载教师姓名
     loadTeacherName() {
@@ -244,10 +272,23 @@ export default {
         if (res.data && res.data.teacherName) {
           this.nickName = res.data.teacherName
         } else {
-          this.nickName = this.$store.getters.name || ''
+          // 如果没有教师姓名，尝试从 store 获取，但排除手机号
+          const storeName = this.$store.getters.name || ''
+          // 如果是手机号格式（11位数字），则不显示
+          if (/^1[3-9]\d{9}$/.test(storeName)) {
+            this.nickName = ''
+          } else {
+            this.nickName = storeName
+          }
         }
       }).catch(() => {
-        this.nickName = this.$store.getters.name || ''
+        // 失败时同样排除手机号
+        const storeName = this.$store.getters.name || ''
+        if (/^1[3-9]\d{9}$/.test(storeName)) {
+          this.nickName = ''
+        } else {
+          this.nickName = storeName
+        }
       })
     },
     loadStats() {
@@ -265,11 +306,8 @@ export default {
       }).catch(() => { this.checkCount = 0 })
     },
     loadTodos() {
-      console.log('=== 开始加载待办 ===')
       listTodo().then(res => {
-        console.log('待办接口返回:', JSON.stringify(res))
         const list = res.data || []
-        console.log('待办原始数据数量:', list.length)
 
         // 保存待办总数，用于"更多"显示
         this.todoTotal = list.length
@@ -282,13 +320,10 @@ export default {
           return t.status !== '1' && t.status !== 1
         })
         
-        console.log('过滤后的待办数量:', filtered.length)
-        // 显示5个待办（增加到5个）
+        // 显示5个待办
         this.todoList = filtered.slice(0, 5)
-        console.log('最终显示的待办:', this.todoList.length)
         this.buildWeekDays()
-      }).catch((err) => {
-        console.error('加载待办失败:', err)
+      }).catch(() => {
         // 静默失败
       })
     },
@@ -360,6 +395,9 @@ export default {
     goAddLeave() {
       uni.navigateTo({ url: '/pages/sub-work/leave/index' })
     },
+    goMySchedule() {
+      uni.navigateTo({ url: '/pages/sub-work/schedule/index' })
+    },
     // 获取待办类型标签
     getTodoTypeLabel(type) {
       const typeMap = {
@@ -371,6 +409,36 @@ export default {
         'leave_approval': '请假审批'
       }
       return typeMap[type] || type
+    },
+    // ===== 教师课表相关 =====
+    loadMySchedule() {
+      getMySchedule().then(res => {
+        const data = res.data || {}
+        if (Array.isArray(data)) {
+          this.myScheduleList = data
+          this.isTeacher = data.length > 0
+        } else {
+          this.myScheduleList = data.scheduleList || []
+          this.isTeacher = data.isTeacher === true || this.myScheduleList.length > 0
+        }
+        this.$nextTick(() => {
+          this.updateSelectedDayCourses()
+        })
+      }).catch(() => {
+        this.myScheduleList = []
+        this.isTeacher = false
+      })
+    },
+    updateSelectedDayCourses() {
+      if (!this.isTeacher || !this.myScheduleList.length) {
+        this.selectedDayCourses = []
+        return
+      }
+      // 未选中日期时默认用今天，选中时用选中日期
+      const targetDate = this.selectedDay ? new Date(this.selectedDay) : new Date()
+      const jsDay = targetDate.getDay()
+      const weekday = jsDay === 0 ? 7 : jsDay
+      this.selectedDayCourses = this.myScheduleList.filter(c => Number(c.weekday) === weekday)
     }
   },
   computed: {
@@ -588,6 +656,65 @@ export default {
   color: #ccc;
 }
 
+.day-section {
+  margin-bottom: 24rpx;
+}
+
+.day-section-title {
+  font-size: 26rpx;
+  font-weight: 500;
+  color: #666;
+  margin-bottom: 16rpx;
+}
+
+.course-item {
+  display: flex;
+  align-items: flex-start;
+  padding: 20rpx 0;
+  border-bottom: 1rpx solid #f5f5f5;
+}
+
+.course-item:last-child {
+  border-bottom: none;
+}
+
+.course-time-box {
+  width: 120rpx;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 12rpx 0;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 12rpx;
+  margin-right: 20rpx;
+}
+
+.course-section {
+  font-size: 22rpx;
+  font-weight: 500;
+  color: #fff;
+}
+
+.course-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8rpx;
+  padding-top: 8rpx;
+}
+
+.course-name {
+  font-size: 28rpx;
+  font-weight: 500;
+  color: #333;
+}
+
+.course-detail {
+  font-size: 24rpx;
+  color: #999;
+}
+
 .todo-item {
   display: flex;
   justify-content: space-between;
@@ -708,6 +835,7 @@ export default {
 .icon-green { background: linear-gradient(135deg, #18bc37 0%, #4cd964 100%); }
 .icon-orange { background: linear-gradient(135deg, #f3a044 0%, #ffc870 100%); }
 .icon-red { background: linear-gradient(135deg, #e43d33 0%, #ff6b6b 100%); }
+.icon-purple { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
 
 .quick-name {
   font-size: 24rpx;

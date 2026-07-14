@@ -108,7 +108,7 @@
             <view class="major-bar-chart">
               <view class="major-bar-item" v-for="(item, index) in majorStats" :key="index">
                 <view class="major-bar-info">
-                  <text class="major-bar-name">{{ item.zymc }}</text>
+                  <text class="major-bar-name">{{ item.majorName }}</text>
                   <text class="major-bar-class-count" v-if="item.classCount > 0">{{ item.classCount }}个班</text>
                   <!-- 男女生人数显示在专业名称同一行 -->
                   <text class="gender-male">♂{{ item.maleCount || 0 }}</text>
@@ -169,7 +169,7 @@
             <view class="major-header" @click="toggleMajorExpand(major.zydm)">
               <view class="major-info">
                 <view class="major-name-row">
-                  <text class="major-name">{{ major.zymc }}</text>
+                  <text class="major-name">{{ major.majorName }}</text>
                   <text class="major-class-count" v-if="major.classCount > 0">{{ major.classCount }}个班</text>
                 </view>
                 <text class="major-code">{{ major.zydm }}</text>
@@ -256,7 +256,7 @@
             <text class="section-count">{{ searchResults.length }}条</text>
           </view>
           
-          <view class="result-card" v-for="item in searchResults" :key="item.type + '-' + item.id" @click="handleResultClick(item)">
+          <view class="result-card" v-for="(item, index) in searchResults" :key="index" @click="handleResultClick(item)">
             <view class="result-header">
               <view :class="['result-badge', 'badge-' + item.type]">
                 {{ item.type === 'student' ? '学生' : item.type === 'major' ? '专业' : '班级' }}
@@ -334,7 +334,7 @@
             <text :class="['stu-sex', stu.genderName === '男' ? 'male' : stu.genderName === '女' ? 'female' : 'unknown']">{{ stu.genderName === '男' ? '♂' : stu.genderName === '女' ? '♀' : '?' }}</text>
             <text class="stu-xh">{{ stu.xh }}</text>
             <text class="stu-zzmm">{{ stu.zzmmName || '-' }}</text>
-            <text class="stu-cls">{{ stu.bjmc }}</text>
+            <text class="stu-cls">{{ stu.className }}</text>
           </view>
         </view>
       </template>
@@ -411,15 +411,15 @@
           <view class="dp-grid">
             <view class="dp-cell">
               <text class="dp-label">班级</text>
-              <text class="dp-value">{{ detailStu.bjmc || '-' }}</text>
+              <text class="dp-value">{{ detailStu.className || '-' }}</text>
             </view>
             <view class="dp-cell">
               <text class="dp-label">专业</text>
-              <text class="dp-value">{{ detailStu.zymc || '-' }}</text>
+              <text class="dp-value">{{ detailStu.majorName || '-' }}</text>
             </view>
             <view class="dp-cell">
               <text class="dp-label">学院</text>
-              <text class="dp-value">{{ detailStu.xymc || '-' }}</text>
+              <text class="dp-value">{{ detailStu.collegeName || '-' }}</text>
             </view>
             <view class="dp-cell">
               <text class="dp-label">年级</text>
@@ -475,11 +475,11 @@
 </template>
 
 <script>
-import { getMyClasses, getClassStudents } from '@/api/stumanage/classcheck'
-import { listLeave } from '@/api/stumanage/leave'
-import { listStuinfo } from '@/api/stumanage/stuinfo'
+import { getMyClasses, getClassStudents } from '@/api/work/classcheck'
+import { listLeave } from '@/api/work/leave'
+import { listStuinfo } from '@/api/student/stuinfo'
 import { getRoleViewConfig } from '@/utils/roleViewConfig'
-import { getCollegeSummary, getStatsByMajor, getStatsByCounselor } from '@/api/stumanage/stats'
+import { getCollegeSummary, getStatsByMajor, getStatsByCounselor } from '@/api/student/stats'
 
 export default {
   data() {
@@ -584,7 +584,7 @@ export default {
     
     // 显示专业的全部班级列表
     showAllClasses(major) {
-      this.currentMajorName = major.zymc
+      this.currentMajorName = major.majorName
       this.currentMajorClasses = major.classes || []
       this.$refs.allClassesPopup.open()
     },
@@ -631,10 +631,13 @@ export default {
           massCount: summary.massCount || 0
         }
         
-        // 专业统计：后端已返回标准字段 zydm/zymc，无需再做字段映射
+        // 专业统计：后端返回 zydm/majorName，增加兜底逻辑
         const colors = ['#2979ff', '#18bc37', '#f3a044', '#9c27b0', '#00bcd4', '#ff9800', '#795548', '#e43d33', '#607d8b', '#8bc34a']
         this.majorStats = (majorRes.data || []).map((m, i) => ({
           ...m,
+          // 专业名称兜底：majorName > zymc > zydm
+          majorName: m.majorName || m.zymc || m.zydm || '未知专业',
+          zydm: m.zydm || '',
           color: colors[i % colors.length],
           malePercent: m.studentCount > 0 ? Math.round((m.maleCount / m.studentCount) * 100) : 0,
           femalePercent: m.studentCount > 0 ? Math.round((m.femaleCount / m.studentCount) * 100) : 0,
@@ -645,7 +648,7 @@ export default {
         // 计算专业饼图数据
         const totalStudents = this.majorStats.reduce((sum, m) => sum + m.studentCount, 0)
         this.majorPieData = this.majorStats.map((m, i) => ({
-          name: m.zymc,
+          name: m.majorName,
           value: m.studentCount,
           percent: totalStudents > 0 ? Math.round((m.studentCount / totalStudents) * 100) : 0,
           color: colors[i % colors.length]
@@ -653,7 +656,7 @@ export default {
         
         // 辅导员统计：后端已过滤 studentCount<=0 并计算好 percent，前端直接渲染
         this.counselorPieData = (counselorRes.data || []).map((c, i) => ({
-          name: c.fdyName || c.fdyname || '未知辅导员',
+          name: c.counselorName || c.fdyName || c.fdyname || ('辅导员' + (c.counselorId || '')),
           value: c.studentCount || 0,
           percent: c.percent || 0,
           color: colors[i % colors.length]
@@ -783,7 +786,7 @@ export default {
     // 显示专业详情
     showMajorDetail(major) {
       uni.showModal({
-        title: major.zymc,
+        title: major.majorName,
         content: `学生总数：${major.studentCount}人\n班级数：${major.classCount}个\n今日请假：${major.onLeaveCount}人`,
         showCancel: false
       })
@@ -836,7 +839,7 @@ export default {
                 type: 'student',
                 id: stu.xh,
                 title: stu.studentName,
-                desc: `${stu.xh} | ${stu.bjmc} | ${stu.zymc}`,
+                desc: `${stu.xh} | ${stu.className} | ${stu.majorName}`,
                 data: stu
               })
             })
@@ -855,7 +858,7 @@ export default {
                   type: 'student',
                   id: stu.xh,
                   title: stu.studentName,
-                  desc: `${stu.xh} | ${stu.bjmc} | ${stu.zymc}`,
+                  desc: `${stu.xh} | ${stu.className} | ${stu.majorName}`,
                   data: stu
                 })
               }
@@ -866,13 +869,13 @@ export default {
         // 搜索专业（从已加载的专业统计中搜索）
         if (this.searchType === 'all' || this.searchType === 'major') {
           const majorResults = this.majorStats.filter(m => 
-            m.zymc && m.zymc.indexOf(key) >= 0
+            m.majorName && m.majorName.indexOf(key) >= 0
           )
           majorResults.forEach(major => {
             this.searchResults.push({
               type: 'major',
               id: major.zydm,
-              title: major.zymc,
+              title: major.majorName,
               desc: `${major.studentCount}人 | ${major.classCount}个班级`,
               data: major
             })
@@ -897,7 +900,7 @@ export default {
               type: 'class',
               id: cls.bjdm,
               title: cls.bjname,
-              desc: `${cls.bcrs}人 | ${cls.zymc}`,
+              desc: `${cls.bcrs}人 | ${cls.majorName}`,
               data: cls
             })
           })
@@ -913,7 +916,7 @@ export default {
                 type: 'student',
                 id: stu.xh,
                 title: stu.studentName,
-                desc: `${stu.xh} | ${stu.bjmc} | ${stu.zymc}`,
+                desc: `${stu.xh} | ${stu.className} | ${stu.majorName}`,
                 data: stu
               })
             })
@@ -923,13 +926,13 @@ export default {
         // 搜索专业
         if (this.searchType === 'all' || this.searchType === 'major') {
           const majorResults = this.majorStats.filter(m => 
-            m.zymc && m.zymc.indexOf(key) >= 0
+            m.majorName && m.majorName.indexOf(key) >= 0
           )
           majorResults.forEach(major => {
             this.searchResults.push({
               type: 'major',
               id: major.zydm,
-              title: major.zymc,
+              title: major.majorName,
               desc: `${major.studentCount}人 | ${major.classCount}个班级`,
               data: major
             })
@@ -949,7 +952,7 @@ export default {
                 type: 'class',
                 id: cls.bjdm,
                 title: cls.bjname,
-                desc: `${cls.bcrs}人 | ${cls.zymc}`,
+                desc: `${cls.bcrs}人 | ${cls.majorName}`,
                 data: cls
               })
             })

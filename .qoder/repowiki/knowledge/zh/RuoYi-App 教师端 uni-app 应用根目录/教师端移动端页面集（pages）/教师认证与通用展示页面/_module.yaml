@@ -1,0 +1,9 @@
+schema_version: 1
+module_path: pages/auth_and_common
+title: 教师认证与通用展示页面
+scope:
+    - pages/auth/
+    - pages/common/
+source_files: []
+depends_on: []
+related_to: []

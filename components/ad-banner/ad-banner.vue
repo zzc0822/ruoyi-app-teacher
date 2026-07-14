@@ -15,7 +15,7 @@
 </template>
 
 <script>
-import { getAdList, reportShow, reportClick } from '@/api/ad';
+import { getAdList, reportShow, reportClick } from '@/api/campus/ad';
 
 export default {
   name: 'AdBanner',

@@ -28,7 +28,7 @@
 </template>
 
 <script>
-import partyApi from '@/api/party'
+import partyApi from '@/api/party/party'
 export default {
   data() {
     return {
@@ -47,7 +47,14 @@ export default {
         this.loading = false
         uni.showToast({ title: '提交成功', icon: 'success' })
         setTimeout(() => uni.navigateBack(), 1500)
-      }).catch(() => { this.loading = false })
+      }).catch(() => {
+        // 学生API失败，尝试教师API
+        partyApi.submitTeacherThoughtReport(data).then(() => {
+          this.loading = false
+          uni.showToast({ title: '提交成功', icon: 'success' })
+          setTimeout(() => uni.navigateBack(), 1500)
+        }).catch(() => { this.loading = false })
+      })
     },
     formatDate(ts) {
       if (!ts) return ''

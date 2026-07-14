@@ -1,0 +1,8 @@
+schema_version: 1
+module_path: components
+title: 通用业务组件库（广告、内容卡片、评论、滚动列表）
+scope:
+    - components/
+source_files: []
+depends_on: []
+related_to: []

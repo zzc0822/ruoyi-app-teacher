@@ -1,5 +1,5 @@
 import { getToken } from '@/utils/auth'
-import { getRoleConfig, getRealNameStatus } from '@/api/roleView'
+import { getRoleConfig, getRealNameStatus } from '@/api/campus/roleView'
 
 // 登录页面
 const loginPage = "/pages/login"

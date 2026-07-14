@@ -1,0 +1,8 @@
+schema_version: 1
+module_path: api/student_management
+title: 学生管理小程序 API 适配层
+scope:
+    - api/stumanage/
+source_files: []
+depends_on: []
+related_to: []

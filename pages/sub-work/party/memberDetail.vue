@@ -18,11 +18,11 @@
     <view class="section-card">
       <text class="section-title">发展阶段</text>
       <view class="timeline">
-        <view class="timeline-item" v-for="(item, idx) in timelineData" :key="idx" :class="{ active: item.date }">
+        <view class="timeline-item" v-for="(item, idx) in timelineData" :key="idx" :class="{ active: item.reached }">
           <view class="dot"></view>
           <view class="tl-content">
             <text class="tl-label">{{ item.label }}</text>
-            <text class="tl-date">{{ item.date ? formatDate(item.date) : '未记录' }}</text>
+            <text class="tl-date">{{ item.date ? formatDate(item.date) : (item.reached ? '请补充' : '未到达') }}</text>
           </view>
         </view>
       </view>
@@ -61,7 +61,7 @@
 </template>
 
 <script>
-import partyApi from '@/api/party'
+import partyApi from '@/api/party/party'
 
 const stageMap = { APPLICANT: '入党申请人', ACTIVIST: '积极分子', TARGET: '发展对象', PROBATIONARY: '预备党员', FORMAL: '正式党员' }
 
@@ -84,15 +84,26 @@ export default {
       partyApi.memberDetail(memberId).then(res => {
         uni.hideLoading()
         const data = res.data || {}
-        this.member = data.member || null
-        this.thoughtReports = data.thoughtReports || []
+        // 后端直接返回 PartyMember 对象，也可能包装在 { member, thoughtReports } 中
+        if (data.member) {
+          this.member = data.member
+          this.thoughtReports = data.thoughtReports || []
+        } else if (data.currentStage) {
+          this.member = data
+          this.thoughtReports = []
+        } else {
+          this.member = null
+          this.thoughtReports = []
+        }
         const m = this.member || {}
+        const stageOrder = ['APPLICANT', 'ACTIVIST', 'TARGET', 'PROBATIONARY', 'FORMAL']
+        const currentIdx = stageOrder.indexOf(m.currentStage)
         this.timelineData = [
-          { label: '递交申请', date: m.applyDate },
-          { label: '确定为积极分子', date: m.activistDate },
-          { label: '确定为发展对象', date: m.targetDate },
-          { label: '接收为预备党员', date: m.probationDate },
-          { label: '转为正式党员', date: m.formalDate }
+          { label: '递交申请', date: m.applyDate, reached: currentIdx >= 0 },
+          { label: '确定为积极分子', date: m.activistDate, reached: currentIdx >= 1 },
+          { label: '确定为发展对象', date: m.targetDate, reached: currentIdx >= 2 },
+          { label: '接收为预备党员', date: m.probationDate, reached: currentIdx >= 3 },
+          { label: '转为正式党员', date: m.formalDate, reached: currentIdx >= 4 }
         ]
       }).catch(() => { uni.hideLoading() })
     }

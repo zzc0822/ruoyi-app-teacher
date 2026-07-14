@@ -32,7 +32,7 @@
           <view class="stu-info">
             <view class="stu-name-row">
               <text class="stu-name">{{ item.studentName }}</text>
-              <text class="stu-gender" :class="item.gender === '1' ? 'male' : 'female'">{{ formatGender(item.gender) }}</text>
+              <text class="stu-gender" :class="String(item.gender).trim() === '1' ? 'male' : (String(item.gender).trim() === '2' ? 'female' : 'unknown')">{{ formatGender(item.gender) }}</text>
             </view>
             <text class="stu-xh">学号：{{ item.xh }}</text>
             <text class="stu-major">{{ item.collegeName }} · {{ item.majorName }} · {{ item.className }}</text>
@@ -56,7 +56,7 @@
 </template>
 
 <script>
-import { searchStuinfo } from '@/api/stumanage/stuinfo'
+import { searchStuinfo } from '@/api/student/stuinfo'
 
 export default {
   data() {
@@ -128,9 +128,16 @@ export default {
       })
     },
     formatGender(gender) {
-      if (gender === '1') return '男'
-      if (gender === '2') return '女'
+      const val = gender == null ? '' : String(gender).trim()
+      if (val === '1') return '男'
+      if (val === '2') return '女'
       return '未知'
+    },
+    genderClass(gender) {
+      const val = gender == null ? '' : String(gender).trim()
+      if (val === '1') return 'male'
+      if (val === '2') return 'female'
+      return 'unknown'
     }
   }
 }
@@ -262,6 +269,10 @@ export default {
   &.female {
     color: #e43d7e;
     background: #ffe6f0;
+  }
+  &.unknown {
+    color: #999;
+    background: #f0f0f0;
   }
 }
 

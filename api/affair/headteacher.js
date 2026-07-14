@@ -1,0 +1,114 @@
+import request from '@/utils/request'
+
+/**
+ * 班主任管理API（小程序端）
+ * 使用ruoyi-api模块的公共接口
+ */
+
+// 查看我的班级列表
+export function getMyClasses() {
+  return request({
+    url: '/api/headteacher/myClasses',
+    method: 'get'
+  })
+}
+
+// 查看班级详情（含学生基本信息）
+export function getClassDetail(bjid) {
+  return request({
+    url: '/api/headteacher/classDetail/' + bjid,
+    method: 'get'
+  })
+}
+
+// 查看我的工作记录列表
+export function listWorklog(query) {
+  return request({
+    url: '/api/headteacher/worklog/list',
+    method: 'get',
+    params: query
+  })
+}
+
+// 获取工作记录详情
+export function getWorklog(id) {
+  return request({
+    url: '/api/headteacher/worklog/' + id,
+    method: 'get'
+  })
+}
+
+// 提交工作记录
+export function addWorklog(data) {
+  return request({
+    url: '/api/headteacher/worklog',
+    method: 'post',
+    data: data
+  })
+}
+
+// 修改工作记录
+export function updateWorklog(data) {
+  return request({
+    url: '/api/headteacher/worklog',
+    method: 'put',
+    data: data
+  })
+}
+
+// 删除工作记录
+export function deleteWorklog(ids) {
+  return request({
+    url: '/api/headteacher/worklog/' + ids,
+    method: 'delete'
+  })
+}
+
+// 查看我的工作量完成情况
+export function getMyWorkload() {
+  return request({
+    url: '/api/headteacher/workload/my',
+    method: 'get'
+  })
+}
+
+// 提交班主任申请
+export function submitApply(data) {
+  return request({
+    url: '/api/headteacher/apply',
+    method: 'post',
+    data: data
+  })
+}
+
+// 查看我的申请记录
+export function getMyApply() {
+  return request({
+    url: '/api/headteacher/apply/my',
+    method: 'get'
+  })
+}
+
+// 查看我的工作证明列表
+export function getMyCertificates() {
+  return request({
+    url: '/api/headteacher/certificate/my',
+    method: 'get'
+  })
+}
+
+// 检查是否可以生成工作证明
+export function checkCertificate(certYear) {
+  return request({
+    url: '/api/headteacher/certificate/check/' + certYear,
+    method: 'get'
+  })
+}
+
+// 生成班主任工作证明
+export function generateCertificate(certYear) {
+  return request({
+    url: '/api/headteacher/certificate/generate/' + certYear,
+    method: 'post'
+  })
+}

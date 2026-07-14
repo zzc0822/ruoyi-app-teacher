@@ -8,9 +8,9 @@
         <text class="amount">¥{{ item.amount }}</text>
       </view>
       <view class="card-row">
-        <text class="meta">{{ { CASH: '现金', TRANSFER: '转账', ONLINE: '线上' }[item.payMethod] || '—' }}</text>
+        <text class="meta">{{ item.payMethod === 'CASH' ? '现金' : item.payMethod === 'TRANSFER' ? '转账' : item.payMethod === 'ONLINE' ? '线上' : '—' }}</text>
         <text class="status" :class="item.payStatus === '1' ? 'paid' : item.payStatus === '2' ? 'exempt' : 'unpaid'">
-          {{ ['未缴','已缴','减免'][item.payStatus] }}
+          {{ item.payStatus === '1' ? '已缴' : item.payStatus === '2' ? '减免' : '未缴' }}
         </text>
       </view>
     </view>
@@ -18,11 +18,19 @@
 </template>
 
 <script>
-import partyApi from '@/api/party'
+import partyApi from '@/api/party/party'
 export default {
   data() { return { list: [] } },
   onLoad() {
-    partyApi.myFees().then(res => { this.list = res.data || [] })
+    partyApi.myFees().then(res => {
+      this.list = res.data || []
+      if (this.list.length === 0) {
+        // 尝试教师API
+        partyApi.teacherFeeList().then(res2 => { this.list = res2.data || [] })
+      }
+    }).catch(() => {
+      partyApi.teacherFeeList().then(res2 => { this.list = res2.data || [] }).catch(() => {})
+    })
   }
 }
 </script>

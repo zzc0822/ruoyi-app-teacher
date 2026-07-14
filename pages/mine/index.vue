@@ -63,7 +63,7 @@
 </template>
 
 <script>
-import { getTeacherinfoByUserId, getRoleList } from '@/api/stumanage/teacherinfo'
+import { getTeacherinfoByUserId, getRoleList } from '@/api/work/teacherinfo'
 import config from '@/config'
 
 export default {

@@ -143,7 +143,7 @@
 </template>
 
 <script>
-import { listLeave, approvalLeave } from '@/api/stumanage/leave'
+import { listLeave, approvalLeave } from '@/api/work/leave'
 import config from '@/config'
 
 export default {

@@ -8,7 +8,7 @@
  * 3. 计算属性使用：computed: { ...roleComputed }
  */
 
-import { isSecretary, isAdmin, isTeacher, getRoleType } from './role'
+import { isSecretary, isAdmin, isTeacher, isCounselor, isHeadteacher, getRoleType, getRoleTypes } from './role'
 
 /**
  * 角色配置常量
@@ -28,6 +28,11 @@ export const ROLE_CONFIG = {
   COUNSELOR: {
     nameKeyword: '辅导员',
     keyKeyword: 'counselor'
+  },
+  // 班主任角色关键词
+  HEADTEACHER: {
+    nameKeyword: '班主任',
+    keyKeyword: 'headteacher'
   }
 }
 
@@ -111,53 +116,51 @@ export const roleMixin = {
   data() {
     return {
       isSecretaryRole: false,  // 是否为书记角色
+      isCounselorRole: false,  // 是否为辅导员角色
+      isHeadteacherRole: false, // 是否为班主任角色
       isAdminRole: false,      // 是否为管理员角色
       isTeacherRole: false,    // 是否为普通教师角色
-      roleType: '',            // 角色类型：'secretary' | 'admin' | 'teacher'
+      roleType: '',            // 主角色类型（优先级最高）
+      roleTypes: [],           // 所有角色类型数组
       userRoles: []            // 用户角色列表
     }
   },
   
   methods: {
-    /**
-     * 检查并设置用户角色
-     * @param {Boolean} autoLoad - 是否自动加载用户信息（默认 true）
-     */
     async checkRole(autoLoad = true) {
       try {
-        // 确保用户信息已加载
         if (autoLoad) {
           await ensureUserInfoLoaded(this)
         }
         
-        // 获取角色
         this.userRoles = getUserRoles(this)
         
-        // 判断角色
         this.isSecretaryRole = isSecretary(this.userRoles)
+        this.isCounselorRole = isCounselor(this.userRoles)
+        this.isHeadteacherRole = isHeadteacher(this.userRoles)
         this.isAdminRole = isAdmin(this.userRoles)
         this.isTeacherRole = isTeacher(this.userRoles)
         this.roleType = getRoleType(this.userRoles)
-        
-          roles: this.userRoles,
-          isSecretary: this.isSecretaryRole,
-          isAdmin: this.isAdminRole,
-          isTeacher: this.isTeacherRole,
-          roleType: this.roleType
-        })
+        this.roleTypes = getRoleTypes(this.userRoles)
         
         return {
           isSecretaryRole: this.isSecretaryRole,
+          isCounselorRole: this.isCounselorRole,
+          isHeadteacherRole: this.isHeadteacherRole,
           isAdminRole: this.isAdminRole,
           isTeacherRole: this.isTeacherRole,
-          roleType: this.roleType
+          roleType: this.roleType,
+          roleTypes: this.roleTypes
         }
       } catch (err) {
         return {
           isSecretaryRole: false,
+          isCounselorRole: false,
+          isHeadteacherRole: false,
           isAdminRole: false,
           isTeacherRole: false,
-          roleType: 'teacher'
+          roleType: 'teacher',
+          roleTypes: ['teacher']
         }
       }
     }
@@ -183,6 +186,14 @@ export function createRoleComputed() {
       const roles = getUserRoles(this)
       return isSecretary(roles)
     },
+    isCounselorRole() {
+      const roles = getUserRoles(this)
+      return isCounselor(roles)
+    },
+    isHeadteacherRole() {
+      const roles = getUserRoles(this)
+      return isHeadteacher(roles)
+    },
     isAdminRole() {
       const roles = getUserRoles(this)
       return isAdmin(roles)
@@ -194,6 +205,10 @@ export function createRoleComputed() {
     roleType() {
       const roles = getUserRoles(this)
       return getRoleType(roles)
+    },
+    roleTypes() {
+      const roles = getUserRoles(this)
+      return getRoleTypes(roles)
     },
     userRoles() {
       return getUserRoles(this)
@@ -220,13 +235,14 @@ export function createRoleComputed() {
  */
 export function createRoleGuard(vm, allowedRoles = []) {
   const roles = getUserRoles(vm)
-  const roleType = getRoleType(roles)
+  const roleTypes = getRoleTypes(roles)
   
-  const isAllowed = allowedRoles.includes(roleType) || allowedRoles.includes('*')
+  // 多角色支持：只要用户拥有任一允许的角色即可访问
+  const isAllowed = roleTypes.some(t => allowedRoles.includes(t)) || allowedRoles.includes('*')
   
   return {
     isAllowed,
-    roleType,
+    roleTypes,
     roles
   }
 }
@@ -240,6 +256,8 @@ export const RoleUtil = {
   isSecretary,
   isAdmin,
   isTeacher,
+  isCounselor,
+  isHeadteacher,
   getRoleType,
   
   // 辅助函数
@@ -273,6 +291,8 @@ export default {
   isSecretary,
   isAdmin,
   isTeacher,
+  isCounselor,
+  isHeadteacher,
   getRoleType,
   roleMixin,
   createRoleComputed,

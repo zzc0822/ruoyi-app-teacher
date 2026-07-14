@@ -108,7 +108,7 @@
 </template>
 
 <script>
-import { getTeacherinfoByUserId, updateMyTeacherinfo, getRoleList } from '@/api/stumanage/teacherinfo'
+import { getTeacherinfoByUserId, updateMyTeacherinfo, getRoleList } from '@/api/work/teacherinfo'
 
 export default {
   data() {

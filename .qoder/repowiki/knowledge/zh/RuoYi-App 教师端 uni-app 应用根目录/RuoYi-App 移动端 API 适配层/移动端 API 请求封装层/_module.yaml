@@ -1,0 +1,14 @@
+schema_version: 1
+module_path: api/shared_api
+title: 移动端 API 请求封装层
+scope:
+    - api/ad.js
+    - api/login.js
+    - api/operate.js
+    - api/party.js
+    - api/roleView.js
+    - api/tourist.js
+    - api/userInfo.js
+source_files: []
+depends_on: []
+related_to: []

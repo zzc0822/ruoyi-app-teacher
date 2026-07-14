@@ -1,0 +1,8 @@
+schema_version: 1
+module_path: store
+title: Vuex 全局状态管理（用户认证与权限）
+scope:
+    - store/
+source_files: []
+depends_on: []
+related_to: []

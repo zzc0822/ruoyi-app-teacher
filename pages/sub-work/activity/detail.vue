@@ -76,7 +76,7 @@
 </template>
 
 <script>
-import { getActivity, getActivityPhases, listActivityStudents } from '@/api/stumanage/activity'
+import { getActivity, getActivityPhases, listActivityStudents } from '@/api/work/activity'
 
 const STATUS_MAP = { '0': '进行中', '1': '已结束', '2': '草稿' }
 const STU_STATUS_MAP = { '0': '已报名', '1': '已参与', '2': '已弃权' }

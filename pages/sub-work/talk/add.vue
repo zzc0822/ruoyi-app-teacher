@@ -46,7 +46,7 @@
       <!-- 标签输入框 -->
       <view class="tag-input-box">
         <view class="tag-list" v-if="form.studentList.length > 0">
-          <view class="tag-item" v-for="(stu, idx) in form.studentList" :key="stu.xh + '-' + idx">
+          <view class="tag-item" v-for="(stu, idx) in form.studentList" :key="idx">
             <text class="tag-name">{{ stu.studentName }}</text>
             <text v-if="stu.violationType === 'late'" class="tag-vi vi-late">迟</text>
             <text v-else-if="stu.violationType === 'early_leave'" class="tag-vi vi-early">退</text>
@@ -169,8 +169,8 @@
 </template>
 
 <script>
-import { addTalk, updateTalk, getTalk, getMyStudents, getViolationStudents, getTalkAttachments, getDeadlineConfig } from '@/api/stumanage/talk'
-import { getClassCheck } from '@/api/stumanage/classcheck'
+import { addTalk, updateTalk, getTalk, getMyStudents, getViolationStudents, getTalkAttachments, getDeadlineConfig } from '@/api/work/talk'
+import { getClassCheck } from '@/api/work/classcheck'
 import upload from '@/utils/upload'
 import config from '@/config'
 import { chooseLocation } from '@/utils/common'

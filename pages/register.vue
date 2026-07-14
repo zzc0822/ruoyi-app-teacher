@@ -36,7 +36,7 @@
 </template>
 
 <script>
-  import { getCodeImg, register } from '@/api/login'
+  import { getCodeImg, register } from '@/api/auth'
 
   export default {
     data() {

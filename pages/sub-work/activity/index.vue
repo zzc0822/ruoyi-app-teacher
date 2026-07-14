@@ -93,7 +93,7 @@
 </template>
 
 <script>
-import { listActivity } from '@/api/stumanage/activity'
+import { listActivity } from '@/api/work/activity'
 
 const STATUS_MAP = { '0': '进行中', '1': '已结束', '2': '草稿' }
 const CATEGORY_MAP = {

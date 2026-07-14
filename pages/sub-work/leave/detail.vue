@@ -144,7 +144,7 @@
           <text class="attach-count">{{ detail.leaveAttachmentList.length }}张</text>
         </view>
         <view class="attach-grid">
-          <view class="attach-thumb-wrap" v-for="(att, ai) in detail.leaveAttachmentList" :key="'l'+ai" @click="previewPhoto('leave', ai)">
+          <view class="attach-thumb-wrap" v-for="(att, ai) in detail.leaveAttachmentList" :key="ai" @click="previewPhoto('leave', ai)">
             <image :src="getAttachSrc(att)" mode="aspectFill" class="attach-thumb"></image>
           </view>
         </view>
@@ -158,7 +158,7 @@
           <text class="attach-count">{{ detail.returnAttachmentList.length }}张</text>
         </view>
         <view class="attach-grid">
-          <view class="attach-thumb-wrap" v-for="(att, ai) in detail.returnAttachmentList" :key="'r'+ai" @click="previewPhoto('return', ai)">
+          <view class="attach-thumb-wrap" v-for="(att, ai) in detail.returnAttachmentList" :key="ai" @click="previewPhoto('return', ai)">
             <image :src="getAttachSrc(att)" mode="aspectFill" class="attach-thumb"></image>
           </view>
         </view>
@@ -179,7 +179,7 @@
 </template>
 
 <script>
-import { getLeave, approvalLeave } from '@/api/stumanage/leave'
+import { getLeave, approvalLeave } from '@/api/work/leave'
 import config from '@/config'
 
 export default {

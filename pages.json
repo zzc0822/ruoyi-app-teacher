@@ -65,6 +65,46 @@
       "style": {
         "navigationBarTitleText": "关于我们"
       }
+    }, {
+      "path": "party/index",
+      "style": {
+        "navigationBarTitleText": "我的党务"
+      }
+    }, {
+      "path": "party/progress",
+      "style": {
+        "navigationBarTitleText": "发展过程"
+      }
+    }, {
+      "path": "party/thought",
+      "style": {
+        "navigationBarTitleText": "思想汇报"
+      }
+    }, {
+      "path": "party/thoughtAdd",
+      "style": {
+        "navigationBarTitleText": "提交思想汇报"
+      }
+    }, {
+      "path": "party/training",
+      "style": {
+        "navigationBarTitleText": "培训记录"
+      }
+    }, {
+      "path": "party/fee",
+      "style": {
+        "navigationBarTitleText": "党费记录"
+      }
+    }, {
+      "path": "party/application",
+      "style": {
+        "navigationBarTitleText": "入党申请书"
+      }
+    }, {
+      "path": "party/orgInfo",
+      "style": {
+        "navigationBarTitleText": "组织信息"
+      }
     }]
   }, {
     "root": "pages/sub-work",
@@ -109,6 +149,62 @@
         "navigationBarTitleText": "抽查确认"
       }
     }, {
+      "path": "rollcall/index",
+      "style": {
+        "navigationBarTitleText": "课堂点名"
+      }
+    }, {
+      "path": "attendance-summary/index",
+      "style": {
+        "navigationBarTitleText": "考勤汇总",
+        "enablePullDownRefresh": true
+      }
+    }, {
+      "path": "attendance-summary/detail",
+      "style": {
+        "navigationBarTitleText": "考勤详情"
+      }
+    }, {
+      "path": "vehicle/index",
+      "style": {
+        "navigationBarTitleText": "车辆登记"
+      }
+    }, {
+      "path": "vehicle/add",
+      "style": {
+        "navigationBarTitleText": "新增车辆登记"
+      }
+    }, {
+      "path": "vehicle/verify",
+      "style": {
+        "navigationBarTitleText": "现场核实"
+      }
+    }, {
+      "path": "vehicle/detail",
+      "style": {
+        "navigationBarTitleText": "车辆详情"
+      }
+    }, {
+      "path": "offcampus/index",
+      "style": {
+        "navigationBarTitleText": "外宿申请"
+      }
+    }, {
+      "path": "offcampus/add",
+      "style": {
+        "navigationBarTitleText": "新增外宿申请"
+      }
+    }, {
+      "path": "offcampus/verify",
+      "style": {
+        "navigationBarTitleText": "外宿现场核实"
+      }
+    }, {
+      "path": "offcampus/detail",
+      "style": {
+        "navigationBarTitleText": "外宿申请详情"
+      }
+    }, {
       "path": "leave/index",
       "style": {
         "navigationBarTitleText": "请假审批"
@@ -124,6 +220,11 @@
         "navigationBarTitleText": "待办事项"
       }
     }, {
+      "path": "schedule/index",
+      "style": {
+        "navigationBarTitleText": "我的课表"
+      }
+    }, {
       "path": "activity/index",
       "style": {
         "navigationBarTitleText": "活动管理"
@@ -133,66 +234,51 @@
       "style": {
         "navigationBarTitleText": "活动详情"
       }
-    }]
-  }, {
-    "root": "pages/sub-mine/party",
-    "pages": [{
-      "path": "index",
-      "style": {
-        "navigationBarTitleText": "我的党务"
-      }
     }, {
-      "path": "progress",
-      "style": {
-        "navigationBarTitleText": "发展进度"
-      }
-    }, {
-      "path": "thought",
-      "style": {
-        "navigationBarTitleText": "思想汇报"
-      }
-    }, {
-      "path": "thoughtAdd",
-      "style": {
-        "navigationBarTitleText": "提交思想汇报"
-      }
-    }, {
-      "path": "training",
-      "style": {
-        "navigationBarTitleText": "培训记录"
-      }
-    }, {
-      "path": "fee",
-      "style": {
-        "navigationBarTitleText": "党费记录"
-      }
-    }, {
-      "path": "application",
-      "style": {
-        "navigationBarTitleText": "入党申请书"
-      }
-    }, {
-      "path": "orgInfo",
-      "style": {
-        "navigationBarTitleText": "组织信息"
-      }
-    }]
-  }, {
-    "root": "pages/sub-work/party",
-    "pages": [{
-      "path": "index",
+      "path": "party/index",
       "style": {
         "navigationBarTitleText": "党务管理"
       }
     }, {
-      "path": "members",
+      "path": "party/members",
       "style": {
         "navigationBarTitleText": "党员列表"
       }
     }, {
-      "path": "memberDetail",
+      "path": "party/memberDetail",
       "style": {
         "navigationBarTitleText": "党员详情"
+      }
+    }, {
+      "path": "stats/index",
+      "style": {
+        "navigationBarTitleText": "综合统计"
+      }
+    }, {
+      "path": "headteacher/index",
+      "style": {
+        "navigationBarTitleText": "班主任工作台"
+      }
+    }, {
+      "path": "headteacher/class-detail",
+      "style": {
+        "navigationBarTitleText": "班级详情"
+      }
+    }, {
+      "path": "headteacher/worklog-list",
+      "style": {
+        "navigationBarTitleText": "工作记录"
+      }
+    }, {
+      "path": "headteacher/worklog-add",
+      "style": {
+        "navigationBarTitleText": "新增工作记录"
+      }
+    },
+    {
+      "path": "headteacher/certificate",
+      "style": {
+        "navigationBarTitleText": "班主任工作证明"
       }
     }]
   }, {

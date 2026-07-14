@@ -1,0 +1,8 @@
+schema_version: 1
+module_path: pages/sub_work
+title: 学工管理子应用页面集（活动/查课/请假/党务/学生信息/谈心/待办）
+scope:
+    - pages/sub-work/
+source_files: []
+depends_on: []
+related_to: []

@@ -26,6 +26,7 @@
           <view class="info-row"><text class="label">所属支部：</text><text>{{ member.branchName || '—' }}</text></view>
           <view class="info-row"><text class="label">递交申请：</text><text>{{ formatDate(member.applyDate) }}</text></view>
           <view class="info-row"><text class="label">当前状态：</text><text>{{ statusLabel(member.stageStatus) }}</text></view>
+          <view class="info-row"><text class="label">党费缴纳：</text><text :class="lastFeePaid ? 'fee-paid' : 'fee-unpaid'">{{ lastFeeText }}</text></view>
         </view>
       </view>
 
@@ -50,17 +51,9 @@
           <u-icon name="home" size="40" color="#409EFF"></u-icon>
           <text class="menu-text">组织信息</text>
         </view>
-        <view class="menu-item" @click="goTo('/pages/sub-mine/party/application')">
-          <u-icon name="file-text" size="40" color="#E6A23C"></u-icon>
-          <text class="menu-text">入党申请书</text>
-        </view>
         <view class="menu-item" @click="goTo('/pages/sub-mine/party/progress')">
           <u-icon name="list" size="40" color="#67C23A"></u-icon>
-          <text class="menu-text">发展进度</text>
-        </view>
-        <view class="menu-item" @click="goTo('/pages/sub-mine/party/thought')">
-          <u-icon name="edit-pen" size="40" color="#909399"></u-icon>
-          <text class="menu-text">思想汇报</text>
+          <text class="menu-text">发展过程</text>
         </view>
         <view class="menu-item" @click="goTo('/pages/sub-mine/party/training')">
           <u-icon name="read" size="40" color="#F56C6C"></u-icon>
@@ -76,7 +69,7 @@
 </template>
 
 <script>
-import partyApi from '@/api/party'
+import partyApi from '@/api/party/party'
 
 const stageMap = { APPLICANT: '入党申请人', ACTIVIST: '积极分子', TARGET: '发展对象', PROBATIONARY: '预备党员', FORMAL: '正式党员' }
 
@@ -85,7 +78,9 @@ export default {
     return {
       hasPartyRecord: false,
       member: {},
-      branch: null
+      branch: null,
+      lastFeeText: '—',
+      lastFeePaid: false
     }
   },
   onLoad() { this.loadInfo() },
@@ -101,16 +96,70 @@ export default {
     loadInfo() {
       uni.showLoading({ title: '加载中...' })
       partyApi.myInfo().then(res => {
-        uni.hideLoading()
         const data = res.data || {}
         if (data.hasPartyRecord) {
           this.hasPartyRecord = true
           this.member = data.member || {}
           this.branch = data.branch || null
+          this.loadFeeInfo()
+          uni.hideLoading()
         } else {
-          this.hasPartyRecord = false
+          // 学生API无记录，尝试教师API
+          return partyApi.teacherInfo().then(res2 => {
+            const data2 = res2.data || {}
+            if (data2.hasPartyRecord) {
+              this.hasPartyRecord = true
+              this.member = data2.member || {}
+              this.branch = data2.branch || null
+              this.loadFeeInfo()
+            } else {
+              this.hasPartyRecord = false
+            }
+          })
         }
-      }).catch(() => { uni.hideLoading() })
+      }).catch(() => {
+        // 学生API失败，尝试教师API
+        partyApi.teacherInfo().then(res2 => {
+          const data2 = res2.data || {}
+          if (data2.hasPartyRecord) {
+            this.hasPartyRecord = true
+            this.member = data2.member || {}
+            this.branch = data2.branch || null
+            this.loadFeeInfo()
+          } else {
+            this.hasPartyRecord = false
+          }
+        }).catch(() => {})
+      }).finally(() => { uni.hideLoading() })
+    },
+    loadFeeInfo() {
+      partyApi.myFees().then(res => {
+        let fees = res.data || []
+        if (fees.length === 0) {
+          partyApi.teacherFeeList().then(res2 => { fees = res2.data || []; this.updateFeeText(fees) })
+        } else {
+          this.updateFeeText(fees)
+        }
+      }).catch(() => {
+        partyApi.teacherFeeList().then(res2 => { this.updateFeeText(res2.data || []) }).catch(() => {})
+      })
+    },
+    updateFeeText(fees) {
+      if (!fees || fees.length === 0) {
+        this.lastFeeText = '暂无记录'
+        this.lastFeePaid = false
+        return
+      }
+      // 找最近一条已缴记录
+      const paidFees = fees.filter(f => f.payStatus === '1')
+      if (paidFees.length > 0) {
+        const latest = paidFees.sort((a, b) => (b.feeYear || 0) - (a.feeYear || 0) || (b.feeMonth || 0) - (a.feeMonth || 0))[0]
+        this.lastFeeText = '最近已缴 ' + latest.feeYear + '年' + latest.feeMonth + '月'
+        this.lastFeePaid = true
+      } else {
+        this.lastFeeText = '未缴'
+        this.lastFeePaid = false
+      }
     },
     goTo(url) { uni.navigateTo({ url }) }
   }
@@ -141,6 +190,8 @@ export default {
 .info-row { display: flex; padding: 10rpx 0; font-size: 28rpx; }
 .label { color: #909399; width: 160rpx; flex-shrink: 0; }
 .highlight { color: #E6A23C; font-weight: 500; }
+.fee-paid { color: #67C23A; font-weight: 500; }
+.fee-unpaid { color: #F56C6C; font-weight: 500; }
 
 .section-card { background: #fff; border-radius: 16rpx; padding: 24rpx 30rpx; margin-bottom: 24rpx; box-shadow: 0 2rpx 12rpx rgba(0,0,0,0.06); }
 .section-title { font-size: 30rpx; font-weight: bold; color: #303133; margin-bottom: 16rpx; display: block; }

@@ -7,7 +7,7 @@ import {
 
 import {
 	wxampLoginApi
-} from '@/api/login.js'
+} from '@/api/auth/index.js'
 
 export function wxampLogin(code) {
 	return new Promise((resolve, reject) => {

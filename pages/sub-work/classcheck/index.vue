@@ -225,9 +225,9 @@
 </template>
 
 <script>
-import { listClassCheck, getClassCheckStats, getMyClasses } from '@/api/stumanage/classcheck'
-import { getTodaySchedules } from '@/api/stumanage/schedule'
-import { getStatsByCounselor } from '@/api/stumanage/stats'
+import { listClassCheck, getClassCheckStats, getMyClasses } from '@/api/work/classcheck'
+import { getTodaySchedules } from '@/api/work/schedule'
+import { getStatsByCounselor } from '@/api/student/stats'
 import { isSecretary } from '@/utils/role'
 import config from '@/config'
 
@@ -525,7 +525,7 @@ export default {
             const classCount = stat.classCount || 0
             return {
               zydm: m.zydm,
-              zymc: m.zyname || m.zymc || m.zydm,
+              majorName: m.majorName || m.zyname || m.zymc || m.zydm,
               studentCount,
               maleCount,
               femaleCount,
@@ -776,7 +776,7 @@ export default {
         // 按查课次数排序
         this.counselorStats = data
           .map(item => ({
-            fdyName: item.fdyName || item.fdyname || '未知辅导员',
+            fdyName: item.counselorName || item.fdyName || item.fdyname || '未知辅导员',
             checkCount: item.checkCount || 0
           }))
           .sort((a, b) => b.checkCount - a.checkCount)

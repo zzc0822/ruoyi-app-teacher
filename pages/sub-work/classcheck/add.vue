@@ -152,11 +152,11 @@
 </template>
 
 <script>
-import { getMyClasses, getClassStudents, addClassCheck, updateClassCheck, getClassCheck, checkDuplicate } from '@/api/stumanage/classcheck'
-import { listClassinfo } from '@/api/stumanage/classinfo'
-import { listLeave } from '@/api/stumanage/leave'
-import { getMajorList } from '@/api/stumanage/stats'
-import { getTeacherinfoByUserId } from '@/api/stumanage/teacherinfo'
+import { getMyClasses, getClassStudents, addClassCheck, updateClassCheck, getClassCheck, checkDuplicate } from '@/api/work/classcheck'
+import { listClassinfo } from '@/api/work/classinfo'
+import { listLeave } from '@/api/work/leave'
+import { getMajorList } from '@/api/student/stats'
+import { getTeacherinfoByUserId } from '@/api/work/teacherinfo'
 import upload from '@/utils/upload'
 import request from '@/utils/request'
 import config from '@/config'
@@ -188,6 +188,8 @@ export default {
       leaveXhSet: [],  // 请假学生学号集合
       clickMap: {},     // { xh: 点击次数 } 0=到课, 1=迟到, 2=早退, 3+=旷课
       lessonIndex: 0,
+      // 从后端加载的课节时间
+      sectionTimes: [],
       form: {
         bjdm: '',
         bjmc: '',
@@ -218,7 +220,8 @@ export default {
   },
   computed: {
     lessonLabels() {
-      return LESSON_TIMES.map((l, i) => `第${i + 1}节 ${l.start}`)
+      const times = this.sectionTimes.length > 0 ? this.sectionTimes : FALLBACK_TIMES
+      return times.map((l, i) => `第${i + 1}节 ${l.start}`)
     },
     selectedClassName() {
       const cls = this.classList.find(c => c.bjdm === this.form.bjdm)
@@ -244,7 +247,7 @@ export default {
     // 选中的专业名称
     selectedMajorName() {
       const major = this.majorList.find(m => m.zydm === this.filterForm.zydm)
-      return major ? major.zymc : ''
+      return major ? major.majorName : ''
     },
     leaveCount() {
       return this.leaveXhSet.length
@@ -265,6 +268,7 @@ export default {
   },
   onLoad(options) {
     this.checkRole()
+    this.loadScheduleTimes()
     this.initDateTime()
     
     // 加载班级列表（内部会根据角色自动加载筛选选项）
@@ -370,10 +374,10 @@ export default {
       this.classList.forEach(cls => {
         // 专业 - 尝试多种字段名
         const zydm = cls.zydm || cls.majorCode || ''
-        const zymc = cls.zymc || cls.majorName || cls.zyname || ''
+        const majorName = cls.majorName || cls.zymc || cls.zyname || ''
             
-        if (zydm && zymc) {
-          majorMap[zydm] = zymc
+        if (zydm && majorName) {
+          majorMap[zydm] = majorName
         }
             
         // 年级 - 尝试多种字段名
@@ -390,9 +394,9 @@ export default {
           
       this.majorList = Object.keys(majorMap).map(zydm => ({
         zydm,
-        zymc: majorMap[zydm]
+        majorName: majorMap[zydm]
       }))
-      this.majorNames = ['全部专业', ...this.majorList.map(m => m.zymc)]
+      this.majorNames = ['全部专业', ...this.majorList.map(m => m.majorName)]
           
       // 排序年级并添加“全部年级”
       this.gradeOptions = ['全部年级', ...Array.from(gradeSet).sort((a, b) => b.localeCompare(a))]
@@ -430,21 +434,39 @@ export default {
           if (res.code === 200 && res.data) {
             this.majorList = res.data.map(m => ({
               zydm: m.zydm,
-              zymc: m.zyname || m.zymc || m.zydm
+              majorName: m.majorName || m.zyname || m.zymc || m.zydm
             }))
-            this.majorNames = ['全部专业', ...this.majorList.map(m => m.zymc)]
+            this.majorNames = ['全部专业', ...this.majorList.map(m => m.majorName)]
           }
         }).catch(() => {})
       }
+    },
+    // 从后端加载作息时间
+    loadScheduleTimes() {
+      const now = new Date()
+      const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+      getActiveSchedule(todayStr).then(res => {
+        const scheme = res.data
+        if (scheme && scheme.detailList && scheme.detailList.length > 0) {
+          const sorted = scheme.detailList.sort((a, b) => Number(a.lessonNo) - Number(b.lessonNo))
+          this.sectionTimes = sorted.map(d => ({
+            start: d.startTime,
+            end: d.endTime
+          }))
+        }
+      }).catch(() => {
+        this.sectionTimes = []
+      })
     },
     // 根据当前时间自动设置日期和课节
     initDateTime() {
       const now = new Date()
       this.form.checkDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+      const times = this.sectionTimes.length > 0 ? this.sectionTimes : FALLBACK_TIMES
       const nowMin = now.getHours() * 60 + now.getMinutes()
       let lessonIdx = 0
-      for (let i = 0; i < LESSON_TIMES.length; i++) {
-        const [h, m] = LESSON_TIMES[i].start.split(':').map(Number)
+      for (let i = 0; i < times.length; i++) {
+        const [h, m] = times[i].start.split(':').map(Number)
         if (nowMin >= h * 60 + m) {
           lessonIdx = i
         }
@@ -477,9 +499,9 @@ export default {
             if (majorRes.code === 200 && majorRes.data) {
               this.majorList = majorRes.data.map(m => ({
                 zydm: m.zydm,
-                zymc: m.zyname || m.zymc || m.zydm
+                majorName: m.majorName || m.zyname || m.zymc || m.zydm
               }))
-              this.majorNames = ['全部专业', ...this.majorList.map(m => m.zymc)]
+              this.majorNames = ['全部专业', ...this.majorList.map(m => m.majorName)]
             }
                 
             // 加载班级列表

@@ -119,3 +119,45 @@ export function chooseLocation(options = {}) {
     })
   })
 }
+
+/**
+ * 班级名称生成简称
+ * 规则：保留年份、专业简称、层级、类型、班号
+ * 例：'22软件工程技术本1班' → '22软工本1班'
+ */
+const MAJOR_ABBR_MAP = {
+  '软件工程技术': '软工',
+  '网络工程技术': '网工',
+  '数字媒体技术': '数媒',
+  '计算机应用技术': '计应',
+  '动漫制作技术': '动漫',
+  '软件技术': '软技',
+  '大数据技术': '大数据',
+  '人工智能技术': 'AI',
+  '云计算技术': '云计',
+  '信息安全技术': '信安',
+  '物联网应用技术': '物联',
+  '卓越工程师': '卓越',
+  '软件精英': '软英',
+  '软件卓越': '软卓'
+}
+
+export function getClassShortName(className) {
+  if (!className) return ''
+  // 尝试匹配完整格式：22软件工程技术本1班
+  const match = className.match(/^(\d{2})(.+?)([本专]?)([A-Z]?)(\d+)班$/)
+  if (match) {
+    const [, year, major, level, type, num] = match
+    // 查找专业简称
+    let abbr = major
+    for (const [full, short] of Object.entries(MAJOR_ABBR_MAP)) {
+      if (major === full || major.startsWith(full)) {
+        abbr = short
+        break
+      }
+    }
+    return year + abbr + level + type + num + '班'
+  }
+  // 无法匹配则返回原名
+  return className
+}

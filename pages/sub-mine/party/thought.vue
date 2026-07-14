@@ -21,13 +21,21 @@
 </template>
 
 <script>
-import partyApi from '@/api/party'
+import partyApi from '@/api/party/party'
 export default {
   data() { return { list: [] } },
   onShow() { this.loadData() },
   methods: {
     loadData() {
-      partyApi.myThoughtReports().then(res => { this.list = res.data || [] })
+      partyApi.myThoughtReports().then(res => {
+        this.list = res.data || []
+        if (this.list.length === 0) {
+          // 尝试教师API
+          partyApi.teacherThoughtReportList().then(res2 => { this.list = res2.data || [] })
+        }
+      }).catch(() => {
+        partyApi.teacherThoughtReportList().then(res2 => { this.list = res2.data || [] }).catch(() => {})
+      })
     },
     goAdd() { uni.navigateTo({ url: '/pages/sub-mine/party/thoughtAdd' }) }
   }

@@ -1,0 +1,8 @@
+schema_version: 1
+module_path: pages/sub_mine
+title: 个人中心子应用（sub-mine）
+scope:
+    - pages/sub-mine/
+source_files: []
+depends_on: []
+related_to: []

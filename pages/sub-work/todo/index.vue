@@ -40,10 +40,16 @@
           <text class="day-number">{{ date.day }}</text>
           <view class="day-dots">
             <view
-              v-for="(todo, idx) in date.todos.slice(0, 3)"
-              :key="idx"
+              v-for="(todo, idx) in date.todos.slice(0, 2)"
+              :key="'t'+idx"
               class="day-dot"
               :style="{ backgroundColor: getTodoDotColor(todo) }"
+            ></view>
+            <view
+              v-for="(course, idx) in date.courses.slice(0, 1)"
+              :key="'c'+idx"
+              class="day-dot"
+              :style="{ backgroundColor: getCourseDotColor() }"
             ></view>
           </view>
         </view>
@@ -53,7 +59,7 @@
       <view class="selected-date-todos">
         <view class="selected-date-header">
           <text class="selected-date-title">{{ formatSelectedDate }}</text>
-          <text class="selected-date-count">{{ selectedDateTodos.length }} 条待办</text>
+          <text class="selected-date-count">{{ selectedDateTodos.length }} 条</text>
         </view>
         <scroll-view scroll-y class="date-todo-scroll">
           <view
@@ -71,7 +77,7 @@
             <text class="todo-type-tag" :class="'tag-' + (todo.todoType || 'default')">{{ formatTodoType(todo.todoType) }}</text>
           </view>
           <view v-if="selectedDateTodos.length === 0" class="empty-date">
-            <text>当天暂无待办</text>
+            <text>当天暂无待办和课程</text>
           </view>
         </scroll-view>
       </view>
@@ -221,7 +227,8 @@
 </template>
 
 <script>
-import { listTodo, getUnreadCount, markRead } from '@/api/stumanage/todo'
+import { listTodo, getUnreadCount, markRead } from '@/api/work/todo'
+import { getMySchedule } from '@/api/work/schedule'
 
 export default {
   data() {
@@ -262,7 +269,11 @@ export default {
         { label: '日常谈心', value: 'talk_daily' },
         { label: '查课谈话', value: 'classcheck_talk' },
         { label: '抽查待确认', value: 'classcheck_confirm' }
-      ]
+      ],
+      // 课表相关
+      myScheduleList: [],
+      isTeacher: false,
+      displayList: []
     }
   },
   computed: {
@@ -353,6 +364,7 @@ export default {
   onShow() {
     this.getList()
     this.getUnread()
+    this.loadMySchedule()
   },
   methods: {
     getList() {
@@ -360,6 +372,7 @@ export default {
       this.loadStatus = 'loading'
       listTodo().then(res => {
         this.list = res.data || []
+        this.syncCoursesToList()
         this.loadStatus = 'noMore'
         this.loading = false
       }).catch(() => {
@@ -392,13 +405,23 @@ export default {
           day: date.getDate(),
           isCurrentMonth: date.getMonth() === month,
           isToday: fullDate === this.todayStr,
-          todos: this.getTodosByDate(fullDate)
+          todos: this.getTodosByDate(fullDate),
+          courses: this.getCoursesByDate(fullDate)
         })
       }
       return days
     },
     getTodosByDate(dateStr) {
-      return this.list.filter(item => this.getTodoDate(item) === dateStr)
+      const todos = this.list.filter(item => this.getTodoDate(item) === dateStr)
+      return todos
+    },
+    // 获取某天的课程
+    getCoursesByDate(dateStr) {
+      if (!this.isTeacher || !this.myScheduleList.length) return []
+      const d = new Date(dateStr.replace(/-/g, '/'))
+      const jsDay = d.getDay()
+      const weekday = jsDay === 0 ? 7 : jsDay
+      return this.myScheduleList.filter(c => Number(c.weekday) === weekday)
     },
     getTodoDate(todo) {
       const timeStr = todo.deadline || todo.startTime || todo.createTime
@@ -422,15 +445,66 @@ export default {
     },
     selectDate(date) {
       this.selectedDate = date
+      this.syncCoursesToList()
+    },
+    syncCoursesToList() {
+      // 移除旧的课程项
+      this.list = this.list.filter(item => !item._isCourse)
+      // 添加当前选中日期对应的课程项
+      if (this.isTeacher && this.myScheduleList.length) {
+        const d = new Date(this.selectedDate.replace(/-/g, '/'))
+        const jsDay = d.getDay()
+        const weekday = jsDay === 0 ? 7 : jsDay
+        const courses = this.myScheduleList.filter(c => Number(c.weekday) === weekday)
+        courses.forEach(c => {
+          this.list.unshift({
+            id: 'course_' + c.scheduleId,
+            title: '📚 ' + c.courseName,
+            todoType: 'schedule',
+            status: '0',
+            allDay: '1',
+            startTime: this.selectedDate + ' 08:00:00',
+            _courseInfo: c.startSection + '-' + c.endSection + '节 · ' + c.className + ' · ' + (c.classroom || '待定'),
+            scheduleId: c.scheduleId,
+            _isCourse: true
+          })
+        })
+      }
+    },
+    // 加载课表
+    loadMySchedule() {
+      getMySchedule().then(res => {
+        const data = res.data || {}
+        if (Array.isArray(data)) {
+          this.myScheduleList = data
+          this.isTeacher = data.length > 0
+        } else {
+          this.myScheduleList = data.scheduleList || []
+          this.isTeacher = data.isTeacher === true || this.myScheduleList.length > 0
+        }
+        this.syncCoursesToList()
+      }).catch(() => {
+        this.myScheduleList = []
+        this.isTeacher = false
+      })
+    },
+    // 获取课程圆点颜色
+    getCourseDotColor() {
+      return '#667eea'
     },
     formatEventTime(todo) {
-      if (todo.allDay === '1') return '全天'
+      if (todo.allDay === '1') return todo._courseInfo || '全天'
       const start = todo.startTime ? todo.startTime.substring(11, 16) : ''
       if (start) return start
       if (todo.deadline) return '截止 ' + todo.deadline.substring(11, 16)
       return ''
     },
     handleTodo(item) {
+      // 课程项不处理待办操作
+      if (item._isCourse || item.todoType === 'schedule') {
+        uni.showToast({ title: '点击查看课表详情', icon: 'none' })
+        return
+      }
       if (item.isRead !== '1') {
         markRead(item.id).then(() => {
           item.isRead = '1'
@@ -542,8 +616,8 @@ export default {
 .day-cell.today { background: #e3f2fd; }
 .day-cell.selected { background: #2979ff; color: #fff; }
 .day-number { font-size: 28rpx; font-weight: bold; }
-.day-dots { display: flex; gap: 4rpx; margin-top: 6rpx; }
-.day-dot { width: 8rpx; height: 8rpx; border-radius: 50%; }
+.day-dots { display: flex; gap: 6rpx; margin-top: 8rpx; min-height: 12rpx; }
+.day-dot { width: 12rpx; height: 12rpx; border-radius: 50%; }
 
 .selected-date-todos { flex: 1; border-top: 1rpx solid #f0f0f0; padding: 20rpx; display: flex; flex-direction: column; }
 .selected-date-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16rpx; }

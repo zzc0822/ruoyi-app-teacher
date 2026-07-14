@@ -30,7 +30,7 @@
 </template>
 
 <script>
-import partyApi from '@/api/party'
+import partyApi from '@/api/party/party'
 export default {
   data() { return { list: [] } },
   onLoad() {

@@ -34,6 +34,47 @@
       </view>
     </view>
 
+    <!-- 我的待办 -->
+    <view class="func-section" v-if="todoList.length > 0">
+      <view class="section-header" @click="goTodo">
+        <text class="section-title">我的待办</text>
+        <view class="section-more">
+          <text class="section-more-text">共 {{ todoList.length }} 条</text>
+          <uni-icons type="right" size="14" color="#999"></uni-icons>
+        </view>
+      </view>
+      <view class="todo-list">
+        <view class="todo-item" v-for="item in todoList.slice(0, 5)" :key="item.id" @click="goTodo">
+          <view class="todo-item-left">
+            <view class="todo-type-dot" :style="{ backgroundColor: getTodoColor(item.todoType) }"></view>
+            <view class="todo-item-info">
+              <text class="todo-item-title">{{ item.title }}</text>
+              <text class="todo-item-time">{{ formatTodoTime(item) }}</text>
+            </view>
+          </view>
+          <text class="todo-type-label">{{ formatTodoType(item.todoType) }}</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 教学管理（可折叠九宫格） -->
+    <view class="func-section">
+      <view class="section-header" @click="toggleTeachingSection">
+        <text class="section-title">教学管理</text>
+        <view class="collapse-arrow">
+          <uni-icons :type="teachingCollapsed ? 'down' : 'up'" size="18" color="#999"></uni-icons>
+        </view>
+      </view>
+      <view class="func-grid" v-if="!teachingCollapsed">
+        <view class="func-item" v-for="item in teachingFuncs" :key="item.key" @click="onFuncClick(item)">
+          <view :class="['func-icon', 'icon-' + item.color]">
+            <uni-icons :type="item.icon" size="26" color="#fff"></uni-icons>
+          </view>
+          <text class="func-name">{{ item.name }}</text>
+        </view>
+      </view>
+    </view>
+
     <!-- 学生管理（可折叠九宫格） -->
     <view class="func-section">
       <view class="section-header" @click="toggleStudentSection">
@@ -55,13 +96,13 @@
 </template>
 
 <script>
-import { getUnreadCount } from '@/api/stumanage/todo'
-import { listStuinfo } from '@/api/stumanage/stuinfo'
-import { listClassCheck } from '@/api/stumanage/classcheck'
+import { getUnreadCount, listTodo } from '@/api/work/todo'
+import { listStuinfo } from '@/api/student/stuinfo'
+import { listClassCheck } from '@/api/work/classcheck'
 import { getRoleViewConfig } from '@/utils/roleViewConfig'
-import { getWorkStats } from '@/api/stumanage/workstats'
-import { getRandomQuote } from '@/api/stumanage/workquote'
-import { listActivity } from '@/api/stumanage/activity'
+import { getWorkStats } from '@/api/student/workstats'
+import { getRandomQuote } from '@/api/work/workquote'
+import { listActivity } from '@/api/work/activity'
 
 // 全量功能定义
 const ALL_FUNCS = [
@@ -70,7 +111,11 @@ const ALL_FUNCS = [
   { key: 'talk', name: '谈心谈话', icon: 'chat-filled', color: 'orange', url: '/pages/sub-work/talk/index' },
   { key: 'leave', name: '请假管理', icon: 'paperplane-filled', color: 'red', url: '/pages/sub-work/leave/index' },
   { key: 'todo', name: '待办事项', icon: 'flag-filled', color: 'purple', url: '/pages/sub-work/todo/index' },
-  { key: 'party', name: '党务管理', icon: 'star-filled', color: 'red', url: '/pages/sub-work/party/index' }
+  { key: 'party', name: '党务管理', icon: 'star-filled', color: 'red', url: '/pages/sub-work/party/index' },
+  { key: 'vehicle', name: '车辆登记', icon: 'car', color: 'cyan', url: '/pages/sub-work/vehicle/index' },
+  { key: 'offcampus', name: '外宿管理', icon: 'home', color: 'purple', url: '/pages/sub-work/offcampus/index' },
+  { key: 'stats', name: '综合统计', icon: 'bars', color: 'blue', url: '/pages/sub-work/stats/index' },
+  { key: 'headteacher', name: '班主任', icon: 'staff-filled', color: 'green', url: '/pages/sub-work/headteacher/index' }
 ]
 
 // 默认常用功能 key
@@ -89,6 +134,7 @@ export default {
       unreadCount: 0,
       editingCommon: false,
       studentCollapsed: false,
+      teachingCollapsed: false,
       commonKeys: [],
       // 书记角色相关
       isSecretaryRole: true,
@@ -100,6 +146,7 @@ export default {
         activityCount: '--'
       },
       pendingList: [],
+      todoList: [],
       // 学工金句
       workQuote: {
         text: '',
@@ -108,6 +155,14 @@ export default {
     }
   },
   computed: {
+    // 教学管理功能列表
+    teachingFuncs() {
+      return [
+        { key: 'schedule', name: '我的课表', icon: 'calendar', color: 'blue', url: '/pages/sub-work/schedule/index' },
+        { key: 'classcheck', name: '课堂考勤', icon: 'checkbox-filled', color: 'green', url: '/pages/sub-work/classcheck/index' },
+        { key: 'attendance_summary', name: '考勤汇总', icon: 'bars', color: 'orange', url: '/pages/sub-work/attendance-summary/index' }
+      ]
+    },
     allStudentFuncs() {
       // 所有角色都显示全部功能
       return ALL_FUNCS
@@ -140,6 +195,8 @@ export default {
     this.loadUnread()
     // 始终加载汇总数据
     this.loadSummaryData()
+    // 加载待办事项
+    this.loadTodoList()
   },
   methods: {
     // 初始化汇总数据
@@ -301,11 +358,54 @@ export default {
         this.unreadCount = res.data || 0
       }).catch(() => {})
     },
+    // 加载待办事项
+    loadTodoList() {
+      listTodo().then(res => {
+        this.todoList = res.data || []
+      }).catch(() => {
+        this.todoList = []
+      })
+    },
+    // 获取待办类型颜色
+    getTodoColor(type) {
+      const colorMap = {
+        'schedule': '#18bc37', 'meeting': '#2979ff',
+        'leave': '#9c27b0', 'leave_approval': '#9c27b0',
+        'talk_disciplinary': '#e43d33', 'talk_daily': '#00bcd4',
+        'classcheck_talk': '#ff9800', 'classcheck_confirm': '#2979ff'
+      }
+      return colorMap[type] || '#909399'
+    },
+    // 格式化待办类型
+    formatTodoType(val) {
+      const map = {
+        schedule: '日程', meeting: '会议', class_meeting: '班会',
+        leave: '请假审批', leave_approval: '请假审批',
+        talk: '谈话', talk_disciplinary: '违纪谈话', talk_daily: '日常谈心',
+        classcheck_talk: '查课谈话', classcheck_confirm: '抽查待确认'
+      }
+      return map[val] || '待办'
+    },
+    // 格式化待办时间
+    formatTodoTime(item) {
+      const timeStr = item.deadline || item.startTime || item.createTime
+      if (!timeStr) return ''
+      const date = new Date(timeStr.replace(/ /g, 'T'))
+      const now = new Date()
+      const diff = Math.floor((now - date) / (1000 * 60 * 60 * 24))
+      if (diff === 0) return '今天'
+      if (diff === 1) return '昨天'
+      if (diff < 7) return diff + '天前'
+      return (date.getMonth() + 1) + '/' + date.getDate()
+    },
     toggleEditCommon() {
       this.editingCommon = !this.editingCommon
     },
     toggleStudentSection() {
       this.studentCollapsed = !this.studentCollapsed
+    },
+    toggleTeachingSection() {
+      this.teachingCollapsed = !this.teachingCollapsed
     },
     onFuncClick(item) {
       if (this.editingCommon) return
@@ -761,5 +861,83 @@ page {
   padding: 40rpx 0;
   font-size: 26rpx;
   color: #999;
+}
+
+/* 我的待办区域 */
+.section-more {
+  display: flex;
+  align-items: center;
+  gap: 4rpx;
+}
+
+.section-more-text {
+  font-size: 24rpx;
+  color: #999;
+}
+
+.todo-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+}
+
+.todo-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20rpx 16rpx;
+  background: #f8f9fa;
+  border-radius: 12rpx;
+  transition: background 0.2s;
+}
+
+.todo-item:active {
+  background: #f0f2f5;
+}
+
+.todo-item-left {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  overflow: hidden;
+}
+
+.todo-type-dot {
+  width: 14rpx;
+  height: 14rpx;
+  border-radius: 50%;
+  flex-shrink: 0;
+  margin-right: 16rpx;
+}
+
+.todo-item-info {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 6rpx;
+}
+
+.todo-item-title {
+  font-size: 28rpx;
+  color: #333;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.todo-item-time {
+  font-size: 22rpx;
+  color: #999;
+}
+
+.todo-type-label {
+  font-size: 22rpx;
+  color: #fff;
+  padding: 4rpx 16rpx;
+  border-radius: 8rpx;
+  background: #909399;
+  flex-shrink: 0;
+  margin-left: 16rpx;
 }
 </style>

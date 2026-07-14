@@ -1,0 +1,8 @@
+schema_version: 1
+module_path: plugins
+title: Vue 插件与全局能力注入（认证、模态框、页签）
+scope:
+    - plugins/
+source_files: []
+depends_on: []
+related_to: []

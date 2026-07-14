@@ -6,7 +6,7 @@
       <view class="header-info">
         <view class="header-name-row">
           <text class="header-name">{{ stu.studentName || '-' }}</text>
-          <text class="header-gender" :class="stu.gender === '1' ? 'male' : 'female'">{{ formatGender(stu.gender) }}</text>
+          <text class="header-gender" :class="String(stu.gender).trim() === '1' ? 'male' : (String(stu.gender).trim() === '2' ? 'female' : 'unknown')">{{ formatGender(stu.gender) }}</text>
         </view>
         <text class="header-xh">学号：{{ stu.xh || '-' }}</text>
         <text class="header-major">{{ stu.collegeName || '-' }} · {{ stu.majorName || '-' }} · {{ stu.className || '-' }}</text>
@@ -173,7 +173,7 @@
 </template>
 
 <script>
-import { getStuinfoDetail } from '@/api/stumanage/stuinfo'
+import { getStuinfoDetail } from '@/api/student/stuinfo'
 
 export default {
   data() {
@@ -214,9 +214,16 @@ export default {
       this.activeTab = index
     },
     formatGender(gender) {
-      if (gender === '1') return '男'
-      if (gender === '2') return '女'
+      const val = gender == null ? '' : String(gender).trim()
+      if (val === '1') return '男'
+      if (val === '2') return '女'
       return '未知'
+    },
+    genderClass(gender) {
+      const val = gender == null ? '' : String(gender).trim()
+      if (val === '1') return 'male'
+      if (val === '2') return 'female'
+      return 'unknown'
     }
   }
 }

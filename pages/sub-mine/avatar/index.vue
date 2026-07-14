@@ -37,8 +37,8 @@
 
 <script>
   import config from '@/config'
-  import { uploadTeacherPhoto } from '@/api/stumanage/attachment'
-  import { updateMyTeacherinfo, getTeacherinfoByUserId } from '@/api/stumanage/teacherinfo'
+  import { uploadTeacherPhoto } from '@/api/affair/attachment'
+  import { updateMyTeacherinfo, getTeacherinfoByUserId } from '@/api/work/teacherinfo'
   
   export default {
     data() {

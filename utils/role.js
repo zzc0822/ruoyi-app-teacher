@@ -6,6 +6,7 @@
  * - 书记：roleName包含"书记" 或 roleKey包含"secretary"
  * - 管理员：roleName包含"管理员" 或 roleKey包含"admin"
  * - 辅导员：roleName包含"辅导员" 或 roleKey包含"counselor"
+ * - 班主任：roleName包含"班主任" 或 roleKey包含"headteacher"
  */
 
 /**
@@ -98,6 +99,34 @@ export function isCounselor(roles) {
 }
 
 /**
+ * 判断是否为班主任角色
+ * @param {Array} roles - 用户角色列表（可能是字符串数组或对象数组）
+ * @returns {Boolean}
+ */
+export function isHeadteacher(roles) {
+  if (!roles || !Array.isArray(roles) || roles.length === 0) {
+    return false
+  }
+  
+  return roles.some(role => {
+    let roleName = ''
+    let roleKey = ''
+    
+    // 支持字符串数组和对象数组
+    if (typeof role === 'string') {
+      roleKey = role.toLowerCase()
+      roleName = role
+    } else if (typeof role === 'object') {
+      roleName = role.roleName || ''
+      roleKey = (role.roleKey || '').toLowerCase()
+    }
+    
+    // 统一判断：roleName包含"班主任" 或 roleKey包含"headteacher"
+    return roleName.includes('班主任') || roleKey.includes('headteacher')
+  })
+}
+
+/**
  * 判断是否为普通教师角色
  * @param {Array} roles - 用户角色列表
  * @returns {Boolean}
@@ -107,12 +136,12 @@ export function isTeacher(roles) {
     return false
   }
   
-  // 不是书记、不是管理员、不是辅导员，就是普通教师
-  return !isSecretary(roles) && !isAdmin(roles) && !isCounselor(roles)
+  // 不是书记、不是管理员、不是辅导员、不是班主任，就是普通教师
+  return !isSecretary(roles) && !isAdmin(roles) && !isCounselor(roles) && !isHeadteacher(roles)
 }
 
 /**
- * 获取角色类型标识
+ * 获取角色类型标识（仅返回优先级最高的一个）
  * @param {Array} roles - 用户角色列表
  * @returns {String} - 'secretary' | 'counselor' | 'admin' | 'teacher'
  */
@@ -123,6 +152,9 @@ export function getRoleType(roles) {
   if (isCounselor(roles)) {
     return 'counselor'
   }
+  if (isHeadteacher(roles)) {
+    return 'headteacher'
+  }
   if (isAdmin(roles)) {
     return 'admin'
   }
@@ -130,17 +162,37 @@ export function getRoleType(roles) {
 }
 
 /**
- * 获取角色显示名称
+ * 获取所有匹配的角色类型数组（支持多角色）
  * @param {Array} roles - 用户角色列表
- * @returns {String} - 角色显示名称
+ * @returns {Array<String>} - ['secretary', 'counselor', ...] 可能包含多个
+ */
+export function getRoleTypes(roles) {
+  if (!roles || !Array.isArray(roles) || roles.length === 0) {
+    return ['teacher']
+  }
+  const types = []
+  if (isSecretary(roles)) types.push('secretary')
+  if (isCounselor(roles)) types.push('counselor')
+  if (isHeadteacher(roles)) types.push('headteacher')
+  if (isAdmin(roles)) types.push('admin')
+  if (types.length === 0) types.push('teacher')
+  return types
+}
+
+/**
+ * 获取角色显示名称（支持多角色合并显示）
+ * @param {Array} roles - 用户角色列表
+ * @returns {String} - 角色显示名称，如"书记/辅导员"
  */
 export function getRoleDisplayName(roles) {
-  const type = getRoleType(roles)
+  const types = getRoleTypes(roles)
   const roleMap = {
     'secretary': '书记',
     'counselor': '辅导员',
+    'headteacher': '班主任',
     'admin': '管理员',
     'teacher': '教师'
   }
-  return roleMap[type] || '用户'
+  const names = types.map(t => roleMap[t] || t)
+  return names.join('/') || '用户'
 }
