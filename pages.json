@@ -280,6 +280,31 @@
       "style": {
         "navigationBarTitleText": "班主任工作证明"
       }
+    }, {
+      "path": "class-awareness/index",
+      "style": {
+        "navigationBarTitleText": "班情熟知"
+      }
+    }, {
+      "path": "class-awareness/history",
+      "style": {
+        "navigationBarTitleText": "班情熟知记录"
+      }
+    }, {
+      "path": "class-awareness/detail",
+      "style": {
+        "navigationBarTitleText": "答题详情"
+      }
+    }, {
+      "path": "case-analysis/index",
+      "style": {
+        "navigationBarTitleText": "案例研讨训练"
+      }
+    }, {
+      "path": "talk-sim/index",
+      "style": {
+        "navigationBarTitleText": "谈心谈话训练"
+      }
     }]
   }, {
     "root": "pages/common",

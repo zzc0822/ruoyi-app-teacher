@@ -193,8 +193,8 @@
       </view>
     </view>
 
-    <!-- 我的党务入口 -->
-    <view v-if="hasSecretary || hasCounselor" class="menu-section">
+    <!-- 我的党务入口（所有用户可见） -->
+    <view class="menu-section">
       <view class="menu-list">
         <view class="menu-item" @click="goTo('/pages/sub-mine/party/index')">
           <view class="menu-left">
@@ -209,11 +209,11 @@
       </view>
     </view>
 
-    <!-- 无角色提示 -->
+    <!-- 无管理角色提示 -->
     <view v-if="!hasSecretary && !hasCounselor && !loading" class="empty-card">
       <u-icon name="info-circle" size="60" color="#909399"></u-icon>
       <text class="empty-text">暂无党务管理权限</text>
-      <text class="empty-tip">您未担任支部书记或辅导员</text>
+      <text class="empty-tip">您未担任支部书记或辅导员，可查看上方"我的党务"</text>
     </view>
 
     <!-- 加载中 -->
@@ -226,7 +226,6 @@
 
 <script>
 import partyApi from '@/api/party/party'
-import { isSecretary, isCounselor } from '@/utils/role'
 
 export default {
   data() {
@@ -306,18 +305,15 @@ export default {
     orgTypeLabel(t) { return { '1': '党委', '2': '党总支', '3': '党支部' }[t] || '—' },
     async loadData() {
       this.loading = true
-      const roles = this.$store.getters.roles || []
       this.hasSecretary = false
       this.hasCounselor = false
 
       const promises = []
 
-      if (isSecretary(roles)) {
-        promises.push(this.loadSecretaryData())
-      }
-      if (isCounselor(roles)) {
-        promises.push(this.loadCounselorData())
-      }
+      // 不依赖系统角色判断，直接尝试加载，由后端根据 party_branch.secretary_id 判断是否有支部管理权限
+      promises.push(this.loadSecretaryData())
+      // 尝试加载辅导员数据（后端根据带班关系判断）
+      promises.push(this.loadCounselorData())
 
       await Promise.all(promises)
       this.loading = false

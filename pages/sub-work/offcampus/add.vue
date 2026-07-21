@@ -4,8 +4,12 @@
     <view class="form-card">
       <view class="card-title">学生信息</view>
       <view class="form-item">
-        <text class="form-label">学号 <text class="required">*</text></text>
-        <input class="form-input" v-model="form.xh" placeholder="请输入学号" @blur="onXhBlur" />
+        <text class="form-label">选择学生 <text class="required">*</text></text>
+        <student-picker ref="stuPicker" placeholder="输入姓名或学号搜索" @select="onStudentSelect" @clear="onStudentClear"></student-picker>
+      </view>
+      <view class="form-item">
+        <text class="form-label">学号</text>
+        <input class="form-input" v-model="form.xh" placeholder="自动填充" disabled />
       </view>
       <view class="form-item">
         <text class="form-label">学生姓名</text>
@@ -139,10 +143,11 @@
 <script>
 import { addOffcampus } from '@/api/affair/offcampus'
 import { listVehicle } from '@/api/affair/vehicle'
-import { getStuinfoByXh } from '@/api/student/stuinfo'
 import { uploadFile } from '@/utils/upload'
+import studentPicker from '@/components/student-picker/index.vue'
 
 export default {
+  components: { studentPicker },
   computed: {
     selectedVehicleLabel() {
       const v = this.vehicleOptions.find(v => v.value === this.form.vehicleId)
@@ -189,21 +194,23 @@ export default {
         this.form.academicYear = (year - 1) + '-' + year
       }
     },
-    async onXhBlur() {
-      if (!this.form.xh) return
-      try {
-        const res = await getStuinfoByXh(this.form.xh)
-        if (res.data) {
-          this.form.studentName = res.data.studentName || ''
-          this.form.bjdm = res.data.bjdm || ''
-          this.form.className = res.data.className || ''
-          this.form.xydm = res.data.xydm || ''
-          // 加载该学生的车辆登记列表
-          this.loadStudentVehicles()
-        }
-      } catch (e) {
-        uni.showToast({ title: '未找到该学生', icon: 'none' })
-      }
+    async onStudentSelect(stu) {
+      if (!stu) return
+      this.form.xh = stu.xh || ''
+      this.form.studentName = stu.studentName || ''
+      this.form.bjdm = stu.bjdm || ''
+      this.form.className = stu.className || stu.bjjc || ''
+      this.form.xydm = stu.xydm || ''
+      // 加载该学生的车辆登记列表
+      this.loadStudentVehicles()
+    },
+    onStudentClear() {
+      this.form.xh = ''
+      this.form.studentName = ''
+      this.form.bjdm = ''
+      this.form.className = ''
+      this.form.xydm = ''
+      this.vehicleOptions = []
     },
     async loadStudentVehicles() {
       try {
@@ -261,7 +268,7 @@ export default {
       return map[type] || type
     },
     async submit() {
-      if (!this.form.xh) return uni.showToast({ title: '请输入学号', icon: 'none' })
+      if (!this.form.xh) return uni.showToast({ title: '请选择学生', icon: 'none' })
       if (!this.form.housingType) return uni.showToast({ title: '请选择外宿类型', icon: 'none' })
       if (!this.form.address) return uni.showToast({ title: '请输入外宿地址', icon: 'none' })
       if (!this.form.applyReason) return uni.showToast({ title: '请输入外宿理由', icon: 'none' })
@@ -299,9 +306,9 @@ export default {
 .form-item { margin-bottom: 24rpx; }
 .form-label { font-size: 26rpx; color: #666; margin-bottom: 12rpx; display: block; }
 .required { color: #f56c6c; }
-.form-input { background: #f5f5f5; padding: 16rpx 20rpx; border-radius: 8rpx; font-size: 28rpx; }
-.form-textarea { background: #f5f5f5; padding: 16rpx 20rpx; border-radius: 8rpx; font-size: 28rpx; width: 100%; height: 160rpx; }
-.form-picker { background: #f5f5f5; padding: 16rpx 20rpx; border-radius: 8rpx; font-size: 28rpx; display: flex; justify-content: space-between; }
+.form-input { background: #f5f5f5; padding: 20rpx 24rpx; border-radius: 8rpx; font-size: 28rpx; min-height: 72rpx; line-height: 72rpx; box-sizing: border-box; }
+.form-textarea { background: #f5f5f5; padding: 20rpx 24rpx; border-radius: 8rpx; font-size: 28rpx; width: 100%; min-height: 180rpx; box-sizing: border-box; }
+.form-picker { background: #f5f5f5; padding: 20rpx 24rpx; border-radius: 8rpx; font-size: 28rpx; min-height: 72rpx; line-height: 72rpx; display: flex; justify-content: space-between; align-items: center; box-sizing: border-box; }
 .placeholder { color: #999; }
 .picker-arrow { font-size: 20rpx; color: #999; }
 .upload-area { width: 200rpx; height: 200rpx; border-radius: 8rpx; overflow: hidden; }

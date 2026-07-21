@@ -3,8 +3,12 @@
     <view class="form-card">
       <view class="card-title">学生信息</view>
       <view class="form-item">
-        <text class="form-label">学号 <text class="required">*</text></text>
-        <input class="form-input" v-model="form.xh" placeholder="请输入学号" @blur="onXhBlur" />
+        <text class="form-label">选择学生 <text class="required">*</text></text>
+        <student-picker ref="stuPicker" placeholder="输入姓名或学号搜索" @select="onStudentSelect" @clear="onStudentClear"></student-picker>
+      </view>
+      <view class="form-item">
+        <text class="form-label">学号</text>
+        <input class="form-input" v-model="form.xh" placeholder="自动填充" disabled />
       </view>
       <view class="form-item">
         <text class="form-label">学生姓名</text>
@@ -29,7 +33,11 @@
       </view>
       <view class="form-item" v-if="form.vehicleType === 'motorcycle' || form.vehicleType === 'car'">
         <text class="form-label">车牌号</text>
-        <input class="form-input" v-model="form.plateNo" placeholder="请输入车牌号" />
+        <view class="plate-input-trigger" @click="showPlateKeyboard = true">
+          <text v-if="form.plateNo" class="plate-value">{{ form.plateNo }}</text>
+          <text v-else class="plate-placeholder">点击输入车牌号</text>
+          <text class="picker-arrow">▶</text>
+        </view>
       </view>
       <view class="form-item">
         <text class="form-label">申请理由 <text class="required">*</text></text>
@@ -81,6 +89,17 @@
       </view>
     </view>
 
+    <!-- 车牌键盘弹窗 -->
+    <view class="plate-keyboard-mask" v-if="showPlateKeyboard" @click="showPlateKeyboard = false">
+      <view class="plate-keyboard-popup" @click.stop>
+        <view class="popup-header">
+          <text class="popup-title">输入车牌号</text>
+          <text class="popup-close" @click="showPlateKeyboard = false">✕</text>
+        </view>
+        <plate-keyboard :value="form.plateNo" @change="onPlateChange"></plate-keyboard>
+      </view>
+    </view>
+
     <view class="submit-btn" @click="submit">
       <text class="submit-text">提交登记</text>
     </view>
@@ -89,10 +108,12 @@
 
 <script>
 import { addVehicle } from '@/api/affair/vehicle'
-import { getStuinfoByXh } from '@/api/student/stuinfo'
 import { uploadFile } from '@/utils/upload'
+import studentPicker from '@/components/student-picker/index.vue'
+import plateKeyboard from '@/components/plate-keyboard/index.vue'
 
 export default {
+  components: { studentPicker, plateKeyboard },
   data() {
     return {
       form: {
@@ -109,6 +130,7 @@ export default {
         idCardPhoto: '',
         applyReason: ''
       },
+      showPlateKeyboard: false,
       vehicleTypeOptions: [
         { label: '电动车', value: 'electric_bike' },
         { label: '摩托车', value: 'motorcycle' },
@@ -118,19 +140,23 @@ export default {
     }
   },
   methods: {
-    async onXhBlur() {
-      if (!this.form.xh) return
-      try {
-        const res = await getStuinfoByXh(this.form.xh)
-        if (res.data) {
-          this.form.studentName = res.data.studentName || ''
-          this.form.bjdm = res.data.bjdm || ''
-          this.form.className = res.data.className || ''
-          this.form.xydm = res.data.xydm || ''
-        }
-      } catch (e) {
-        uni.showToast({ title: '未找到该学生', icon: 'none' })
-      }
+    onPlateChange(plate) {
+      this.form.plateNo = plate
+    },
+    onStudentSelect(stu) {
+      if (!stu) return
+      this.form.xh = stu.xh || ''
+      this.form.studentName = stu.studentName || ''
+      this.form.bjdm = stu.bjdm || ''
+      this.form.className = stu.className || stu.bjjc || ''
+      this.form.xydm = stu.xydm || ''
+    },
+    onStudentClear() {
+      this.form.xh = ''
+      this.form.studentName = ''
+      this.form.bjdm = ''
+      this.form.className = ''
+      this.form.xydm = ''
     },
     onVehicleTypeChange(e) {
       this.form.vehicleType = this.vehicleTypeOptions[e.detail.value].value
@@ -151,7 +177,7 @@ export default {
       })
     },
     async submit() {
-      if (!this.form.xh) return uni.showToast({ title: '请输入学号', icon: 'none' })
+      if (!this.form.xh) return uni.showToast({ title: '请选择学生', icon: 'none' })
       if (!this.form.vehicleType) return uni.showToast({ title: '请选择车辆类型', icon: 'none' })
       if (!this.form.vehiclePhoto) return uni.showToast({ title: '请上传车辆照片', icon: 'none' })
       if (!this.form.applyReason) return uni.showToast({ title: '请输入申请理由', icon: 'none' })
@@ -208,25 +234,89 @@ export default {
 }
 .form-input {
   background: #f5f5f5;
-  padding: 16rpx 20rpx;
+  padding: 20rpx 24rpx;
   border-radius: 8rpx;
   font-size: 28rpx;
+  min-height: 72rpx;
+  line-height: 72rpx;
+  box-sizing: border-box;
 }
 .form-textarea {
   background: #f5f5f5;
-  padding: 16rpx 20rpx;
+  padding: 20rpx 24rpx;
   border-radius: 8rpx;
   font-size: 28rpx;
   width: 100%;
-  height: 160rpx;
+  min-height: 180rpx;
+  box-sizing: border-box;
 }
 .form-picker {
   background: #f5f5f5;
-  padding: 16rpx 20rpx;
+  padding: 20rpx 24rpx;
   border-radius: 8rpx;
   font-size: 28rpx;
+  min-height: 72rpx;
+  line-height: 72rpx;
   display: flex;
   justify-content: space-between;
+  align-items: center;
+  box-sizing: border-box;
+}
+.plate-input-trigger {
+  background: #f5f5f5;
+  padding: 20rpx 24rpx;
+  border-radius: 8rpx;
+  min-height: 72rpx;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-sizing: border-box;
+}
+.plate-value {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: #333;
+  letter-spacing: 2rpx;
+}
+.plate-placeholder {
+  font-size: 28rpx;
+  color: #999;
+}
+/* 车牌键盘弹窗 */
+.plate-keyboard-mask {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 999;
+  display: flex;
+  align-items: flex-end;
+}
+.plate-keyboard-popup {
+  width: 100%;
+  border-radius: 24rpx 24rpx 0 0;
+  overflow: hidden;
+  background: #f5f6f8;
+}
+.popup-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 24rpx 32rpx;
+  background: #fff;
+  border-bottom: 1rpx solid #eee;
+}
+.popup-title {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: #333;
+}
+.popup-close {
+  font-size: 32rpx;
+  color: #999;
+  padding: 8rpx;
 }
 .placeholder {
   color: #999;

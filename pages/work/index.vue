@@ -57,8 +57,8 @@
       </view>
     </view>
 
-    <!-- 教学管理（可折叠九宫格） -->
-    <view class="func-section">
+    <!-- 教学管理（可折叠九宫格，仅教师角色可见） -->
+    <view class="func-section" v-if="isTeacherRole">
       <view class="section-header" @click="toggleTeachingSection">
         <text class="section-title">教学管理</text>
         <view class="collapse-arrow">
@@ -92,6 +92,50 @@
         </view>
       </view>
     </view>
+
+    <!-- 班主任管理（独立功能区，仅班主任角色可见） -->
+    <view class="func-section ht-section" v-if="isHeadteacherRole">
+      <view class="section-header" @click="toggleHtSection">
+        <text class="section-title">班主任管理</text>
+        <view class="collapse-arrow">
+          <uni-icons :type="htCollapsed ? 'down' : 'up'" size="18" color="#999"></uni-icons>
+        </view>
+      </view>
+      <view v-if="!htCollapsed">
+        <!-- 未分配班级提示 -->
+        <view class="ht-no-class" v-if="htClassList.length === 0">
+          <uni-icons type="info" size="20" color="#f3a044"></uni-icons>
+          <text class="ht-no-class-text">暂未分配班级，快捷操作不可用</text>
+        </view>
+        <view class="func-grid">
+          <view :class="getHtItemClass('myClass')" @click="onHtFuncClick('myClass')">
+            <view class="func-icon icon-green">
+              <uni-icons type="staff-filled" size="26" color="#fff"></uni-icons>
+            </view>
+            <text class="func-name">我的班级</text>
+            <text class="func-name ht-count" v-if="htClassList.length > 0">({{ htClassList.length }})</text>
+          </view>
+          <view :class="getHtItemClass('worklog')" @click="onHtFuncClick('worklog')">
+            <view class="func-icon icon-blue">
+              <uni-icons type="list" size="26" color="#fff"></uni-icons>
+            </view>
+            <text class="func-name">工作记录</text>
+          </view>
+          <view :class="getHtItemClass('addWorklog')" @click="onHtFuncClick('addWorklog')">
+            <view class="func-icon icon-orange">
+              <uni-icons type="plusempty" size="26" color="#fff"></uni-icons>
+            </view>
+            <text class="func-name">新增记录</text>
+          </view>
+          <view :class="getHtItemClass('certificate')" @click="onHtFuncClick('certificate')">
+            <view class="func-icon icon-purple">
+              <uni-icons type="paperplane" size="26" color="#fff"></uni-icons>
+            </view>
+            <text class="func-name">工作证明</text>
+          </view>
+        </view>
+      </view>
+    </view>
   </view>
 </template>
 
@@ -103,6 +147,8 @@ import { getRoleViewConfig } from '@/utils/roleViewConfig'
 import { getWorkStats } from '@/api/student/workstats'
 import { getRandomQuote } from '@/api/work/workquote'
 import { listActivity } from '@/api/work/activity'
+import { roleMixin } from '@/utils/roleSystem'
+import { getMyClasses } from '@/api/affair/headteacher'
 
 // 全量功能定义
 const ALL_FUNCS = [
@@ -114,8 +160,7 @@ const ALL_FUNCS = [
   { key: 'party', name: '党务管理', icon: 'star-filled', color: 'red', url: '/pages/sub-work/party/index' },
   { key: 'vehicle', name: '车辆登记', icon: 'car', color: 'cyan', url: '/pages/sub-work/vehicle/index' },
   { key: 'offcampus', name: '外宿管理', icon: 'home', color: 'purple', url: '/pages/sub-work/offcampus/index' },
-  { key: 'stats', name: '综合统计', icon: 'bars', color: 'blue', url: '/pages/sub-work/stats/index' },
-  { key: 'headteacher', name: '班主任', icon: 'staff-filled', color: 'green', url: '/pages/sub-work/headteacher/index' }
+  { key: 'stats', name: '综合统计', icon: 'bars', color: 'blue', url: '/pages/sub-work/stats/index' }
 ]
 
 // 默认常用功能 key
@@ -126,6 +171,7 @@ const STATS_CACHE_KEY = 'work_stats_cache'
 const STATS_CACHE_EXPIRE = 5 * 60 * 1000 // 5分钟缓存
 
 export default {
+  mixins: [roleMixin],
   data() {
     return {
       // 视图配置（从数据库加载）
@@ -135,7 +181,10 @@ export default {
       editingCommon: false,
       studentCollapsed: false,
       teachingCollapsed: false,
+      htCollapsed: false,
       commonKeys: [],
+      // 班主任班级列表
+      htClassList: [],
       // 书记角色相关
       isSecretaryRole: true,
       summaryData: {
@@ -159,7 +208,6 @@ export default {
     teachingFuncs() {
       return [
         { key: 'schedule', name: '我的课表', icon: 'calendar', color: 'blue', url: '/pages/sub-work/schedule/index' },
-        { key: 'classcheck', name: '课堂考勤', icon: 'checkbox-filled', color: 'green', url: '/pages/sub-work/classcheck/index' },
         { key: 'attendance_summary', name: '考勤汇总', icon: 'bars', color: 'orange', url: '/pages/sub-work/attendance-summary/index' }
       ]
     },
@@ -186,6 +234,12 @@ export default {
     this.viewConfig = await getRoleViewConfig('work_index')
     
     this.loadCommonKeys()
+    
+    // 检查角色并加载班主任数据
+    await this.checkRole()
+    if (this.isHeadteacherRole) {
+      this.loadHtClasses()
+    }
     
     // 初始化时随机选择一条金句
     this.refreshQuote()
@@ -406,6 +460,40 @@ export default {
     },
     toggleTeachingSection() {
       this.teachingCollapsed = !this.teachingCollapsed
+    },
+    toggleHtSection() {
+      this.htCollapsed = !this.htCollapsed
+    },
+    // 加载班主任班级列表
+    loadHtClasses() {
+      getMyClasses().then(res => {
+        this.htClassList = res.data || []
+      }).catch(() => {
+        this.htClassList = []
+      })
+    },
+    // 获取班主任功能项样式类
+    getHtItemClass(key) {
+      const hasClass = this.htClassList.length > 0
+      // 我的班级和我的申请始终可用
+      if (key === 'myClass') return 'func-item'
+      // 其他功能需要有班级才可用
+      return hasClass ? 'func-item' : 'func-item func-item-disabled'
+    },
+    // 班主任功能区点击
+    onHtFuncClick(key) {
+      const hasClass = this.htClassList.length > 0
+      if (key === 'myClass') {
+        uni.navigateTo({ url: '/pages/sub-work/headteacher/index' })
+      } else if (!hasClass) {
+        uni.showToast({ title: '暂未分配班级，操作不可用', icon: 'none' })
+      } else if (key === 'worklog') {
+        uni.navigateTo({ url: '/pages/sub-work/headteacher/worklog-list' })
+      } else if (key === 'addWorklog') {
+        uni.navigateTo({ url: '/pages/sub-work/headteacher/worklog-add' })
+      } else if (key === 'certificate') {
+        uni.navigateTo({ url: '/pages/sub-work/headteacher/certificate' })
+      }
     },
     onFuncClick(item) {
       if (this.editingCommon) return
@@ -763,6 +851,7 @@ page {
 .icon-orange { background: linear-gradient(135deg, #f3a044 0%, #ffc870 100%); }
 .icon-red { background: linear-gradient(135deg, #e43d33 0%, #ff6b6b 100%); }
 .icon-purple { background: linear-gradient(135deg, #9c27b0 0%, #c77dff 100%); }
+.icon-cyan { background: linear-gradient(135deg, #00bcd4 0%, #4dd0e1 100%); }
 .icon-add { 
   background: #f5f5f5;
   border: 2rpx dashed #ccc;
@@ -939,5 +1028,39 @@ page {
   background: #909399;
   flex-shrink: 0;
   margin-left: 16rpx;
+}
+
+/* 班主任管理区域 */
+.ht-section {
+  border-left: 6rpx solid #18bc37;
+}
+
+.ht-no-class {
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+  padding: 16rpx 20rpx;
+  background: #fef8ec;
+  border-radius: 12rpx;
+  margin-bottom: 16rpx;
+}
+
+.ht-no-class-text {
+  font-size: 24rpx;
+  color: #f3a044;
+}
+
+.func-item-disabled {
+  opacity: 0.4;
+}
+
+.func-item-disabled .func-icon {
+  filter: grayscale(0.6);
+}
+
+.ht-count {
+  font-size: 20rpx;
+  color: #999;
+  margin-left: 4rpx;
 }
 </style>

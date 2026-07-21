@@ -633,7 +633,30 @@ export default {
         
         // 专业统计：后端返回 zydm/majorName，增加兜底逻辑
         const colors = ['#2979ff', '#18bc37', '#f3a044', '#9c27b0', '#00bcd4', '#ff9800', '#795548', '#e43d33', '#607d8b', '#8bc34a']
-        this.majorStats = (majorRes.data || []).map((m, i) => ({
+        
+        // 前端去重：按 zydm 合并同名专业（不同培养层次）
+        const rawData = majorRes.data || []
+        const mergedMap = {}
+        rawData.forEach(m => {
+          const key = m.zydm || ''
+          if (!key) return
+          if (!mergedMap[key]) {
+            mergedMap[key] = { ...m }
+          } else {
+            // 合并同 zydm 的数据（累加学生数、班级数等）
+            const existing = mergedMap[key]
+            existing.studentCount = (existing.studentCount || 0) + (m.studentCount || 0)
+            existing.activeCount = (existing.activeCount || 0) + (m.activeCount || 0)
+            existing.classCount = (existing.classCount || 0) + (m.classCount || 0)
+            existing.maleCount = (existing.maleCount || 0) + (m.maleCount || 0)
+            existing.femaleCount = (existing.femaleCount || 0) + (m.femaleCount || 0)
+            // 保留第一个专业名称
+            if (!existing.majorName && m.majorName) existing.majorName = m.majorName
+          }
+        })
+        const dedupedData = Object.values(mergedMap)
+        
+        this.majorStats = dedupedData.map((m, i) => ({
           ...m,
           // 专业名称兜底：majorName > zymc > zydm
           majorName: m.majorName || m.zymc || m.zydm || '未知专业',

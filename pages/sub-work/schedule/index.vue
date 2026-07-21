@@ -55,10 +55,14 @@
           :style="{ height: item.height + 'rpx' }"
           @click="onCourseClick(item.course)"
         >
-          <view v-if="item.course" class="course-block">
-            <text class="course-name">{{ item.course.courseName }}</text>
-            <text class="course-meta">{{ item.course._combined ? item.course.className : getClassShortName(item.course.className) }}</text>
-            <text class="course-meta">{{ item.course.classroom || '待定' }}</text>
+          <view v-if="item.course" class="course-block" :class="getCourseBlockClass(item.course, day)">
+            <text v-if="getCourseAdjustStatus(item.course, day) === 'cancel'" class="course-cancel-tag">停课</text>
+            <template v-else>
+              <text class="course-name">{{ item.course.courseName }}</text>
+              <text class="course-meta">{{ item.course._combined ? item.course.className : getClassShortName(item.course.className) }}</text>
+              <text class="course-meta">{{ getCourseClassroom(item.course, day) || '待定' }}</text>
+              <text v-if="getCourseAdjustStatus(item.course, day) === 'adjusted'" class="course-adjust-tag">调</text>
+            </template>
           </view>
         </view>
       </view>
@@ -150,6 +154,7 @@ export default {
       weekLabels: ['一', '二', '三', '四', '五', '六', '日'],
       dayList: [1, 2, 3, 4, 5, 6, 7],
       myScheduleList: [],
+      adjustList: [],
       currentWeek: 1,
       realCurrentWeek: 1,
       totalWeeks: 0,
@@ -229,6 +234,8 @@ export default {
         }
         // 过滤掉 startSection < 1 的无效数据
         this.myScheduleList = list.filter(c => Number(c.startSection) >= 1)
+        // 存储调课记录
+        this.adjustList = data.adjustList || []
         // 使用后端返回的教学周次
         const apiWeek = data.currentWeek
         if (apiWeek && apiWeek > 0) {
@@ -359,6 +366,44 @@ export default {
       const m = String(date.getMonth() + 1).padStart(2, '0')
       const d = String(date.getDate()).padStart(2, '0')
       return y + '-' + m + '-' + d
+    },
+    getDayDate(day) {
+      const now = new Date()
+      const jsDay = now.getDay()
+      const weekday = jsDay === 0 ? 7 : jsDay
+      const dayOffset = day - weekday
+      const totalOffset = dayOffset + this.displayWeekOffset * 7
+      return new Date(now.getTime() + totalOffset * 86400000)
+    },
+    getDayDateStr(day) {
+      return this.formatDateStr(this.getDayDate(day))
+    },
+    // 获取课程在指定日期的调整状态: 'normal' | 'adjusted' | 'cancel'
+    getCourseAdjustStatus(course, day) {
+      if (!this.adjustList || this.adjustList.length === 0) return 'normal'
+      const dateStr = this.getDayDateStr(day)
+      const scheduleId = course.scheduleId || course.id
+      const adj = this.adjustList.find(a => {
+        return Number(a.originScheduleId) === Number(scheduleId) && a.adjustDate === dateStr
+      })
+      if (!adj) return 'normal'
+      return adj.adjustType === 'cancel' ? 'cancel' : 'adjusted'
+    },
+    getCourseBlockClass(course, day) {
+      const status = this.getCourseAdjustStatus(course, day)
+      if (status === 'cancel') return 'course-block-cancel'
+      if (status === 'adjusted') return 'course-block-adjusted'
+      return ''
+    },
+    getCourseClassroom(course, day) {
+      if (!this.adjustList || this.adjustList.length === 0) return course.classroom
+      const dateStr = this.getDayDateStr(day)
+      const scheduleId = course.scheduleId || course.id
+      const adj = this.adjustList.find(a => {
+        return Number(a.originScheduleId) === Number(scheduleId) && a.adjustDate === dateStr
+      })
+      if (adj && adj.newClassroom) return adj.newClassroom
+      return course.classroom
     },
     // 跳转到点名页面
     goRollCall() {
@@ -765,5 +810,35 @@ export default {
   padding: 18rpx 60rpx;
   border-radius: 40rpx;
   text-align: center;
+}
+
+.course-block-adjusted {
+  border: 2rpx dashed #ff9800 !important;
+  background: rgba(255, 152, 0, 0.08) !important;
+  position: relative;
+}
+
+.course-block-cancel {
+  opacity: 0.5;
+  background: #f0f0f0 !important;
+  border: 2rpx dashed #ccc !important;
+}
+
+.course-adjust-tag {
+  position: absolute;
+  top: 4rpx;
+  right: 4rpx;
+  font-size: 20rpx;
+  color: #ff9800;
+  font-weight: bold;
+  background: rgba(255, 152, 0, 0.15);
+  padding: 2rpx 8rpx;
+  border-radius: 6rpx;
+}
+
+.course-cancel-tag {
+  font-size: 24rpx;
+  color: #999;
+  font-weight: bold;
 }
 </style>

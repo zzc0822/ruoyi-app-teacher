@@ -12,14 +12,31 @@ export function listSchedule(query) {
 }
 
 /**
+ * 获取指定日期的校历信息（周次、学期、节假日等）
+ * @param {string} date - 日期 yyyy-MM-dd，默认今天
+ */
+export function getWeekInfo(date) {
+  return request({
+    url: '/api/classschedule/weekInfo',
+    method: 'get',
+    params: date ? { date } : {}
+  })
+}
+
+/**
  * 获取当天的所有班级课表（书记专用）
  * @param {number} weekday - 星期几（1-7）
+ * @param {string} semester - 学期（如 2025-2026-1）
+ * @param {number} weekNumber - 周次（1-20）
  */
-export function getTodaySchedules(weekday) {
+export function getTodaySchedules(weekday, semester, weekNumber) {
+  const params = { weekday }
+  if (semester) params.semester = semester
+  if (weekNumber) params.weekNumber = weekNumber
   return request({
     url: '/api/classschedule/today',
     method: 'get',
-    params: { weekday }
+    params
   })
 }
 

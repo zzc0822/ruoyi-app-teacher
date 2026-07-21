@@ -72,7 +72,6 @@ export default {
     try {
         uni.hideLoading()
     } catch (e) {
-        console.log(e)
     }
   }
 }

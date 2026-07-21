@@ -33,6 +33,14 @@
     <view class="card">
       <view class="card-header">
         <text class="card-title">今日班级课表</text>
+        <view class="week-info-tag" v-if="weekInfo.isVacation">
+          <text class="holiday-tag">{{ weekInfo.holidayName || '假期' }}</text>
+        </view>
+        <view class="week-info-tag" v-else-if="weekInfo.weekNumber">
+          <text class="week-tag">{{ weekInfo.weekName || ('第' + weekInfo.weekNumber + '周') }}</text>
+          <text class="holiday-tag" v-if="weekInfo.isHoliday">{{ weekInfo.holidayName || '假期' }}</text>
+          <text class="weekend-tag" v-else-if="weekInfo.isWeekend">周末</text>
+        </view>
       </view>
       
       <!-- 日期/节次选择器 -->
@@ -78,7 +86,10 @@
         </view>
       </view>
       <view class="empty-tip" v-else>
-        <text>当前节次暂无课表</text>
+        <text v-if="weekInfo.isVacation">{{ weekInfo.holidayName || '假期' }}期间无课表</text>
+        <text v-else-if="weekInfo.isHoliday">{{ weekInfo.holidayName || '假期' }}期间无课表</text>
+        <text v-else-if="weekInfo.isWeekend">周末无课表</text>
+        <text v-else>当前节次暂无课表</text>
       </view>
     </view>
 
@@ -226,7 +237,7 @@
 
 <script>
 import { listClassCheck, getClassCheckStats, getMyClasses } from '@/api/work/classcheck'
-import { getTodaySchedules } from '@/api/work/schedule'
+import { getTodaySchedules, getWeekInfo } from '@/api/work/schedule'
 import { getStatsByCounselor } from '@/api/student/stats'
 import { isSecretary } from '@/utils/role'
 import config from '@/config'
@@ -257,7 +268,9 @@ export default {
       selectedDate: new Date(),  // 选中的日期
       selectedSection: 1,  // 选中的节次
       todayScheduleList: [],  // 当前节次的课表列表
-      checkedClasses: {}  // 已查课班级集合：key=bjdm-selectedDate-selectedSection
+      checkedClasses: {},  // 已查课班级集合：key=bjdm-selectedDate-selectedSection
+      weekInfo: {},  // 校历信息（周次、学期、节假日）
+      currentSemester: ''  // 当前学期
     }
   },
   computed: {
@@ -378,7 +391,28 @@ export default {
     
     // 加载当天课表，并过滤当前节次
     loadTodaySchedules() {
-      getTodaySchedules(this.selectedWeekday).then(res => {
+      const y = this.selectedDate.getFullYear()
+      const m = String(this.selectedDate.getMonth() + 1).padStart(2, '0')
+      const d = String(this.selectedDate.getDate()).padStart(2, '0')
+      const dateStr = `${y}-${m}-${d}`
+      
+      // 先获取校历信息（周次、学期、节假日）
+      getWeekInfo(dateStr).then(weekRes => {
+        const info = weekRes.data || {}
+        this.weekInfo = info
+        this.currentSemester = info.currentSemester || ''
+        
+        // 传递 semester 和 weekNumber 查询课表
+        const params = { weekday: this.selectedWeekday }
+        if (info.currentSemester) {
+          params.semester = info.currentSemester
+        }
+        if (info.weekNumber) {
+          params.weekNumber = info.weekNumber
+        }
+        
+        return getTodaySchedules(this.selectedWeekday, info.currentSemester, info.weekNumber)
+      }).then(res => {
         const data = res.data || []
         const classMap = {}
         this.classList.forEach(cls => {
@@ -388,7 +422,6 @@ export default {
         const list = []
         data.forEach(item => {
           const bjdm = item.bjdm
-          // 只保留当前用户所带班级（辅导员）或本学院班级（书记）
           const cls = classMap[bjdm]
           if (!cls) return
           const schedules = (item.schedules || []).filter(s => s.startSection === this.selectedSection)
@@ -517,7 +550,19 @@ export default {
                 
         // 以招生计划专业列表为权威，合并统计数据
         if (majorListRes.code === 200 && majorListRes.data) {
-          this.majorStats = majorListRes.data.map((m, i) => {
+          // 前端去重：按 zydm 合并同名专业（不同培养层次）
+          const seenZydm = {}
+          const dedupedList = []
+          majorListRes.data.forEach(m => {
+            const key = m.zydm || ''
+            if (!key) return
+            if (!seenZydm[key]) {
+              seenZydm[key] = true
+              dedupedList.push(m)
+            }
+          })
+          
+          this.majorStats = dedupedList.map((m, i) => {
             const stat = statsMap[m.zydm] || {}
             const studentCount = stat.studentCount || 0
             const maleCount = stat.maleCount || 0
@@ -905,6 +950,38 @@ export default {
   font-size: 28rpx;
   font-weight: bold;
   color: #333;
+}
+
+/* 周次信息标签 */
+.week-info-tag {
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+}
+
+.week-tag {
+  font-size: 22rpx;
+  color: #2979ff;
+  background: #e8f0fe;
+  padding: 4rpx 14rpx;
+  border-radius: 8rpx;
+  font-weight: 500;
+}
+
+.holiday-tag {
+  font-size: 20rpx;
+  color: #e43d33;
+  background: #fde8e8;
+  padding: 4rpx 12rpx;
+  border-radius: 8rpx;
+}
+
+.weekend-tag {
+  font-size: 20rpx;
+  color: #f3a044;
+  background: #fef3e2;
+  padding: 4rpx 12rpx;
+  border-radius: 8rpx;
 }
 
 .card-tip {
