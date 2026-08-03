@@ -7,6 +7,7 @@
  * - 管理员：roleName包含"管理员" 或 roleKey包含"admin"
  * - 辅导员：roleName包含"辅导员" 或 roleKey包含"counselor"
  * - 班主任：roleName包含"班主任" 或 roleKey包含"headteacher"
+ * - 党务干部：roleName包含"党务干部" 或 roleKey包含"party_cadre"
  */
 
 /**
@@ -99,6 +100,32 @@ export function isCounselor(roles) {
 }
 
 /**
+ * 判断是否为党务干部角色
+ * @param {Array} roles - 用户角色列表（可能是字符串数组或对象数组）
+ * @returns {Boolean}
+ */
+export function isPartyCadre(roles) {
+  if (!roles || !Array.isArray(roles) || roles.length === 0) {
+    return false
+  }
+
+  return roles.some(role => {
+    let roleName = ''
+    let roleKey = ''
+
+    if (typeof role === 'string') {
+      roleKey = role.toLowerCase()
+      roleName = role
+    } else if (typeof role === 'object') {
+      roleName = role.roleName || ''
+      roleKey = (role.roleKey || '').toLowerCase()
+    }
+
+    return roleName.includes('党务干部') || roleKey.includes('party_cadre')
+  })
+}
+
+/**
  * 判断是否为班主任角色
  * @param {Array} roles - 用户角色列表（可能是字符串数组或对象数组）
  * @returns {Boolean}
@@ -136,8 +163,8 @@ export function isTeacher(roles) {
     return false
   }
   
-  // 不是书记、不是管理员、不是辅导员、不是班主任，就是普通教师
-  return !isSecretary(roles) && !isAdmin(roles) && !isCounselor(roles) && !isHeadteacher(roles)
+  // 不是书记、不是管理员、不是辅导员、不是班主任、不是党务干部，就是普通教师
+  return !isSecretary(roles) && !isAdmin(roles) && !isCounselor(roles) && !isHeadteacher(roles) && !isPartyCadre(roles)
 }
 
 /**
@@ -154,6 +181,9 @@ export function getRoleType(roles) {
   }
   if (isHeadteacher(roles)) {
     return 'headteacher'
+  }
+  if (isPartyCadre(roles)) {
+    return 'partyCadre'
   }
   if (isAdmin(roles)) {
     return 'admin'
@@ -174,6 +204,7 @@ export function getRoleTypes(roles) {
   if (isSecretary(roles)) types.push('secretary')
   if (isCounselor(roles)) types.push('counselor')
   if (isHeadteacher(roles)) types.push('headteacher')
+  if (isPartyCadre(roles)) types.push('partyCadre')
   if (isAdmin(roles)) types.push('admin')
   if (types.length === 0) types.push('teacher')
   return types
@@ -190,6 +221,7 @@ export function getRoleDisplayName(roles) {
     'secretary': '书记',
     'counselor': '辅导员',
     'headteacher': '班主任',
+    'partyCadre': '党务干部',
     'admin': '管理员',
     'teacher': '教师'
   }

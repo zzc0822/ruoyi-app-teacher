@@ -304,6 +304,70 @@
     <scroll-view scroll-y class="main-area" :scroll-top="scrollTop" @scroll="onScroll">
       <!-- ====== 总览模式 ====== -->
       <template v-if="activeBjdm === ''">
+        <!-- 统计汇总模块 -->
+        <view class="teacher-stats-section">
+          <!-- 总人数 + 性别 -->
+          <view class="teacher-stats-card" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+            <view class="tsc-content">
+              <view class="tsc-row">
+                <text class="tsc-label">总人数</text>
+                <text class="tsc-num">{{ teacherStats.totalStudents }}</text>
+              </view>
+              <view class="tsc-sub">
+                <view class="tsc-sub-item">
+                  <text class="tsc-sub-num">{{ teacherStats.maleCount }}</text>
+                  <text class="tsc-sub-label">♂ 男生</text>
+                </view>
+                <view class="tsc-sub-divider"></view>
+                <view class="tsc-sub-item">
+                  <text class="tsc-sub-num">{{ teacherStats.femaleCount }}</text>
+                  <text class="tsc-sub-label">♀ 女生</text>
+                </view>
+              </view>
+            </view>
+          </view>
+          <!-- 政治面貌 -->
+          <view class="teacher-stats-card" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
+            <view class="tsc-content">
+              <view class="tsc-row">
+                <text class="tsc-label">政治面貌</text>
+              </view>
+              <view class="tsc-sub">
+                <view class="tsc-sub-item">
+                  <text class="tsc-sub-num">{{ teacherStats.partyMember }}</text>
+                  <text class="tsc-sub-label">党员</text>
+                </view>
+                <view class="tsc-sub-divider"></view>
+                <view class="tsc-sub-item">
+                  <text class="tsc-sub-num">{{ teacherStats.leagueMember }}</text>
+                  <text class="tsc-sub-label">团员</text>
+                </view>
+                <view class="tsc-sub-divider"></view>
+                <view class="tsc-sub-item">
+                  <text class="tsc-sub-num">{{ teacherStats.mass }}</text>
+                  <text class="tsc-sub-label">群众</text>
+                </view>
+              </view>
+            </view>
+          </view>
+        </view>
+
+        <!-- 按班级汇总 -->
+        <view class="card" v-if="classList.length > 0">
+          <text class="card-title">班级汇总 ({{ classList.length }}个班)</text>
+          <view class="class-summary-item" v-for="(cls, idx) in classList" :key="cls.bjdm" @click="selectClass(cls.bjdm)">
+            <view class="csi-bar" :style="'background:' + classColors[idx % classColors.length]"></view>
+            <view class="csi-info">
+              <text class="csi-name">{{ cls.bjjc || cls.bjname }}</text>
+              <view class="csi-detail">
+                <text class="csi-gender">♂{{ cls.nans || 0 }} ♀{{ cls.nvsh || 0 }}</text>
+                <text class="csi-total">共{{ cls.bcrs || 0 }}人</text>
+              </view>
+            </view>
+            <uni-icons type="right" size="16" color="#ccc"></uni-icons>
+          </view>
+        </view>
+
         <!-- 搜索框 -->
         <view class="search-bar">
           <uni-easyinput v-model="searchKey" placeholder="搜索姓名/学号" @confirm="handleSearch" clearable @clear="handleSearch">
@@ -528,7 +592,16 @@ export default {
       counselorExpanded: false,
       // 全部班级弹窗
       currentMajorName: '',
-      currentMajorClasses: []
+      currentMajorClasses: [],
+      // 教师统计汇总
+      teacherStats: {
+        totalStudents: 0,
+        maleCount: 0,
+        femaleCount: 0,
+        partyMember: 0,
+        leagueMember: 0,
+        mass: 0
+      }
     }
   },
   computed: {
@@ -829,8 +902,51 @@ export default {
     loadClasses() {
       getMyClasses().then(res => {
         this.classList = res.data || []
-        this.loadAllStudents()
+        this.computeTeacherStats()
+        this.loadPoliticalStats()
       }).catch(() => {})
+    },
+    // 从 classList 计算性别和总人数统计
+    computeTeacherStats() {
+      let total = 0, male = 0, female = 0
+      this.classList.forEach(cls => {
+        total += (cls.bcrs || 0)
+        male += (cls.nans || 0)
+        female += (cls.nvsh || 0)
+      })
+      this.teacherStats.totalStudents = total
+      this.teacherStats.maleCount = male
+      this.teacherStats.femaleCount = female
+    },
+    // 加载政治面貌统计（逐班加载学生后汇总）
+    loadPoliticalStats() {
+      let partyMember = 0, leagueMember = 0, mass = 0
+      let loaded = 0
+      const total = this.classList.length
+      if (total === 0) return
+      
+      this.classList.forEach(cls => {
+        getClassStudents(cls.bjdm).then(res => {
+          const students = res.data || []
+          students.forEach(stu => {
+            const zzmm = stu.zzmm || stu.zzmmName || ''
+            if (zzmm.indexOf('党员') >= 0 || zzmm === '1' || zzmm === '2') {
+              partyMember++
+            } else if (zzmm.indexOf('团员') >= 0 || zzmm === '3') {
+              leagueMember++
+            } else {
+              mass++
+            }
+          })
+          loaded++
+          // 每次加载完一个班更新一次
+          this.teacherStats.partyMember = partyMember
+          this.teacherStats.leagueMember = leagueMember
+          this.teacherStats.mass = mass
+        }).catch(() => {
+          loaded++
+        })
+      })
     },
     
     // 搜索输入（防抖）
@@ -2600,5 +2716,127 @@ export default {
     font-size: 28rpx;
     color: #999;
   }
+}
+
+/* ===== 教师统计汇总模块 ===== */
+.teacher-stats-section {
+  display: flex;
+  gap: 16rpx;
+  margin-bottom: 16rpx;
+}
+
+.teacher-stats-card {
+  flex: 1;
+  border-radius: 16rpx;
+  padding: 20rpx;
+  box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.1);
+}
+
+.tsc-content {
+  display: flex;
+  flex-direction: column;
+  gap: 8rpx;
+}
+
+.tsc-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8rpx;
+}
+
+.tsc-label {
+  font-size: 22rpx;
+  color: rgba(255, 255, 255, 0.85);
+  font-weight: 500;
+}
+
+.tsc-num {
+  font-size: 40rpx;
+  font-weight: bold;
+  color: #fff;
+  line-height: 1;
+}
+
+.tsc-sub {
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+  padding-top: 8rpx;
+  border-top: 1rpx solid rgba(255, 255, 255, 0.2);
+}
+
+.tsc-sub-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2rpx;
+}
+
+.tsc-sub-num {
+  font-size: 28rpx;
+  font-weight: bold;
+  color: #fff;
+  line-height: 1.2;
+}
+
+.tsc-sub-label {
+  font-size: 18rpx;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.tsc-sub-divider {
+  width: 1rpx;
+  height: 36rpx;
+  background: rgba(255, 255, 255, 0.3);
+}
+
+/* 班级汇总列表 */
+.class-summary-item {
+  display: flex;
+  align-items: center;
+  padding: 16rpx 0;
+  border-bottom: 1rpx solid #f8f8f8;
+  gap: 16rpx;
+}
+
+.class-summary-item:last-child {
+  border-bottom: none;
+}
+
+.csi-bar {
+  width: 8rpx;
+  height: 44rpx;
+  border-radius: 4rpx;
+  flex-shrink: 0;
+}
+
+.csi-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4rpx;
+}
+
+.csi-name {
+  font-size: 26rpx;
+  color: #333;
+  font-weight: 500;
+}
+
+.csi-detail {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+}
+
+.csi-gender {
+  font-size: 22rpx;
+  color: #999;
+}
+
+.csi-total {
+  font-size: 22rpx;
+  color: #666;
 }
 </style>

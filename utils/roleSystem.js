@@ -8,7 +8,7 @@
  * 3. 计算属性使用：computed: { ...roleComputed }
  */
 
-import { isSecretary, isAdmin, isTeacher, isCounselor, isHeadteacher, getRoleType, getRoleTypes } from './role'
+import { isSecretary, isAdmin, isTeacher, isCounselor, isHeadteacher, isPartyCadre, getRoleType, getRoleTypes } from './role'
 
 /**
  * 角色配置常量
@@ -33,6 +33,11 @@ export const ROLE_CONFIG = {
   HEADTEACHER: {
     nameKeyword: '班主任',
     keyKeyword: 'headteacher'
+  },
+  // 党务干部角色关键词
+  PARTY_CADRE: {
+    nameKeyword: '党务干部',
+    keyKeyword: 'party_cadre'
   }
 }
 
@@ -118,6 +123,7 @@ export const roleMixin = {
       isSecretaryRole: false,  // 是否为书记角色
       isCounselorRole: false,  // 是否为辅导员角色
       isHeadteacherRole: false, // 是否为班主任角色
+      isPartyCadreRole: false, // 是否为党务干部角色
       isAdminRole: false,      // 是否为管理员角色
       isTeacherRole: false,    // 是否为普通教师角色
       roleType: '',            // 主角色类型（优先级最高）
@@ -138,6 +144,7 @@ export const roleMixin = {
         this.isSecretaryRole = isSecretary(this.userRoles)
         this.isCounselorRole = isCounselor(this.userRoles)
         this.isHeadteacherRole = isHeadteacher(this.userRoles)
+        this.isPartyCadreRole = isPartyCadre(this.userRoles)
         this.isAdminRole = isAdmin(this.userRoles)
         this.isTeacherRole = isTeacher(this.userRoles)
         this.roleType = getRoleType(this.userRoles)
@@ -147,6 +154,7 @@ export const roleMixin = {
           isSecretaryRole: this.isSecretaryRole,
           isCounselorRole: this.isCounselorRole,
           isHeadteacherRole: this.isHeadteacherRole,
+          isPartyCadreRole: this.isPartyCadreRole,
           isAdminRole: this.isAdminRole,
           isTeacherRole: this.isTeacherRole,
           roleType: this.roleType,
@@ -157,6 +165,7 @@ export const roleMixin = {
           isSecretaryRole: false,
           isCounselorRole: false,
           isHeadteacherRole: false,
+          isPartyCadreRole: false,
           isAdminRole: false,
           isTeacherRole: false,
           roleType: 'teacher',
@@ -193,6 +202,10 @@ export function createRoleComputed() {
     isHeadteacherRole() {
       const roles = getUserRoles(this)
       return isHeadteacher(roles)
+    },
+    isPartyCadreRole() {
+      const roles = getUserRoles(this)
+      return isPartyCadre(roles)
     },
     isAdminRole() {
       const roles = getUserRoles(this)
@@ -258,6 +271,7 @@ export const RoleUtil = {
   isTeacher,
   isCounselor,
   isHeadteacher,
+  isPartyCadre,
   getRoleType,
   
   // 辅助函数
@@ -293,6 +307,7 @@ export default {
   isTeacher,
   isCounselor,
   isHeadteacher,
+  isPartyCadre,
   getRoleType,
   roleMixin,
   createRoleComputed,

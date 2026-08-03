@@ -136,6 +136,50 @@
         </view>
       </view>
     </view>
+
+    <!-- 党务管理（独立功能区，仅党务干部/书记角色可见） -->
+    <view class="func-section party-section" v-if="isPartyCadreRole || isSecretaryRole">
+      <view class="section-header" @click="togglePartySection">
+        <text class="section-title">党务管理</text>
+        <view class="collapse-arrow">
+          <uni-icons :type="partyCollapsed ? 'down' : 'up'" size="18" color="#999"></uni-icons>
+        </view>
+      </view>
+      <view v-if="!partyCollapsed">
+        <view class="func-grid">
+          <view class="func-item" @click="onPartyFuncClick('members')">
+            <view class="func-icon icon-red">
+              <uni-icons type="staff-filled" size="26" color="#fff"></uni-icons>
+            </view>
+            <text class="func-name">党员管理</text>
+          </view>
+          <view class="func-item" @click="onPartyFuncClick('committee')">
+            <view class="func-icon icon-blue">
+              <uni-icons type="auth-filled" size="26" color="#fff"></uni-icons>
+            </view>
+            <text class="func-name">委员设置</text>
+          </view>
+          <view class="func-item" @click="onPartyFuncClick('thoughtReport')">
+            <view class="func-icon icon-green">
+              <uni-icons type="chat-filled" size="26" color="#fff"></uni-icons>
+            </view>
+            <text class="func-name">思想汇报</text>
+          </view>
+          <view class="func-item" @click="onPartyFuncClick('fee')">
+            <view class="func-icon icon-orange">
+              <uni-icons type="wallet" size="26" color="#fff"></uni-icons>
+            </view>
+            <text class="func-name">党费管理</text>
+          </view>
+          <view class="func-item" @click="onPartyFuncClick('training')">
+            <view class="func-icon icon-purple">
+              <uni-icons type="calendar-filled" size="26" color="#fff"></uni-icons>
+            </view>
+            <text class="func-name">培训管理</text>
+          </view>
+        </view>
+      </view>
+    </view>
   </view>
 </template>
 
@@ -182,6 +226,7 @@ export default {
       studentCollapsed: false,
       teachingCollapsed: false,
       htCollapsed: false,
+      partyCollapsed: false,
       commonKeys: [],
       // 班主任班级列表
       htClassList: [],
@@ -463,6 +508,23 @@ export default {
     },
     toggleHtSection() {
       this.htCollapsed = !this.htCollapsed
+    },
+    togglePartySection() {
+      this.partyCollapsed = !this.partyCollapsed
+    },
+    // 党务管理功能点击
+    onPartyFuncClick(key) {
+      const routes = {
+        members: '/pages/sub-work/party/index',
+        committee: '/pages/sub-work/party/index',
+        thoughtReport: '/pages/sub-work/party/index',
+        fee: '/pages/sub-work/party/index',
+        training: '/pages/sub-work/party/index'
+      }
+      const url = routes[key]
+      if (url) {
+        uni.navigateTo({ url })
+      }
     },
     // 加载班主任班级列表
     loadHtClasses() {

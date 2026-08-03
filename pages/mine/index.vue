@@ -32,6 +32,12 @@
 
     <view class="content-section">
       <view class="menu-list">
+        <view class="list-cell list-cell-arrow" @click="handleToParty">
+          <view class="menu-item-box">
+            <view class="iconfont icon-aixin menu-icon" style="color: #c62828;"></view>
+            <view>我的党务</view>
+          </view>
+        </view>
         <view class="list-cell list-cell-arrow" @click="handleToEditInfo">
           <view class="menu-item-box">
             <view class="iconfont icon-user menu-icon"></view>
@@ -204,6 +210,9 @@ export default {
       },
       handleAbout() {
         this.$tab.navigateTo('/pages/sub-mine/about/index')
+      },
+      handleToParty() {
+        this.$tab.navigateTo('/pages/sub-mine/party/index')
       }
     }
   }

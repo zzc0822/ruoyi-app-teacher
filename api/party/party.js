@@ -83,5 +83,15 @@ export default {
     // 教师党费记录
     teacherFeeList() {
         return request({ url: '/api/party/teacher/fee/my', method: 'get' })
+    },
+
+    // ===== 委员管理（党务干部端） =====
+    // 获取支部委员列表
+    committeeList(branchId) {
+        return request({ url: '/api/party/committee/' + branchId, method: 'get' })
+    },
+    // 批量保存支部委员（自动分配/移除党务干部角色）
+    saveCommittee(data) {
+        return request({ url: '/api/party/committee', method: 'post', data: data })
     }
 }
