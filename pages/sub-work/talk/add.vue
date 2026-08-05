@@ -165,6 +165,8 @@
         {{ editId ? '确认修改' : '提交谈话' }}
       </button>
     </view>
+    <!-- 水印Canvas（离屏） -->
+    <canvas canvas-id="watermarkCanvas" style="position:fixed;left:-9999px;top:-9999px;width:1920px;height:1920px;"></canvas>
   </view>
 </template>
 
@@ -174,6 +176,8 @@ import { getClassCheck } from '@/api/work/classcheck'
 import upload from '@/utils/upload'
 import config from '@/config'
 import { chooseLocation } from '@/utils/common'
+import { getWatermarkConfig } from '@/api/work/watermark'
+import { getLocation, addWatermark } from '@/utils/watermark'
 
 const TALK_TYPES = [
   { value: 'ideological', label: '思想动态' },
@@ -211,11 +215,16 @@ export default {
       showViolationList: false,
       // 附件
       attachList: [],
+      watermarkConfig: null,
     }
   },
   onLoad(options) {
     this.initDateTime()
     this.loadDeadlineConfig()
+    // 加载水印配置
+    getWatermarkConfig('talk').then(res => {
+      this.watermarkConfig = res.data
+    }).catch(() => {})
     if (options.id) {
       this.editId = options.id
       this.loadDetail(options.id)
@@ -511,12 +520,20 @@ export default {
         uni.showToast({ title: '附件最多5个', icon: 'none' })
         return
       }
+      const locPromise = getLocation()
       uni.chooseImage({
         count: 5 - this.attachList.length,
         sourceType: ['camera'],
         sizeType: ['compressed'],
-        success: (res) => {
-          res.tempFilePaths.forEach(p => this.uploadFile(p, 'image'))
+        success: async (res) => {
+          for (const p of res.tempFilePaths) {
+            let path = p
+            if (this.watermarkConfig && this.watermarkConfig.enabled === '1') {
+              const location = await locPromise
+              path = await addWatermark(path, this.watermarkConfig, location)
+            }
+            this.uploadFile(path, 'image')
+          }
         }
       })
     },

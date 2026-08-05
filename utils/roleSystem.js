@@ -8,7 +8,7 @@
  * 3. 计算属性使用：computed: { ...roleComputed }
  */
 
-import { isSecretary, isAdmin, isTeacher, isCounselor, isHeadteacher, isPartyCadre, getRoleType, getRoleTypes } from './role'
+import { isSecretary, isAdmin, isTeacher, isCounselor, isHeadteacher, isPartyCadre, hasTeacherRole, isBranchSecretary, isTopSecretary, getRoleType, getRoleTypes } from './role'
 
 /**
  * 角色配置常量
@@ -125,7 +125,10 @@ export const roleMixin = {
       isHeadteacherRole: false, // 是否为班主任角色
       isPartyCadreRole: false, // 是否为党务干部角色
       isAdminRole: false,      // 是否为管理员角色
-      isTeacherRole: false,    // 是否为普通教师角色
+      isTeacherRole: false,    // 是否为普通教师角色（互斥）
+      hasTeacherRole: false,   // 是否拥有教师角色（非互斥，用于教学管理模块可见性）
+      isBranchSecretaryRole: false, // 是否为党支部书记（不含总支书记）
+      isTopSecretaryRole: false,    // 是否为总支书记
       roleType: '',            // 主角色类型（优先级最高）
       roleTypes: [],           // 所有角色类型数组
       userRoles: []            // 用户角色列表
@@ -147,6 +150,9 @@ export const roleMixin = {
         this.isPartyCadreRole = isPartyCadre(this.userRoles)
         this.isAdminRole = isAdmin(this.userRoles)
         this.isTeacherRole = isTeacher(this.userRoles)
+        this.hasTeacherRole = hasTeacherRole(this.userRoles)
+        this.isBranchSecretaryRole = isBranchSecretary(this.userRoles)
+        this.isTopSecretaryRole = isTopSecretary(this.userRoles)
         this.roleType = getRoleType(this.userRoles)
         this.roleTypes = getRoleTypes(this.userRoles)
         
@@ -157,6 +163,9 @@ export const roleMixin = {
           isPartyCadreRole: this.isPartyCadreRole,
           isAdminRole: this.isAdminRole,
           isTeacherRole: this.isTeacherRole,
+          hasTeacherRole: this.hasTeacherRole,
+          isBranchSecretaryRole: this.isBranchSecretaryRole,
+          isTopSecretaryRole: this.isTopSecretaryRole,
           roleType: this.roleType,
           roleTypes: this.roleTypes
         }
@@ -168,6 +177,9 @@ export const roleMixin = {
           isPartyCadreRole: false,
           isAdminRole: false,
           isTeacherRole: false,
+          hasTeacherRole: false,
+          isBranchSecretaryRole: false,
+          isTopSecretaryRole: false,
           roleType: 'teacher',
           roleTypes: ['teacher']
         }

@@ -137,6 +137,8 @@
     <view class="submit-btn" @click="submit">
       <text class="submit-text">提交申请</text>
     </view>
+    <!-- 水印Canvas（离屏） -->
+    <canvas canvas-id="watermarkCanvas" style="position:fixed;left:-9999px;top:-9999px;width:1920px;height:1920px;"></canvas>
   </view>
 </template>
 
@@ -145,6 +147,8 @@ import { addOffcampus } from '@/api/affair/offcampus'
 import { listVehicle } from '@/api/affair/vehicle'
 import { uploadFile } from '@/utils/upload'
 import studentPicker from '@/components/student-picker/index.vue'
+import { getWatermarkConfig } from '@/api/work/watermark'
+import { getLocation, addWatermark } from '@/utils/watermark'
 
 export default {
   components: { studentPicker },
@@ -177,11 +181,15 @@ export default {
         { label: '汽车', value: 'car' },
         { label: '其他', value: 'other' }
       ],
-      vehicleOptions: []
+      vehicleOptions: [],
+      watermarkConfig: null
     }
   },
   onLoad() {
     this.calcAcademicYear()
+    getWatermarkConfig('offcampus').then(res => {
+      this.watermarkConfig = res.data
+    }).catch(() => {})
   },
   methods: {
     calcAcademicYear() {
@@ -234,24 +242,70 @@ export default {
       this.form.vehicleId = this.vehicleOptions[e.detail.value].value
     },
     chooseImage(field) {
-      uni.chooseImage({
-        count: 1, sizeType: ['compressed'], sourceType: ['camera', 'album'],
-        success: (res) => {
-          uploadFile(res.tempFilePaths[0]).then(url => {
-            this.form[field] = url
-          }).catch(() => { uni.showToast({ title: '上传失败', icon: 'none' }) })
+      uni.showActionSheet({
+        itemList: ['拍照上传', '从相册选择'],
+        success: (action) => {
+          if (action.index === 0) {
+            // 拍照 → 加水印
+            const locPromise = getLocation()
+            uni.chooseImage({
+              count: 1, sizeType: ['compressed'], sourceType: ['camera'],
+              success: async (res) => {
+                let path = res.tempFilePaths[0]
+                if (this.watermarkConfig && this.watermarkConfig.enabled === '1') {
+                  const location = await locPromise
+                  path = await addWatermark(path, this.watermarkConfig, location)
+                }
+                uploadFile(path).then(url => {
+                  this.form[field] = url
+                }).catch(() => { uni.showToast({ title: '上传失败', icon: 'none' }) })
+              }
+            })
+          } else {
+            // 相册 → 不加水印
+            uni.chooseImage({
+              count: 1, sizeType: ['compressed'], sourceType: ['album'],
+              success: (res) => {
+                uploadFile(res.tempFilePaths[0]).then(url => {
+                  this.form[field] = url
+                }).catch(() => { uni.showToast({ title: '上传失败', icon: 'none' }) })
+              }
+            })
+          }
         }
       })
     },
     chooseMultiImage(type) {
       const list = type === 'reason' ? this.reasonPhotoList : this.housingPhotoList
       if (list.length >= 5) return uni.showToast({ title: '最多5张', icon: 'none' })
-      uni.chooseImage({
-        count: 1, sizeType: ['compressed'], sourceType: ['camera', 'album'],
-        success: (res) => {
-          uploadFile(res.tempFilePaths[0]).then(url => {
-            list.push(url)
-          }).catch(() => { uni.showToast({ title: '上传失败', icon: 'none' }) })
+      uni.showActionSheet({
+        itemList: ['拍照上传', '从相册选择'],
+        success: (action) => {
+          if (action.index === 0) {
+            const locPromise = getLocation()
+            uni.chooseImage({
+              count: 1, sizeType: ['compressed'], sourceType: ['camera'],
+              success: async (res) => {
+                let path = res.tempFilePaths[0]
+                if (this.watermarkConfig && this.watermarkConfig.enabled === '1') {
+                  const location = await locPromise
+                  path = await addWatermark(path, this.watermarkConfig, location)
+                }
+                uploadFile(path).then(url => {
+                  list.push(url)
+                }).catch(() => { uni.showToast({ title: '上传失败', icon: 'none' }) })
+              }
+            })
+          } else {
+            uni.chooseImage({
+              count: 1, sizeType: ['compressed'], sourceType: ['album'],
+              success: (res) => {
+                uploadFile(res.tempFilePaths[0]).then(url => {
+                  list.push(url)
+                }).catch(() => { uni.showToast({ title: '上传失败', icon: 'none' }) })
+              }
+            })
+          }
         }
       })
     },

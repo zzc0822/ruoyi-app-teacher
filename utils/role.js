@@ -154,7 +154,7 @@ export function isHeadteacher(roles) {
 }
 
 /**
- * 判断是否为普通教师角色
+ * 判断是否为普通教师角色（互斥逻辑：不具有任何特殊角色时才是教师）
  * @param {Array} roles - 用户角色列表
  * @returns {Boolean}
  */
@@ -165,6 +165,69 @@ export function isTeacher(roles) {
   
   // 不是书记、不是管理员、不是辅导员、不是班主任、不是党务干部，就是普通教师
   return !isSecretary(roles) && !isAdmin(roles) && !isCounselor(roles) && !isHeadteacher(roles) && !isPartyCadre(roles)
+}
+
+/**
+ * 判断是否拥有教师角色（非互斥：只要角色列表中包含 teacher 角色键即可）
+ * 用于判断是否应显示教学管理模块，即使同时拥有书记等其他角色
+ * @param {Array} roles - 用户角色列表
+ * @returns {Boolean}
+ */
+export function hasTeacherRole(roles) {
+  if (!roles || !Array.isArray(roles) || roles.length === 0) {
+    return false
+  }
+  
+  return roles.some(role => {
+    let roleKey = ''
+    if (typeof role === 'string') {
+      roleKey = role.toLowerCase()
+    } else if (typeof role === 'object') {
+      roleKey = (role.roleKey || '').toLowerCase()
+    }
+    return roleKey === 'teacher'
+  })
+}
+
+/**
+ * 判断是否为党支部书记（精确匹配，不含总支书记）
+ * @param {Array} roles - 用户角色列表
+ * @returns {Boolean}
+ */
+export function isBranchSecretary(roles) {
+  if (!roles || !Array.isArray(roles) || roles.length === 0) {
+    return false
+  }
+  return roles.some(role => {
+    let roleKey = ''
+    if (typeof role === 'string') {
+      roleKey = role.toLowerCase()
+    } else if (typeof role === 'object') {
+      roleKey = (role.roleKey || '').toLowerCase()
+    }
+    // roleKey 包含 "branch" 和 "secretary" 但不是单独的 "secretary"
+    return roleKey.includes('branch') && roleKey.includes('secretary')
+  })
+}
+
+/**
+ * 判断是否为总支书记（roleKey 精确为 secretary）
+ * @param {Array} roles - 用户角色列表
+ * @returns {Boolean}
+ */
+export function isTopSecretary(roles) {
+  if (!roles || !Array.isArray(roles) || roles.length === 0) {
+    return false
+  }
+  return roles.some(role => {
+    let roleKey = ''
+    if (typeof role === 'string') {
+      roleKey = role.toLowerCase()
+    } else if (typeof role === 'object') {
+      roleKey = (role.roleKey || '').toLowerCase()
+    }
+    return roleKey === 'secretary'
+  })
 }
 
 /**

@@ -68,6 +68,7 @@ const request = config => {
             }).then(response => {
               let [err, resp] = response
               if (!err) {
+                // 重试成功，resolve 原始 promise
                 resolve(resp.data)
               } else {
                 reject('重试请求失败')
@@ -78,14 +79,15 @@ const request = config => {
             store.dispatch('LogOut').then(() => {
               uni.reLaunch({ url: '/pages/login' })
             })
+            reject('无效的会话，或者会话已过期，请重新登录。')
           })
           // #endif
           // #ifndef MP-WEIXIN
           store.dispatch('LogOut').then(() => {
             uni.reLaunch({ url: '/pages/login' })
           })
-          // #endif
           reject('无效的会话，或者会话已过期，请重新登录。')
+          // #endif
         } else if (code === 500) {
           toast(msg)
           reject(msg)  // 返回后端的具体错误消息，而不是'500'

@@ -103,6 +103,8 @@
     <view class="submit-btn" @click="submit">
       <text class="submit-text">提交登记</text>
     </view>
+    <!-- 水印Canvas（离屏） -->
+    <canvas canvas-id="watermarkCanvas" style="position:fixed;left:-9999px;top:-9999px;width:1920px;height:1920px;"></canvas>
   </view>
 </template>
 
@@ -111,6 +113,8 @@ import { addVehicle } from '@/api/affair/vehicle'
 import { uploadFile } from '@/utils/upload'
 import studentPicker from '@/components/student-picker/index.vue'
 import plateKeyboard from '@/components/plate-keyboard/index.vue'
+import { getWatermarkConfig } from '@/api/work/watermark'
+import { getLocation, addWatermark } from '@/utils/watermark'
 
 export default {
   components: { studentPicker, plateKeyboard },
@@ -131,6 +135,7 @@ export default {
         applyReason: ''
       },
       showPlateKeyboard: false,
+      watermarkConfig: null,
       vehicleTypeOptions: [
         { label: '电动车', value: 'electric_bike' },
         { label: '摩托车', value: 'motorcycle' },
@@ -138,6 +143,11 @@ export default {
         { label: '汽车', value: 'car' }
       ]
     }
+  },
+  onLoad() {
+    getWatermarkConfig('vehicle').then(res => {
+      this.watermarkConfig = res.data
+    }).catch(() => {})
   },
   methods: {
     onPlateChange(plate) {
@@ -162,17 +172,44 @@ export default {
       this.form.vehicleType = this.vehicleTypeOptions[e.detail.value].value
     },
     chooseImage(field) {
-      uni.chooseImage({
-        count: 1,
-        sizeType: ['compressed'],
-        sourceType: ['camera', 'album'],
-        success: (res) => {
-          const tempPath = res.tempFilePaths[0]
-          uploadFile(tempPath).then(url => {
-            this.form[field] = url
-          }).catch(() => {
-            uni.showToast({ title: '上传失败', icon: 'none' })
-          })
+      uni.showActionSheet({
+        itemList: ['拍照上传', '从相册选择'],
+        success: (action) => {
+          if (action.index === 0) {
+            // 拍照 → 加水印
+            const locPromise = getLocation()
+            uni.chooseImage({
+              count: 1,
+              sizeType: ['compressed'],
+              sourceType: ['camera'],
+              success: async (res) => {
+                let tempPath = res.tempFilePaths[0]
+                if (this.watermarkConfig && this.watermarkConfig.enabled === '1') {
+                  const location = await locPromise
+                  tempPath = await addWatermark(tempPath, this.watermarkConfig, location)
+                }
+                uploadFile(tempPath).then(url => {
+                  this.form[field] = url
+                }).catch(() => {
+                  uni.showToast({ title: '上传失败', icon: 'none' })
+                })
+              }
+            })
+          } else {
+            // 相册 → 不加水印
+            uni.chooseImage({
+              count: 1,
+              sizeType: ['compressed'],
+              sourceType: ['album'],
+              success: (res) => {
+                uploadFile(res.tempFilePaths[0]).then(url => {
+                  this.form[field] = url
+                }).catch(() => {
+                  uni.showToast({ title: '上传失败', icon: 'none' })
+                })
+              }
+            })
+          }
         }
       })
     },

@@ -18,19 +18,19 @@
 
     <!-- 统计概览 -->
     <view class="stats-section">
-      <view class="stats-card" @click="goWork">
+      <view class="stats-card" @click="goStats">
         <text class="stats-num">{{ stuCount }}</text>
         <text class="stats-label">学生总数</text>
       </view>
-      <view class="stats-card" @click="goWork">
+      <view class="stats-card" @click="goStats">
         <text class="stats-num orange">{{ pendingLeave }}</text>
         <text class="stats-label">待审请假</text>
       </view>
-      <view class="stats-card" @click="goWork">
+      <view class="stats-card" @click="goStats">
         <text class="stats-num red">{{ unreadTodo }}</text>
         <text class="stats-label">未读待办</text>
       </view>
-      <view class="stats-card" @click="goWork">
+      <view class="stats-card" @click="goStats">
         <text class="stats-num blue">{{ checkCount }}</text>
         <text class="stats-label">本周查课</text>
       </view>
@@ -138,7 +138,7 @@
 </template>
 
 <script>
-import { listTodo, getUnreadCount } from '@/api/work/todo'
+import { listTodo } from '@/api/work/todo'
 import { listLeave } from '@/api/work/leave'
 import { listStuinfo } from '@/api/student/stuinfo'
 import { listClassCheck } from '@/api/work/classcheck'
@@ -298,9 +298,7 @@ export default {
       listLeave({ pageNum: 1, pageSize: 1, approvalStatus: 'pending' }).then(res => {
         this.pendingLeave = res.total || 0
       }).catch(() => { this.pendingLeave = 0 })
-      getUnreadCount().then(res => {
-        this.unreadTodo = res.data || 0
-      }).catch(() => { this.unreadTodo = 0 })
+      // 未读待办数量改为在 loadTodos 中从同一列表计算，保证数据一致性
       listClassCheck({ pageNum: 1, pageSize: 1 }).then(res => {
         this.checkCount = res.total || 0
       }).catch(() => { this.checkCount = 0 })
@@ -312,8 +310,8 @@ export default {
         // 保存待办总数，用于"更多"显示
         this.todoTotal = list.length
         
-        // 获取当前用户信息
-        const userId = this.$store.state.user?.id || this.$store.state.user?.userId
+        // 从同一列表计算未读数量，避免与工作台数据不一致
+        this.unreadTodo = list.filter(t => t.isRead !== '1').length
         
         // status: 0=未完成, 1=已完成
         const filtered = list.filter(t => {
@@ -324,11 +322,14 @@ export default {
         this.todoList = filtered.slice(0, 5)
         this.buildWeekDays()
       }).catch(() => {
-        // 静默失败
+        this.unreadTodo = 0
       })
     },
     goWork() {
       uni.switchTab({ url: '/pages/work/index' })
+    },
+    goStats() {
+      uni.navigateTo({ url: '/pages/sub-work/stats/index' })
     },
     goTodoList() {
       uni.navigateTo({ url: '/pages/sub-work/todo/index' })

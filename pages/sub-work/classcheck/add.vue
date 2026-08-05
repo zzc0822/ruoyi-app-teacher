@@ -148,6 +148,8 @@
       <text v-else style="font-size:26rpx;color:#666;font-weight:500;">{{ selectedClassName }}</text>
       <button style="background:#2979ff;color:#fff;font-size:28rpx;border-radius:10rpx;height:72rpx;line-height:72rpx;padding:0 60rpx;" @click="submitForm" :loading="submitting" :disabled="submitting">{{ editId ? '确认修改' : '确认记录' }}</button>
     </view>
+    <!-- 水印Canvas（离屏） -->
+    <canvas canvas-id="watermarkCanvas" style="position:fixed;left:-9999px;top:-9999px;width:1920px;height:1920px;"></canvas>
   </view>
 </template>
 
@@ -157,13 +159,16 @@ import { listClassinfo } from '@/api/work/classinfo'
 import { listLeave } from '@/api/work/leave'
 import { getMajorList } from '@/api/student/stats'
 import { getTeacherinfoByUserId } from '@/api/work/teacherinfo'
+import { getActiveSchedule } from '@/api/work/schedule'
 import upload from '@/utils/upload'
 import request from '@/utils/request'
 import config from '@/config'
 import { isSecretary } from '@/utils/role'
+import { getWatermarkConfig } from '@/api/work/watermark'
+import { getLocation, addWatermark } from '@/utils/watermark'
 
-// 课节时间映射表
-const LESSON_TIMES = [
+// 课节时间映射表（兜底默认值）
+const FALLBACK_TIMES = [
   { start: '08:00', end: '08:45' },
   { start: '08:55', end: '09:40' },
   { start: '10:00', end: '10:45' },
@@ -215,7 +220,8 @@ export default {
       majorNames: [],  // 专业名称列表
       gradeOptions: [],  // 年级选项列表
       actualAttendance: '',  // 书记角色：实到人数
-      leaveList: []  // 请假学生列表
+      leaveList: [],  // 请假学生列表
+      watermarkConfig: null  // 水印配置
     }
   },
   computed: {
@@ -269,6 +275,10 @@ export default {
   onLoad(options) {
     this.checkRole()
     this.loadScheduleTimes()
+    // 加载水印配置
+    getWatermarkConfig('classcheck').then(res => {
+      this.watermarkConfig = res.data
+    }).catch(() => {})
     this.initDateTime()
     
     // 加载班级列表（内部会根据角色自动加载筛选选项）
@@ -909,13 +919,21 @@ export default {
       }).catch(() => {})
     },
     takePhoto() {
+      // 并行获取定位
+      const locPromise = getLocation()
       uni.chooseImage({
         count: 1,
         sourceType: ['camera'],
         sizeType: ['compressed'],
-        success: (res) => {
-          const tempPath = res.tempFilePaths[0]
-          // 先压缩再上传
+        success: async (res) => {
+          let tempPath = res.tempFilePaths[0]
+          // 添加水印
+          if (this.watermarkConfig && this.watermarkConfig.enabled === '1') {
+            const location = await locPromise
+            uni.showLoading({ title: '添加水印...' })
+            tempPath = await addWatermark(tempPath, this.watermarkConfig, location)
+            uni.hideLoading()
+          }
           this.compressAndUpload(tempPath)
         }
       })
