@@ -147,7 +147,7 @@
       </view>
       <view v-if="!partyCollapsed">
         <view class="func-grid">
-          <view class="func-item" @click="onPartyFuncClick('members')" v-if="hasPartyPermi('mini:member')">
+          <view class="func-item" @click="onPartyFuncClick('members')" v-if="isPartyFuncEnabled('member')">
             <view class="func-icon icon-red">
               <uni-icons type="staff-filled" size="26" color="#fff"></uni-icons>
             </view>
@@ -159,19 +159,19 @@
             </view>
             <text class="func-name">委员设置</text>
           </view>
-          <view class="func-item" @click="onPartyFuncClick('thoughtReport')" v-if="hasPartyPermi('mini:thoughtReport')">
+          <view class="func-item" @click="onPartyFuncClick('thoughtReport')" v-if="isPartyFuncEnabled('thoughtReport')">
             <view class="func-icon icon-green">
               <uni-icons type="chat-filled" size="26" color="#fff"></uni-icons>
             </view>
             <text class="func-name">思想汇报</text>
           </view>
-          <view class="func-item" @click="onPartyFuncClick('fee')" v-if="hasPartyPermi('mini:fee')">
+          <view class="func-item" @click="onPartyFuncClick('fee')" v-if="isPartyFuncEnabled('fee')">
             <view class="func-icon icon-orange">
               <uni-icons type="wallet" size="26" color="#fff"></uni-icons>
             </view>
             <text class="func-name">党费管理</text>
           </view>
-          <view class="func-item" @click="onPartyFuncClick('training')" v-if="hasPartyPermi('mini:training')">
+          <view class="func-item" @click="onPartyFuncClick('training')" v-if="isPartyFuncEnabled('training')">
             <view class="func-icon icon-purple">
               <uni-icons type="calendar-filled" size="26" color="#fff"></uni-icons>
             </view>
@@ -192,19 +192,19 @@ import { getWorkStats } from '@/api/student/workstats'
 import { getRandomQuote } from '@/api/work/workquote'
 import { listActivity } from '@/api/work/activity'
 import { roleMixin } from '@/utils/roleSystem'
-import { checkPermi } from '@/utils/permission'
+import { getMyMiniConfig } from '@/api/system/miniConfig'
 import { getMyClasses } from '@/api/affair/headteacher'
 
-// 全量功能定义（perm 对应 PC 后台菜单"小程序端"权限标识）
+// 全量功能定义
 const ALL_FUNCS = [
-  { key: 'stuinfo', name: '我的学生', icon: 'person-filled', color: 'blue', url: '/pages/sub-work/stuinfo/index', perm: 'mini:stuinfo' },
-  { key: 'classcheck', name: '查课管理', icon: 'checkbox-filled', color: 'green', url: '/pages/sub-work/classcheck/index', perm: 'mini:classcheck' },
-  { key: 'talk', name: '谈心谈话', icon: 'chat-filled', color: 'orange', url: '/pages/sub-work/talk/index', perm: 'mini:talk' },
-  { key: 'leave', name: '请假管理', icon: 'paperplane-filled', color: 'red', url: '/pages/sub-work/leave/index', perm: 'mini:leave' },
+  { key: 'stuinfo', name: '我的学生', icon: 'person-filled', color: 'blue', url: '/pages/sub-work/stuinfo/index' },
+  { key: 'classcheck', name: '查课管理', icon: 'checkbox-filled', color: 'green', url: '/pages/sub-work/classcheck/index' },
+  { key: 'talk', name: '谈心谈话', icon: 'chat-filled', color: 'orange', url: '/pages/sub-work/talk/index' },
+  { key: 'leave', name: '请假管理', icon: 'paperplane-filled', color: 'red', url: '/pages/sub-work/leave/index' },
   { key: 'todo', name: '待办事项', icon: 'flag-filled', color: 'purple', url: '/pages/sub-work/todo/index' },
   { key: 'party', name: '党务管理', icon: 'star-filled', color: 'red', url: '/pages/sub-work/party/index' },
   { key: 'vehicle', name: '车辆登记', icon: 'car', color: 'cyan', url: '/pages/sub-work/vehicle/index' },
-  { key: 'offcampus', name: '外宿管理', icon: 'home', color: 'purple', url: '/pages/sub-work/offcampus/index', perm: 'mini:offcampus' }
+  { key: 'offcampus', name: '外宿管理', icon: 'home', color: 'purple', url: '/pages/sub-work/offcampus/index' }
 ]
 
 // 默认常用功能 key
@@ -228,6 +228,8 @@ export default {
       htCollapsed: false,
       partyCollapsed: false,
       commonKeys: [],
+      // 小程序配置（从后端 API 加载）
+      miniConfig: {},
       // 班主任班级列表
       htClassList: [],
       // 书记角色相关
@@ -249,35 +251,45 @@ export default {
     }
   },
   computed: {
-    // ===== 菜单驱动的模块可见性（通过 PC 后台角色菜单分配控制） =====
-    showTeaching() { return checkPermi(['mini:teaching']) },
-    showStudent() { return checkPermi(['mini:student']) },
-    showParty() { return checkPermi(['mini:party']) },
-    showHeadteacher() { return checkPermi(['mini:headteacher']) },
-    // 教学管理功能列表（perm 对应 PC 后台子菜单"小程序端"权限）
+    // ===== 配置驱动的模块可见性（通过 PC 后台"小程序配置"页面控制） =====
+    showTeaching() { return this.miniConfig.teaching && this.miniConfig.teaching.enabled },
+    showStudent() { return this.miniConfig.student && this.miniConfig.student.enabled },
+    showParty() { return this.miniConfig.party && this.miniConfig.party.enabled },
+    showHeadteacher() { return this.miniConfig.headteacher && this.miniConfig.headteacher.enabled },
+    // 教学管理功能列表
     teachingFuncs() {
       const all = [
-        { key: 'schedule', name: '我的课表', icon: 'calendar', color: 'blue', url: '/pages/sub-work/schedule/index', perm: 'mini:schedule' },
-        { key: 'attendance_summary', name: '考勤汇总', icon: 'bars', color: 'orange', url: '/pages/sub-work/attendance-summary/index', perm: 'mini:adjust' }
+        { key: 'schedule', name: '我的课表', icon: 'calendar', color: 'blue', url: '/pages/sub-work/schedule/index' },
+        { key: 'attendance_summary', name: '考勤汇总', icon: 'bars', color: 'orange', url: '/pages/sub-work/attendance-summary/index' }
       ]
-      return all.filter(f => !f.perm || checkPermi([f.perm]))
+      const funcs = (this.miniConfig.teaching && this.miniConfig.teaching.funcs) || {}
+      return all.filter(f => funcs[f.key])
     },
     allStudentFuncs() {
-      return ALL_FUNCS.filter(f => !f.perm || checkPermi([f.perm]))
+      const funcs = (this.miniConfig.student && this.miniConfig.student.funcs) || {}
+      const funcKeyMap = { stuinfo: 'stuinfo', classcheck: 'classcheck', talk: 'talk', leave: 'leave', offcampus: 'offcampus' }
+      return ALL_FUNCS.filter(f => funcKeyMap[f.key] && funcs[funcKeyMap[f.key]])
     },
     commonList() {
+      const studentFuncs = (this.miniConfig.student && this.miniConfig.student.funcs) || {}
+      const funcKeyMap = { stuinfo: 'stuinfo', classcheck: 'classcheck', talk: 'talk', leave: 'leave', offcampus: 'offcampus' }
       return this.commonKeys
         .map(k => ALL_FUNCS.find(f => f.key === k))
-        .filter(f => f && (!f.perm || checkPermi([f.perm])))
+        .filter(f => f && (funcKeyMap[f.key] ? studentFuncs[funcKeyMap[f.key]] : true))
     },
     availableToAdd() {
-      return ALL_FUNCS.filter(f => !this.commonKeys.includes(f.key) && (!f.perm || checkPermi([f.perm])))
+      const studentFuncs = (this.miniConfig.student && this.miniConfig.student.funcs) || {}
+      const funcKeyMap = { stuinfo: 'stuinfo', classcheck: 'classcheck', talk: 'talk', leave: 'leave', offcampus: 'offcampus' }
+      return ALL_FUNCS.filter(f => !this.commonKeys.includes(f.key) && (funcKeyMap[f.key] ? studentFuncs[funcKeyMap[f.key]] : true))
     }
   },
   async created() {
     
     // 初始化汇总数据为加载状态
     this.initSummaryData()
+    
+    // 加载小程序工作台配置
+    this.loadMiniConfig()
     
     // 加载教师姓名
     this.loadTeacherName()
@@ -305,9 +317,18 @@ export default {
     this.loadTodoList()
   },
   methods: {
-    // 党务子功能权限检查
-    hasPartyPermi(perm) {
-      return checkPermi([perm])
+    // 检查党务子功能是否启用
+    isPartyFuncEnabled(funcKey) {
+      const funcs = (this.miniConfig.party && this.miniConfig.party.funcs) || {}
+      return !!funcs[funcKey]
+    },
+    // 加载小程序工作台配置
+    loadMiniConfig() {
+      getMyMiniConfig().then(res => {
+        this.miniConfig = res.data || {}
+      }).catch(() => {
+        this.miniConfig = {}
+      })
     },
     // 初始化汇总数据
     initSummaryData() {
