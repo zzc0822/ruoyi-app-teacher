@@ -73,6 +73,20 @@
       </view>
     </view>
 
+    <!-- 出勤记录 -->
+    <view class="info-card" v-if="attendanceList.length > 0">
+      <view class="card-title">出勤记录</view>
+      <view class="att-item" v-for="(item, idx) in attendanceList" :key="idx">
+        <view class="att-row">
+          <text class="att-course">{{ item.courseName }}</text>
+          <text class="att-rate" :class="getAttRateClass(item)">{{ calcAbsentRate(item) }}</text>
+        </view>
+        <view class="att-row">
+          <text class="att-detail">总{{ item.totalLessons }}节 | 缺勤{{ item.absentLessons }} | 迟到{{ item.lateLessons }} | 早退{{ item.earlyLeaveLessons }}</text>
+        </view>
+      </view>
+    </view>
+
     <!-- 现场核实 -->
     <view class="verify-card">
       <view class="card-title">现场核实</view>
@@ -107,12 +121,16 @@
         <text class="action-text">通过</text>
       </view>
     </view>
+    <!-- 水印Canvas（离屏） -->
+    <canvas canvas-id="watermarkCanvas" style="position:fixed;left:-9999px;top:-9999px;width:1920px;height:1920px;"></canvas>
   </view>
 </template>
 
 <script>
-import { getOffcampus, verifyOffcampus, getOffcampusHistory } from '@/api/affair/offcampus'
+import { getOffcampus, verifyOffcampus, getOffcampusHistory, getOffcampusAttendance } from '@/api/affair/offcampus'
 import { uploadFile } from '@/utils/upload'
+import { getWatermarkConfig } from '@/api/work/watermark'
+import { getLocation, addWatermark } from '@/utils/watermark'
 
 export default {
   data() {
@@ -121,12 +139,18 @@ export default {
       detail: {},
       verifyPhotoList: [],
       verifyRemark: '',
-      historyList: []
+      historyList: [],
+      attendanceList: [],
+      watermarkConfig: null
     }
   },
   onLoad(options) {
     this.id = options.id
     this.loadDetail()
+    // 加载水印配置
+    getWatermarkConfig('offcampus').then(res => {
+      this.watermarkConfig = res.data
+    }).catch(() => {})
   },
   methods: {
     async loadDetail() {
@@ -140,6 +164,10 @@ export default {
             if (histRes.data) {
               this.historyList = (histRes.data || []).filter(h => h.id !== this.detail.id)
             }
+            const attRes = await getOffcampusAttendance(this.detail.xh)
+            if (attRes.data) {
+              this.attendanceList = attRes.data || []
+            }
           }
         }
       } catch (e) {
@@ -148,12 +176,36 @@ export default {
     },
     chooseVerifyPhoto() {
       if (this.verifyPhotoList.length >= 5) return uni.showToast({ title: '最多5张', icon: 'none' })
-      uni.chooseImage({
-        count: 1, sizeType: ['compressed'], sourceType: ['camera'],
-        success: (res) => {
-          uploadFile(res.tempFilePaths[0]).then(url => {
-            this.verifyPhotoList.push(url)
-          }).catch(() => { uni.showToast({ title: '上传失败', icon: 'none' }) })
+      uni.showActionSheet({
+        itemList: ['拍照上传', '从相册选择'],
+        success: (action) => {
+          if (action.index === 0) {
+            // 拍照 → 加水印
+            const locPromise = getLocation()
+            uni.chooseImage({
+              count: 1, sizeType: ['compressed'], sourceType: ['camera'],
+              success: async (res) => {
+                let path = res.tempFilePaths[0]
+                if (this.watermarkConfig && this.watermarkConfig.enabled === '1') {
+                  const location = await locPromise
+                  path = await addWatermark(path, this.watermarkConfig, location)
+                }
+                uploadFile(path).then(url => {
+                  this.verifyPhotoList.push(url)
+                }).catch(() => { uni.showToast({ title: '上传失败', icon: 'none' }) })
+              }
+            })
+          } else {
+            // 相册 → 不加水印
+            uni.chooseImage({
+              count: 1, sizeType: ['compressed'], sourceType: ['album'],
+              success: (res) => {
+                uploadFile(res.tempFilePaths[0]).then(url => {
+                  this.verifyPhotoList.push(url)
+                }).catch(() => { uni.showToast({ title: '上传失败', icon: 'none' }) })
+              }
+            })
+          }
         }
       })
     },
@@ -180,6 +232,22 @@ export default {
     getHousingTypeText(type) {
       const map = { own_house: '自有住房', rent_house: '租房' }
       return map[type] || type
+    },
+    calcAbsentRate(item) {
+      const total = Number(item.totalLessons) || 0
+      if (total === 0) return '无记录'
+      const absent = (Number(item.absentLessons) || 0) + (Number(item.lateLessons) || 0) + (Number(item.earlyLeaveLessons) || 0)
+      const rate = (absent / total * 100).toFixed(1)
+      return '缺勤率 ' + rate + '%'
+    },
+    getAttRateClass(item) {
+      const total = Number(item.totalLessons) || 0
+      if (total === 0) return ''
+      const absent = (Number(item.absentLessons) || 0) + (Number(item.lateLessons) || 0) + (Number(item.earlyLeaveLessons) || 0)
+      const rate = absent / total
+      if (rate >= 0.33) return 'att-rate-danger'
+      if (rate >= 0.15) return 'att-rate-warn'
+      return 'att-rate-ok'
     },
     async doVerify(status) {
       if (status === 'verified' && this.verifyPhotoList.length < 3) {
@@ -253,4 +321,13 @@ export default {
 .reject-btn .action-text { color: #f56c6c; font-size: 30rpx; font-weight: 500; }
 .pass-btn { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
 .pass-btn .action-text { color: #fff; font-size: 30rpx; font-weight: 500; }
+.att-item { padding: 12rpx 0; border-bottom: 1rpx solid #f0f0f0; }
+.att-item:last-child { border-bottom: none; }
+.att-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4rpx; }
+.att-course { font-size: 26rpx; color: #333; font-weight: 500; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.att-rate { font-size: 24rpx; font-weight: 500; flex-shrink: 0; margin-left: 12rpx; }
+.att-rate-ok { color: #4caf50; }
+.att-rate-warn { color: #ff9800; }
+.att-rate-danger { color: #f44336; }
+.att-detail { font-size: 22rpx; color: #999; }
 </style>

@@ -20,6 +20,62 @@
       </view>
     </view>
 
+    <!-- 统计概览 -->
+    <view class="stats-overview" v-if="showStatsOverview">
+      <view class="overview-header" @click="showStatsOverview = false">
+        <text class="overview-title">{{ isSecretaryRole ? '按辅导员分组统计' : '我的统计' }}</text>
+        <text class="overview-toggle">收起 ↑</text>
+      </view>
+      <!-- 书记视图：按辅导员分组 -->
+      <view v-if="isSecretaryRole" class="counselor-stats-list">
+        <view class="counselor-stat-item" v-for="(item, idx) in counselorStats" :key="idx">
+          <view class="counselor-stat-header">
+            <view class="counselor-rank" :class="'rank-' + (idx < 3 ? idx + 1 : 'n')">{{ idx + 1 }}</view>
+            <text class="counselor-stat-name">{{ item.counselorName || '未知' }}</text>
+            <view class="counselor-stat-badges">
+              <text class="stat-badge blue">{{ item.total || 0 }}条</text>
+              <text class="stat-badge orange" v-if="item.pending">{{ item.pending }}待审</text>
+              <text class="stat-badge green" v-if="item.approved">{{ item.approved }}已批</text>
+              <text class="stat-badge red" v-if="item.rejected">{{ item.rejected }}拒绝</text>
+            </view>
+          </view>
+          <view class="counselor-stat-bar">
+            <view class="bar-fill bar-done" :style="'width:' + getApprovalPercent(item) + '%'"></view>
+          </view>
+        </view>
+        <view class="empty-tip" v-if="counselorStats.length === 0"><text>暂无数据</text></view>
+      </view>
+      <!-- 辅导员视图：个人统计 -->
+      <view v-else class="personal-stats">
+        <view class="personal-stats-row">
+          <view class="personal-stat-item">
+            <text class="ps-num">{{ personalStats.total || 0 }}</text>
+            <text class="ps-label">总记录</text>
+          </view>
+          <view class="personal-stat-item">
+            <text class="ps-num orange">{{ personalStats.pending || 0 }}</text>
+            <text class="ps-label">待审批</text>
+          </view>
+          <view class="personal-stat-item">
+            <text class="ps-num green">{{ personalStats.approved || 0 }}</text>
+            <text class="ps-label">已批准</text>
+          </view>
+          <view class="personal-stat-item">
+            <text class="ps-num red">{{ personalStats.rejected || 0 }}</text>
+            <text class="ps-label">已拒绝</text>
+          </view>
+        </view>
+        <view class="completion-bar" v-if="(personalStats.total || 0) > 0">
+          <view class="completion-fill" :style="'width:' + approvalRate + '%'"></view>
+          <text class="completion-text">批准率 {{ approvalRate }}%</text>
+        </view>
+      </view>
+    </view>
+    <view class="stats-overview-mini" v-if="!showStatsOverview" @click="showStatsOverview = true">
+      <text class="mini-title">{{ isSecretaryRole ? '辅导员统计' : '我的统计' }}</text>
+      <text class="mini-toggle">展开 ↓</text>
+    </view>
+
     <!-- PC端提示 -->
     <view class="pc-tip-bar">
       <uni-icons type="info" size="14" color="#e43d33"></uni-icons>
@@ -144,6 +200,8 @@
 
 <script>
 import { listLeave, approvalLeave } from '@/api/work/leave'
+import { getModuleOverview, getModuleStatsByCounselor } from '@/api/student/moduleStats'
+import { isSecretary } from '@/utils/role'
 import config from '@/config'
 
 export default {
@@ -170,13 +228,59 @@ export default {
       // 学生选择
       showStudentPicker: false,
       studentList: [],
-      selectedStudent: null
+      selectedStudent: null,
+      // 统计概览
+      isSecretaryRole: false,
+      showStatsOverview: true,
+      counselorStats: [],
+      personalStats: { total: 0, pending: 0, approved: 0, rejected: 0 }
     }
+  },
+  computed: {
+    approvalRate() {
+      const total = this.personalStats.total || 0
+      const approved = this.personalStats.approved || 0
+      return total > 0 ? Math.round((approved / total) * 100) : 0
+    }
+  },
+  onLoad() {
+    this.checkRole()
   },
   onShow() {
     this.refresh()
   },
   methods: {
+    checkRole() {
+      let roles = []
+      try { roles = uni.getStorageSync('user_roles') || [] } catch (e) {}
+      if (!Array.isArray(roles) || roles.length === 0) {
+        const store = this.$store
+        if (store && store.state && store.state.user && store.state.user.roles) {
+          roles = store.state.user.roles
+        }
+      }
+      this.isSecretaryRole = isSecretary(roles)
+      this.loadOverviewStats()
+    },
+    loadOverviewStats() {
+      if (this.isSecretaryRole) {
+        getModuleStatsByCounselor('leave').then(res => {
+          const data = res.data || []
+          this.counselorStats = data.sort((a, b) => (b.total || 0) - (a.total || 0))
+        }).catch(() => {})
+      } else {
+        getModuleOverview().then(res => {
+          if (res.data && res.data.leave) {
+            this.personalStats = res.data.leave
+          }
+        }).catch(() => {})
+      }
+    },
+    getApprovalPercent(item) {
+      const total = item.total || 0
+      const approved = item.approved || 0
+      return total > 0 ? Math.round((approved / total) * 100) : 0
+    },
     // 搜索输入（防抖）
     onSearchInput() {
       clearTimeout(this.searchTimer)
@@ -770,5 +874,184 @@ export default {
   padding: 60rpx 0;
   font-size: 28rpx;
   color: #999;
+}
+
+/* ===== 统计概览 ===== */
+.stats-overview {
+  margin: 16rpx 20rpx 0;
+  background: #fff;
+  border-radius: 16rpx;
+  padding: 20rpx 24rpx;
+}
+
+.overview-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16rpx;
+}
+
+.overview-title {
+  font-size: 28rpx;
+  font-weight: bold;
+  color: #333;
+}
+
+.overview-toggle {
+  font-size: 24rpx;
+  color: #999;
+}
+
+.stats-overview-mini {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin: 16rpx 20rpx 0;
+  background: #fff;
+  border-radius: 12rpx;
+  padding: 16rpx 24rpx;
+}
+
+.mini-title {
+  font-size: 26rpx;
+  font-weight: bold;
+  color: #333;
+}
+
+.mini-toggle {
+  font-size: 24rpx;
+  color: #e43d33;
+}
+
+.counselor-stats-list {
+  max-height: 500rpx;
+  overflow-y: auto;
+}
+
+.counselor-stat-item {
+  padding: 16rpx 0;
+  border-bottom: 1rpx solid #f5f5f5;
+}
+
+.counselor-stat-item:last-child {
+  border-bottom: none;
+}
+
+.counselor-stat-header {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  margin-bottom: 8rpx;
+}
+
+.counselor-rank {
+  width: 36rpx;
+  height: 36rpx;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22rpx;
+  font-weight: bold;
+  color: #999;
+  background: #f5f5f5;
+  &.rank-1 { background: #ffd700; color: #fff; }
+  &.rank-2 { background: #c0c0c0; color: #fff; }
+  &.rank-3 { background: #cd7f32; color: #fff; }
+}
+
+.counselor-stat-name {
+  font-size: 28rpx;
+  font-weight: 500;
+  color: #333;
+  flex: 1;
+}
+
+.counselor-stat-badges {
+  display: flex;
+  gap: 8rpx;
+  flex-wrap: wrap;
+}
+
+.stat-badge {
+  font-size: 20rpx;
+  padding: 2rpx 12rpx;
+  border-radius: 8rpx;
+  &.blue { color: #2979ff; background: #e8f0ff; }
+  &.orange { color: #f3a044; background: #fef3e2; }
+  &.green { color: #18bc37; background: #e8f8ea; }
+  &.red { color: #e43d33; background: #fef0f0; }
+}
+
+.counselor-stat-bar {
+  height: 12rpx;
+  background: #f5f5f5;
+  border-radius: 6rpx;
+  overflow: hidden;
+}
+
+.bar-fill {
+  height: 100%;
+  border-radius: 6rpx;
+  transition: width 0.3s;
+  &.bar-done { background: linear-gradient(90deg, #e43d33, #f56c6c); }
+}
+
+.personal-stats {
+  padding: 8rpx 0;
+}
+
+.personal-stats-row {
+  display: flex;
+  justify-content: space-around;
+  margin-bottom: 16rpx;
+}
+
+.personal-stat-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.ps-num {
+  font-size: 40rpx;
+  font-weight: bold;
+  color: #333;
+  &.orange { color: #f3a044; }
+  &.green { color: #18bc37; }
+  &.red { color: #e43d33; }
+}
+
+.ps-label {
+  font-size: 22rpx;
+  color: #999;
+  margin-top: 6rpx;
+}
+
+.completion-bar {
+  position: relative;
+  height: 32rpx;
+  background: #f5f5f5;
+  border-radius: 16rpx;
+  overflow: hidden;
+}
+
+.completion-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #e43d33, #f56c6c);
+  border-radius: 16rpx;
+  transition: width 0.3s;
+}
+
+.completion-text {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 32rpx;
+  line-height: 32rpx;
+  text-align: center;
+  font-size: 20rpx;
+  color: #fff;
 }
 </style>

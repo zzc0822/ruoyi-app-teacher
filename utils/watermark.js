@@ -1,4 +1,5 @@
 import { parseTime } from '@/utils/common'
+import { getWatermarkAddress } from '@/api/work/watermark'
 
 /**
  * 获取当前GPS定位
@@ -25,13 +26,50 @@ export function getLocation() {
 }
 
 /**
+ * 拍照前确认水印取证信息：水印时间取确认时刻，水印地址由后端逆地理编码得出
+ * 未取到定位或地址时返回 ready=false，由调用方阻断拍照并提示
+ * @param {object} config 水印配置
+ * @param {string} fallbackAddress 逆地理编码无结果时的地址兜底（如上课地点）
+ * @returns Promise<{ready: boolean, message: string, captureInfo: object|null}>
+ */
+export async function prepareCapture(config, fallbackAddress) {
+  if (!config || config.enabled !== '1') {
+    return { ready: true, message: '', captureInfo: null }
+  }
+  const needLocation = config.showLocation === '1' || config.showAddress === '1'
+  const location = needLocation ? await getLocation() : null
+  if (needLocation && !location) {
+    return { ready: false, message: '未获取到定位信息，请开放定位权限后重试', captureInfo: null }
+  }
+  let address = ''
+  if (config.showAddress === '1') {
+    if (location) {
+      try {
+        const res = await getWatermarkAddress(location.latitude, location.longitude)
+        address = (res && res.data) || ''
+      } catch (e) {
+        address = ''
+      }
+    }
+    if (!address) {
+      address = fallbackAddress || ''
+    }
+    if (!address) {
+      return { ready: false, message: '未确定水印地址，请填写上课地点后重试', captureInfo: null }
+    }
+  }
+  const time = parseTime(new Date(), '{y}-{m}-{d} {h}:{i}:{s} 星期{a}')
+  return { ready: true, message: '', captureInfo: Object.assign({}, location, { address: address, time: time }) }
+}
+
+/**
  * 在照片上绘制水印
  * @param {string} filePath 原图临时路径
  * @param {object} config 水印配置 { enabled, showScene, showTime, showLocation, showAddress, sceneName, customText }
- * @param {object|null} location getLocation返回的定位对象
+ * @param {object|null} captureInfo 拍照前确认的取证信息 { latitude, longitude, altitude, accuracy, address, time }
  * @returns Promise<string> 水印后的图片临时路径
  */
-export function addWatermark(filePath, config, location) {
+export function addWatermark(filePath, config, captureInfo) {
   return new Promise((resolve, reject) => {
     // 水印未启用，直接返回原图
     if (!config || config.enabled !== '1') {
@@ -65,11 +103,11 @@ export function addWatermark(filePath, config, location) {
           quality: 0.85,
           success: () => {
             // 先确保canvas尺寸正确，再绘制
-            _doDrawWatermark(canvasId, drawW, drawH, filePath, imgInfo, config, location, resolve, reject)
+            _doDrawWatermark(canvasId, drawW, drawH, filePath, imgInfo, config, captureInfo, resolve, reject)
           },
           fail: (err) => {
             // canvas可能未就绪，直接尝试绘制
-            _doDrawWatermark(canvasId, drawW, drawH, filePath, imgInfo, config, location, resolve, reject)
+            _doDrawWatermark(canvasId, drawW, drawH, filePath, imgInfo, config, captureInfo, resolve, reject)
           }
         })
       },
@@ -80,7 +118,7 @@ export function addWatermark(filePath, config, location) {
   })
 }
 
-function _doDrawWatermark(canvasId, drawW, drawH, filePath, imgInfo, config, location, resolve, reject) {
+function _doDrawWatermark(canvasId, drawW, drawH, filePath, imgInfo, config, captureInfo, resolve, reject) {
   const ctx = uni.createCanvasContext(canvasId)
 
   // 绘制原图
@@ -98,14 +136,17 @@ function _doDrawWatermark(canvasId, drawW, drawH, filePath, imgInfo, config, loc
     lines.push({ text: config.sceneName, size: titleSize, bold: true })
   }
 
-  // 拍照时间
+  // 拍照时间（拍照前已确认的时间快照，缺失时取当前时间）
   if (config.showTime === '1') {
-    const now = parseTime(new Date(), '{y}-{m}-{d} {h}:{i}:{s} 星期{a}')
-    lines.push({ text: now, size: fontSize, bold: false })
+    const time = captureInfo && captureInfo.time
+      ? captureInfo.time
+      : parseTime(new Date(), '{y}-{m}-{d} {h}:{i}:{s} 星期{a}')
+    lines.push({ text: time, size: fontSize, bold: false })
   }
 
   // GPS坐标
-  if (config.showLocation === '1' && location) {
+  const location = captureInfo
+  if (config.showLocation === '1' && location && location.latitude != null) {
     const lat = location.latitude.toFixed(6)
     const lng = location.longitude.toFixed(6)
     let locText = '经度:' + lng + ' 纬度:' + lat
@@ -116,8 +157,13 @@ function _doDrawWatermark(canvasId, drawW, drawH, filePath, imgInfo, config, loc
       locText += ' 精度:±' + Math.round(location.accuracy) + 'm'
     }
     lines.push({ text: locText, size: fontSize, bold: false })
-  } else if (config.showLocation === '1' && !location) {
+  } else if (config.showLocation === '1') {
     lines.push({ text: '定位失败', size: fontSize, bold: false })
+  }
+
+  // 地理地址（拍照前由后端逆地理编码确认）
+  if (config.showAddress === '1' && captureInfo && captureInfo.address) {
+    lines.push({ text: captureInfo.address, size: fontSize, bold: false })
   }
 
   // 自定义文字

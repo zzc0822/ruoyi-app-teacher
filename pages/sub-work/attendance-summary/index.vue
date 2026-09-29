@@ -23,6 +23,14 @@
       </view>
     </view>
 
+    <!-- 出勤统计与预警入口 -->
+    <view class="action-section">
+      <button class="action-btn" @click="goAttendanceWarning">
+        <text class="action-icon">📊</text>
+        <text class="action-text">出勤统计与预警</text>
+      </button>
+    </view>
+
     <!-- 班级列表 -->
     <view class="section-header">
       <text class="section-title">各班级考勤明细</text>
@@ -151,6 +159,11 @@ export default {
       uni.navigateTo({
         url: `/pages/sub-work/attendance-summary/detail?bjdm=${cls.bjdm}&className=${encodeURIComponent(cls.className || '')}&courseName=${encodeURIComponent(cls.courseName || '')}`
       })
+    },
+    goAttendanceWarning() {
+      uni.navigateTo({
+        url: '/pages/sub-work/attendance-warning/index'
+      })
     }
   }
 }
@@ -194,6 +207,29 @@ export default {
   font-size: 22rpx;
   opacity: 0.85;
   margin-top: 8rpx;
+}
+
+.action-section {
+  padding: 20rpx;
+}
+.action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12rpx;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: #fff;
+  padding: 24rpx;
+  border-radius: 12rpx;
+  border: none;
+  font-size: 28rpx;
+  font-weight: 600;
+}
+.action-icon {
+  font-size: 32rpx;
+}
+.action-text {
+  font-size: 28rpx;
 }
 
 .section-header {

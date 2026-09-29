@@ -23,9 +23,15 @@
           </view>
         </view>
       </view>
-      <view class="add-check-btn" @click="goAdd">
-        <uni-icons type="plusempty" size="28" color="#fff"></uni-icons>
-        <text class="add-check-label">新增</text>
+      <view class="top-btn-group">
+        <view class="sign-btn" @click="goSign">
+          <uni-icons type="calendar" size="20" color="#fff"></uni-icons>
+          <text class="sign-btn-label">签到</text>
+        </view>
+        <view class="add-check-btn" @click="goAdd">
+          <uni-icons type="plusempty" size="28" color="#fff"></uni-icons>
+          <text class="add-check-label">新增</text>
+        </view>
       </view>
     </view>
 
@@ -93,97 +99,116 @@
       </view>
     </view>
 
-    <!-- 辅导员查课次数统计（书记视图） -->
-    <view class="card" v-if="isSecretaryRole">
-      <view class="card-header">
-        <text class="card-title">辅导员查课统计</text>
-        <view class="header-right">
+    <!-- 查课统计概览 -->
+    <view class="stats-overview" v-if="showStatsOverview">
+      <view class="overview-header" @click="showStatsOverview = false">
+        <text class="overview-title">{{ isSecretaryRole ? '辅导员查课统计' : '我的查课统计' }}</text>
+        <view class="header-right" v-if="isSecretaryRole">
           <text class="card-subtitle">{{ statsCount }}位辅导员</text>
-          <!-- 视图切换按钮 -->
           <view class="view-toggle">
-            <text :class="['toggle-btn', viewMode === 'bar' ? 'active' : '']" @click="switchView('bar')">排名</text>
-            <text :class="['toggle-btn', viewMode === 'heatmap' ? 'active' : '']" @click="switchView('heatmap')">热力</text>
+            <text :class="['toggle-btn', viewMode === 'bar' ? 'active' : '']" @click.stop="switchView('bar')">排名</text>
+            <text :class="['toggle-btn', viewMode === 'heatmap' ? 'active' : '']" @click.stop="switchView('heatmap')">热力</text>
           </view>
         </view>
+        <text class="overview-toggle">收起 ↑</text>
       </view>
-      
-      <!-- 垂直直方图视图 -->
-      <view v-if="viewMode === 'bar'">
-        <scroll-view scroll-y class="counselor-stats-scroll" v-if="hasCounselorData">
-          <view class="counselor-vertical-chart">
-            <view class="counselor-vertical-item" v-for="(item, index) in counselorStats" :key="index">
-              <!-- 顶部：排名 + 姓名 + 次数 -->
-              <view class="counselor-vertical-header">
-                <view class="counselor-rank-badge" :class="'rank-' + (index + 1)">
-                  <text class="rank-num">{{ index + 1 }}</text>
+      <!-- 书记视图：按辅导员分组（条形图/热力图） -->
+      <view v-if="isSecretaryRole">
+        <!-- 垂直直方图视图 -->
+        <view v-if="viewMode === 'bar'">
+          <scroll-view scroll-y class="counselor-stats-scroll" v-if="hasCounselorData">
+            <view class="counselor-vertical-chart">
+              <view class="counselor-vertical-item" v-for="(item, index) in counselorStats" :key="index">
+                <view class="counselor-vertical-header">
+                  <view class="counselor-rank-badge" :class="'rank-' + (index + 1)">
+                    <text class="rank-num">{{ index + 1 }}</text>
+                  </view>
+                  <text class="counselor-vertical-name">{{ item.fdyName }}</text>
+                  <text class="counselor-vertical-count" :class="item.checkCount >= 10 ? 'count-high' : (item.checkCount >= 5 ? 'count-medium' : 'count-low')">{{ item.checkCount || 0 }}次</text>
                 </view>
-                <text class="counselor-vertical-name">{{ item.fdyName }}</text>
-                <text class="counselor-vertical-count" :class="item.checkCount >= 10 ? 'count-high' : (item.checkCount >= 5 ? 'count-medium' : 'count-low')">{{ item.checkCount || 0 }}次</text>
+                <view class="counselor-vertical-bar">
+                  <view class="counselor-vertical-fill" :class="item.checkCount >= 10 ? 'bar-high' : (item.checkCount >= 5 ? 'bar-medium' : 'bar-low')" :style="'height:' + getCounselorBarHeight(item.checkCount) + '%'"></view>
+                </view>
               </view>
-              <!-- 柱状图 -->
-              <view class="counselor-vertical-bar">
-                <view class="counselor-vertical-fill" :class="item.checkCount >= 10 ? 'bar-high' : (item.checkCount >= 5 ? 'bar-medium' : 'bar-low')" :style="'height:' + getCounselorBarHeight(item.checkCount) + '%'"></view>
+            </view>
+          </scroll-view>
+          <view class="empty-tip" v-else><text>暂无数据</text></view>
+        </view>
+        <!-- 热力图视图 -->
+        <view v-if="viewMode === 'heatmap'">
+          <view class="heatmap-container" v-if="hasCounselorData">
+            <view class="heatmap-header">
+              <view class="heatmap-name-cell">辅导员</view>
+              <view class="heatmap-day-cell" v-for="(day, di) in weekDays" :key="di">
+                <text class="heatmap-day-text">{{ day }}</text>
+              </view>
+            </view>
+            <view class="heatmap-row" v-for="(item, index) in counselorStats.slice(0, 10)" :key="index">
+              <view class="heatmap-name-cell">
+                <text class="heatmap-name">{{ item.fdyName }}</text>
+              </view>
+              <view class="heatmap-day-cell" v-for="(day, di) in 7" :key="di">
+                <view class="heatmap-cell" :class="[((item.fdyName || '').charCodeAt(0) + di) % 15 === 0 ? 'level-0' : (((item.fdyName || '').charCodeAt(0) + di) % 15 <= 3 ? 'level-1' : (((item.fdyName || '').charCodeAt(0) + di) % 15 <= 6 ? 'level-2' : (((item.fdyName || '').charCodeAt(0) + di) % 15 <= 9 ? 'level-3' : 'level-4')))]">
+                  <text class="heatmap-cell-text">{{ ((item.fdyName || '').charCodeAt(0) + di) % 15 }}</text>
+                </view>
+              </view>
+            </view>
+            <view class="heatmap-legend">
+              <text class="legend-text">图例：</text>
+              <view class="legend-item">
+                <view class="legend-cell level-0"></view>
+                <text class="legend-label">0次</text>
+              </view>
+              <view class="legend-item">
+                <view class="legend-cell level-1"></view>
+                <text class="legend-label">1-3次</text>
+              </view>
+              <view class="legend-item">
+                <view class="legend-cell level-2"></view>
+                <text class="legend-label">4-6次</text>
+              </view>
+              <view class="legend-item">
+                <view class="legend-cell level-3"></view>
+                <text class="legend-label">7-9次</text>
+              </view>
+              <view class="legend-item">
+                <view class="legend-cell level-4"></view>
+                <text class="legend-label">≥10次</text>
               </view>
             </view>
           </view>
-        </scroll-view>
-        <view class="empty-tip" v-else>
-          <text>暂无数据</text>
+          <view class="empty-tip" v-else><text>暂无数据</text></view>
         </view>
       </view>
-      
-      <!-- 热力图视图 -->
-      <view v-if="viewMode === 'heatmap'">
-        <view class="heatmap-container" v-if="hasCounselorData">
-          <!-- 星期标题行 -->
-          <view class="heatmap-header">
-            <view class="heatmap-name-cell">辅导员</view>
-            <view class="heatmap-day-cell" v-for="(day, di) in weekDays" :key="di">
-              <text class="heatmap-day-text">{{ day }}</text>
-            </view>
+      <!-- 辅导员视图：个人统计 -->
+      <view v-else class="personal-stats">
+        <view class="personal-stats-row">
+          <view class="personal-stat-item">
+            <text class="ps-num">{{ personalStats.checkCount || 0 }}</text>
+            <text class="ps-label">查课次数</text>
           </view>
-          
-          <!-- 热力图数据行 -->
-          <view class="heatmap-row" v-for="(item, index) in counselorStats.slice(0, 10)" :key="index">
-            <view class="heatmap-name-cell">
-              <text class="heatmap-name">{{ item.fdyName }}</text>
-            </view>
-            <view class="heatmap-day-cell" v-for="(day, di) in 7" :key="di">
-              <view class="heatmap-cell" :class="[((item.fdyName || '').charCodeAt(0) + di) % 15 === 0 ? 'level-0' : (((item.fdyName || '').charCodeAt(0) + di) % 15 <= 3 ? 'level-1' : (((item.fdyName || '').charCodeAt(0) + di) % 15 <= 6 ? 'level-2' : (((item.fdyName || '').charCodeAt(0) + di) % 15 <= 9 ? 'level-3' : 'level-4')))]">
-                <text class="heatmap-cell-text">{{ ((item.fdyName || '').charCodeAt(0) + di) % 15 }}</text>
-              </view>
-            </view>
+          <view class="personal-stat-item">
+            <text class="ps-num blue">{{ personalStats.checkedClasses || 0 }}</text>
+            <text class="ps-label">已查班级</text>
           </view>
-          
-          <!-- 图例 -->
-          <view class="heatmap-legend">
-            <text class="legend-text">图例：</text>
-            <view class="legend-item">
-              <view class="legend-cell level-0"></view>
-              <text class="legend-label">0次</text>
-            </view>
-            <view class="legend-item">
-              <view class="legend-cell level-1"></view>
-              <text class="legend-label">1-3次</text>
-            </view>
-            <view class="legend-item">
-              <view class="legend-cell level-2"></view>
-              <text class="legend-label">4-6次</text>
-            </view>
-            <view class="legend-item">
-              <view class="legend-cell level-3"></view>
-              <text class="legend-label">7-9次</text>
-            </view>
-            <view class="legend-item">
-              <view class="legend-cell level-4"></view>
-              <text class="legend-label">≥10次</text>
-            </view>
+          <view class="personal-stat-item">
+            <text class="ps-num orange">{{ personalStats.totalClasses || 0 }}</text>
+            <text class="ps-label">总班级</text>
+          </view>
+          <view class="personal-stat-item">
+            <text class="ps-num green">{{ personalStats.totalStudents || 0 }}</text>
+            <text class="ps-label">涉及学生</text>
           </view>
         </view>
-        <view class="empty-tip" v-else>
-          <text>暂无数据</text>
+        <view class="completion-bar" v-if="(personalStats.totalClasses || 0) > 0">
+          <view class="completion-fill" :style="'width:' + checkCoverage + '%'"></view>
+          <text class="completion-text">覆盖率 {{ checkCoverage }}%</text>
         </view>
       </view>
+    </view>
+    <view class="stats-overview-mini" v-if="!showStatsOverview" @click="showStatsOverview = true">
+      <text class="mini-title">{{ isSecretaryRole ? '辅导员统计' : '我的统计' }}</text>
+      <text class="mini-toggle">展开 ↓</text>
     </view>
 
     <!-- 查课记录列表 -->
@@ -239,6 +264,7 @@
 import { listClassCheck, getClassCheckStats, getMyClasses } from '@/api/work/classcheck'
 import { getTodaySchedules, getWeekInfo } from '@/api/work/schedule'
 import { getStatsByCounselor } from '@/api/student/stats'
+import { getModuleOverview } from '@/api/student/moduleStats'
 import { isSecretary } from '@/utils/role'
 import config from '@/config'
 
@@ -270,7 +296,9 @@ export default {
       todayScheduleList: [],  // 当前节次的课表列表
       checkedClasses: {},  // 已查课班级集合：key=bjdm-selectedDate-selectedSection
       weekInfo: {},  // 校历信息（周次、学期、节假日）
-      currentSemester: ''  // 当前学期
+      currentSemester: '',  // 当前学期
+      showStatsOverview: true,  // 统计概览是否展开
+      personalStats: { total: 0, checkCount: 0, totalClasses: 0, checkedClasses: 0, totalStudents: 0 }  // 辅导员个人统计
     }
   },
   computed: {
@@ -281,6 +309,11 @@ export default {
       const today = new Date()
       const isToday = d.getFullYear() === today.getFullYear() && m === today.getMonth() + 1 && day === today.getDate()
       return isToday ? '今日' : (m + '月' + day + '日')
+    },
+    checkCoverage() {
+      const total = this.personalStats.totalClasses || 0
+      const checked = this.personalStats.checkedClasses || 0
+      return total > 0 ? Math.round((checked / total) * 100) : 0
     },
     // 辅导员统计数量
     statsCount() {
@@ -358,6 +391,12 @@ export default {
     // 如果是书记角色，刷新辅导员统计
     if (this.isSecretaryRole) {
       this.loadCounselorStats()
+    } else {
+      getModuleOverview().then(res => {
+        if (res.data && res.data.classCheck) {
+          this.personalStats = res.data.classCheck
+        }
+      }).catch(() => {})
     }
   },
   methods: {
@@ -663,6 +702,9 @@ export default {
         this.getList()
       }
     },
+    goSign() {
+      uni.navigateTo({ url: '/pages/sub-work/sign/index' })
+    },
     goAdd() {
       uni.navigateTo({ url: '/pages/sub-work/classcheck/add' })
     },
@@ -759,13 +801,19 @@ export default {
       // 使用项目统一的角色判断函数
       this.isSecretaryRole = isSecretary(roles)
       
-      
       // 角色判断完成后，加载班级列表
       this.loadClasses()
       
       // 如果是书记角色，加载辅导员统计
       if (this.isSecretaryRole) {
         this.loadCounselorStats()
+      } else {
+        // 辅导员角色，加载个人统计
+        getModuleOverview().then(res => {
+          if (res.data && res.data.classCheck) {
+            this.personalStats = res.data.classCheck
+          }
+        }).catch(() => {})
       }
     },
     // 加载辅导员统计
@@ -883,8 +931,31 @@ export default {
   text-align: center;
 }
 
+.top-btn-group {
+  display: flex;
+  flex-direction: column;
+  gap: 12rpx;
+  min-width: 120rpx;
+}
+
+.sign-btn {
+  background: linear-gradient(135deg, #4facfe, #2b85e4);
+  border-radius: 20rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4rpx;
+  padding: 12rpx 0;
+}
+
+.sign-btn-label {
+  font-size: 22rpx;
+  color: #fff;
+  font-weight: 500;
+}
+
 .add-check-btn {
-  flex: 1;
   background: linear-gradient(135deg, #18bc37, #0fad2e);
   border-radius: 20rpx;
   display: flex;
@@ -1580,5 +1651,110 @@ export default {
   display: flex;
   flex-direction: column;
   gap: 16rpx;
+}
+
+/* ===== 统计概览 ===== */
+.stats-overview {
+  margin: 16rpx 20rpx 0;
+  background: #fff;
+  border-radius: 16rpx;
+  padding: 20rpx 24rpx;
+}
+
+.overview-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16rpx;
+}
+
+.overview-title {
+  font-size: 28rpx;
+  font-weight: bold;
+  color: #333;
+}
+
+.overview-toggle {
+  font-size: 24rpx;
+  color: #999;
+}
+
+.stats-overview-mini {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin: 16rpx 20rpx 0;
+  background: #fff;
+  border-radius: 12rpx;
+  padding: 16rpx 24rpx;
+}
+
+.mini-title {
+  font-size: 26rpx;
+  font-weight: bold;
+  color: #333;
+}
+
+.mini-toggle {
+  font-size: 24rpx;
+  color: #2979ff;
+}
+
+.personal-stats {
+  padding: 8rpx 0;
+}
+
+.personal-stats-row {
+  display: flex;
+  justify-content: space-around;
+  margin-bottom: 16rpx;
+}
+
+.personal-stat-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.ps-num {
+  font-size: 40rpx;
+  font-weight: bold;
+  color: #333;
+  &.blue { color: #2979ff; }
+  &.orange { color: #f3a044; }
+  &.green { color: #18bc37; }
+}
+
+.ps-label {
+  font-size: 22rpx;
+  color: #999;
+  margin-top: 6rpx;
+}
+
+.completion-bar {
+  position: relative;
+  height: 32rpx;
+  background: #f5f5f5;
+  border-radius: 16rpx;
+  overflow: hidden;
+}
+
+.completion-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #2979ff, #18bc37);
+  border-radius: 16rpx;
+  transition: width 0.3s;
+}
+
+.completion-text {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 32rpx;
+  line-height: 32rpx;
+  text-align: center;
+  font-size: 20rpx;
+  color: #fff;
 }
 </style>

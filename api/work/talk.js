@@ -71,6 +71,15 @@ export function getPendingTalks() {
   })
 }
 
+// 查询某次查课自动生成且未结束的谈话计划
+export function getTalkByCheck(checkId) {
+  return request({
+    url: '/api/talk/byCheck',
+    method: 'get',
+    params: { checkId }
+  })
+}
+
 // 获取违纪学生列表
 export function getViolationStudents(checkDate, bjdm) {
   return request({

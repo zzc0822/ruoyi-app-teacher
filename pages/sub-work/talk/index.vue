@@ -54,6 +54,63 @@
       </view>
     </view> -->
 
+    <!-- 统计概览 -->
+    <view class="stats-overview" v-if="showStatsOverview">
+      <view class="overview-header" @click="showStatsOverview = false">
+        <text class="overview-title">{{ isSecretaryRole ? '按辅导员分组统计' : '我的统计' }}</text>
+        <text class="overview-toggle">收起 ↑</text>
+      </view>
+      <!-- 书记视图：按辅导员分组 -->
+      <view v-if="isSecretaryRole" class="counselor-stats-list">
+        <view class="counselor-stat-item" v-for="(item, idx) in counselorStats" :key="idx">
+          <view class="counselor-stat-header">
+            <view class="counselor-rank" :class="'rank-' + (idx < 3 ? idx + 1 : 'n')">{{ idx + 1 }}</view>
+            <text class="counselor-stat-name">{{ item.counselorName || '未知' }}</text>
+            <view class="counselor-stat-badges">
+              <text class="stat-badge blue">{{ item.total || 0 }}条</text>
+              <text class="stat-badge orange" v-if="item.pending">{{ item.pending }}待谈</text>
+              <text class="stat-badge green" v-if="item.completed">{{ item.completed }}完成</text>
+            </view>
+          </view>
+          <view class="counselor-stat-bar">
+            <view class="bar-fill bar-done" :style="'width:' + getCounselorPercent(item) + '%'"></view>
+          </view>
+        </view>
+        <view class="empty-tip" v-if="counselorStats.length === 0">
+          <text>暂无数据</text>
+        </view>
+      </view>
+      <!-- 辅导员视图：个人统计 -->
+      <view v-else class="personal-stats">
+        <view class="personal-stats-row">
+          <view class="personal-stat-item">
+            <text class="ps-num">{{ personalStats.total || 0 }}</text>
+            <text class="ps-label">总记录</text>
+          </view>
+          <view class="personal-stat-item">
+            <text class="ps-num blue">{{ personalStats.pending || 0 }}</text>
+            <text class="ps-label">待谈话</text>
+          </view>
+          <view class="personal-stat-item">
+            <text class="ps-num orange">{{ personalStats.ongoing || 0 }}</text>
+            <text class="ps-label">进行中</text>
+          </view>
+          <view class="personal-stat-item">
+            <text class="ps-num green">{{ personalStats.completed || 0 }}</text>
+            <text class="ps-label">已完成</text>
+          </view>
+        </view>
+        <view class="completion-bar" v-if="(personalStats.total || 0) > 0">
+          <view class="completion-fill" :style="'width:' + completionRate + '%'"></view>
+          <text class="completion-text">完成率 {{ completionRate }}%</text>
+        </view>
+      </view>
+    </view>
+    <view class="stats-overview-mini" v-if="!showStatsOverview" @click="showStatsOverview = true">
+      <text class="mini-title">{{ isSecretaryRole ? '辅导员统计' : '我的统计' }}</text>
+      <text class="mini-toggle">展开 ↓</text>
+    </view>
+
     <!-- 筛选栏 -->
     <view class="filter-bar">
       <view :class="['filter-btn', filterStatus === '' ? 'filter-active' : '']" @click="setFilter('')">
@@ -116,7 +173,9 @@
 </template>
 
 <script>
-import { listTalk, getPendingTalks, getTalkStats } from '@/api/work/talk'
+import { listTalk, getPendingTalks } from '@/api/work/talk'
+import { getModuleOverview, getModuleStatsByCounselor } from '@/api/student/moduleStats'
+import { isSecretary } from '@/utils/role'
 import config from '@/config'
 
 export default {
@@ -130,10 +189,22 @@ export default {
       pendingList: [],
       showPending: true,
       filterStatus: '',
-      stats: { total: 0, pending: 0, ongoing: 0, completed: 0 }
+      stats: { total: 0, pending: 0, ongoing: 0, completed: 0 },
+      isSecretaryRole: false,
+      showStatsOverview: true,
+      counselorStats: [],
+      personalStats: { total: 0, pending: 0, ongoing: 0, completed: 0 }
+    }
+  },
+  computed: {
+    completionRate() {
+      const total = this.personalStats.total || 0
+      const completed = this.personalStats.completed || 0
+      return total > 0 ? Math.round((completed / total) * 100) : 0
     }
   },
   onLoad() {
+    this.checkRole()
     this.getList()
     this.getPending()
   },
@@ -153,6 +224,37 @@ export default {
     uni.$off('refreshTalkList', this.refreshList)
   },
   methods: {
+    checkRole() {
+      let roles = []
+      try { roles = uni.getStorageSync('user_roles') || [] } catch (e) {}
+      if (!Array.isArray(roles) || roles.length === 0) {
+        const store = this.$store
+        if (store && store.state && store.state.user && store.state.user.roles) {
+          roles = store.state.user.roles
+        }
+      }
+      this.isSecretaryRole = isSecretary(roles)
+      this.loadOverviewStats()
+    },
+    loadOverviewStats() {
+      if (this.isSecretaryRole) {
+        getModuleStatsByCounselor('talk').then(res => {
+          const data = res.data || []
+          this.counselorStats = data.sort((a, b) => (b.total || 0) - (a.total || 0))
+        }).catch(() => {})
+      } else {
+        getModuleOverview().then(res => {
+          if (res.data && res.data.talk) {
+            this.personalStats = res.data.talk
+          }
+        }).catch(() => {})
+      }
+    },
+    getCounselorPercent(item) {
+      const total = item.total || 0
+      const completed = item.completed || 0
+      return total > 0 ? Math.round((completed / total) * 100) : 0
+    },
     // 刷新列表（用于事件触发）
     refreshList() {
       this.queryParam.pageNum = 1
@@ -179,12 +281,14 @@ export default {
       }).catch(() => { this.loadStatus = 'more' })
     },
     loadStats() {
-      // 从后端获取统计数据
-      getTalkStats().then(res => {
-        if (res && res.data) {
-          this.stats = res.data
+      if (this.personalStats && this.personalStats.total) {
+        this.stats = {
+          total: this.personalStats.total || 0,
+          pending: this.personalStats.pending || 0,
+          ongoing: this.personalStats.ongoing || 0,
+          completed: this.personalStats.completed || 0
         }
-      }).catch(() => {})
+      }
     },
     getPending() {
       getPendingTalks().then(res => {
@@ -569,5 +673,202 @@ export default {
   border-radius: 8rpx;
   font-size: 22rpx;
   color: #666;
+}
+
+/* ===== 统计概览 ===== */
+.stats-overview {
+  margin: 16rpx 20rpx 0;
+  background: #fff;
+  border-radius: 16rpx;
+  padding: 20rpx 24rpx;
+}
+
+.overview-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16rpx;
+}
+
+.overview-title {
+  font-size: 28rpx;
+  font-weight: bold;
+  color: #333;
+}
+
+.overview-toggle {
+  font-size: 24rpx;
+  color: #999;
+}
+
+.stats-overview-mini {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin: 16rpx 20rpx 0;
+  background: #fff;
+  border-radius: 12rpx;
+  padding: 16rpx 24rpx;
+}
+
+.mini-title {
+  font-size: 26rpx;
+  font-weight: bold;
+  color: #333;
+}
+
+.mini-toggle {
+  font-size: 24rpx;
+  color: #2979ff;
+}
+
+/* 书记视图：辅导员列表 */
+.counselor-stats-list {
+  max-height: 500rpx;
+  overflow-y: auto;
+}
+
+.counselor-stat-item {
+  padding: 16rpx 0;
+  border-bottom: 1rpx solid #f5f5f5;
+}
+
+.counselor-stat-item:last-child {
+  border-bottom: none;
+}
+
+.counselor-stat-header {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  margin-bottom: 8rpx;
+}
+
+.counselor-rank {
+  width: 36rpx;
+  height: 36rpx;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20rpx;
+  font-weight: bold;
+  color: #999;
+  background: #f0f0f0;
+  flex-shrink: 0;
+}
+
+.counselor-rank.rank-1 { background: linear-gradient(135deg, #ffd700, #ffed4e); color: #333; }
+.counselor-rank.rank-2 { background: linear-gradient(135deg, #c0c0c0, #e8e8e8); color: #333; }
+.counselor-rank.rank-3 { background: linear-gradient(135deg, #cd7f32, #e8a862); color: #fff; }
+
+.counselor-stat-name {
+  font-size: 28rpx;
+  font-weight: 500;
+  color: #333;
+  flex: 1;
+}
+
+.counselor-stat-badges {
+  display: flex;
+  gap: 8rpx;
+}
+
+.stat-badge {
+  font-size: 20rpx;
+  padding: 2rpx 12rpx;
+  border-radius: 8rpx;
+  background: #f5f5f5;
+  color: #666;
+}
+
+.stat-badge.blue { background: #e8f0ff; color: #2979ff; }
+.stat-badge.orange { background: #fef3e2; color: #f3a044; }
+.stat-badge.green { background: #e8f8ea; color: #18bc37; }
+.stat-badge.red { background: #fef0f0; color: #e43d33; }
+
+.counselor-stat-bar {
+  height: 8rpx;
+  background: #f0f0f0;
+  border-radius: 4rpx;
+  overflow: hidden;
+}
+
+.bar-fill {
+  height: 100%;
+  border-radius: 4rpx;
+  transition: width 0.3s ease;
+}
+
+.bar-fill.bar-done {
+  background: linear-gradient(90deg, #18bc37, #4caf50);
+}
+
+/* 辅导员视图：个人统计 */
+.personal-stats {
+  padding: 8rpx 0;
+}
+
+.personal-stats-row {
+  display: flex;
+  justify-content: space-around;
+  margin-bottom: 16rpx;
+}
+
+.personal-stat-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.ps-num {
+  font-size: 40rpx;
+  font-weight: bold;
+  color: #f3a044;
+  &.blue { color: #2979ff; }
+  &.green { color: #18bc37; }
+  &.orange { color: #f3a044; }
+}
+
+.ps-label {
+  font-size: 22rpx;
+  color: #999;
+  margin-top: 4rpx;
+}
+
+.completion-bar {
+  position: relative;
+  height: 32rpx;
+  background: #f0f0f0;
+  border-radius: 16rpx;
+  overflow: hidden;
+}
+
+.completion-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #f3a044, #ffca28);
+  border-radius: 16rpx;
+  transition: width 0.3s ease;
+}
+
+.completion-text {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20rpx;
+  font-weight: 500;
+  color: #333;
+}
+
+.empty-tip {
+  text-align: center;
+  padding: 24rpx 0;
+  color: #999;
+  font-size: 24rpx;
 }
 </style>

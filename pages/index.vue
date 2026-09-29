@@ -43,12 +43,14 @@
         <text class="section-more" @click="goTodoList" v-if="todoTotal > 0">更多 ({{ todoTotal }})</text>
       </view>
       <!-- 周日历条 -->
+      <view class="week-nav-row">
+        <text class="week-label">第{{ currentWeek + weekOffset }}周</text>
+        <text class="week-label-sub" v-if="weekOffset === 0">（本周）</text>
+        <text class="week-back" v-if="weekOffset !== 0" @click="changeWeek(-weekOffset)">回到本周</text>
+      </view>
       <view class="week-calendar">
-        <view class="week-arrow" @click="changeWeek(-1)" v-if="weekOffset < 0">
+        <view class="week-arrow" @click="changeWeek(-1)">
           <uni-icons type="left" size="16" color="#999"></uni-icons>
-        </view>
-        <view class="week-arrow week-arrow-disabled" v-else>
-          <uni-icons type="left" size="16" color="#ddd"></uni-icons>
         </view>
         <view class="week-days">
           <view 
@@ -161,7 +163,8 @@ export default {
       // 课表相关
       myScheduleList: [],
       isTeacher: false,
-      selectedDayCourses: []
+      selectedDayCourses: [],
+      currentWeek: 1
     }
   },
   onShow() {
@@ -229,7 +232,6 @@ export default {
     },
     changeWeek(offset) {
       this.weekOffset += offset
-      if (this.weekOffset > 0) this.weekOffset = 0
       this.selectedDay = null
       this.buildWeekDays()
       this.updateSelectedDayCourses()
@@ -358,7 +360,7 @@ export default {
         })
       } else if (item.todoType === 'talk' || item.todoType === 'talk_daily') {
         uni.navigateTo({ url: '/pages/sub-work/talk/index' })
-      } else if (item.todoType === 'classcheck_talk') {
+      } else if (['classcheck_talk', 'leave_talk', 'offcampus_talk', 'vehicle_talk', 'warning_talk'].includes(item.todoType)) {
         uni.navigateTo({
           url: '/pages/sub-work/talk/add?todoId=' + item.id + '&businessId=' + item.businessId,
           fail: (err) => {
@@ -406,6 +408,10 @@ export default {
         'talk_daily': '日常谈心',
         'classcheck_confirm': '查课确认',
         'classcheck_talk': '查课谈话',
+        'leave_talk': '请假逾期谈话',
+        'offcampus_talk': '外宿谈话',
+        'vehicle_talk': '车辆谈话',
+        'warning_talk': '预警谈话',
         'leave': '请假',
         'leave_approval': '请假审批'
       }
@@ -421,6 +427,7 @@ export default {
         } else {
           this.myScheduleList = data.scheduleList || []
           this.isTeacher = data.isTeacher === true || this.myScheduleList.length > 0
+          if (data.currentWeek) this.currentWeek = data.currentWeek
         }
         this.$nextTick(() => {
           this.updateSelectedDayCourses()
@@ -435,11 +442,17 @@ export default {
         this.selectedDayCourses = []
         return
       }
-      // 未选中日期时默认用今天，选中时用选中日期
       const targetDate = this.selectedDay ? new Date(this.selectedDay) : new Date()
       const jsDay = targetDate.getDay()
       const weekday = jsDay === 0 ? 7 : jsDay
-      this.selectedDayCourses = this.myScheduleList.filter(c => Number(c.weekday) === weekday)
+      const targetWeek = this.currentWeek + this.weekOffset
+      this.selectedDayCourses = this.myScheduleList.filter(c => {
+        if (Number(c.weekday) !== weekday) return false
+        if (c.startWeek && c.endWeek) {
+          return targetWeek >= c.startWeek && targetWeek <= c.endWeek
+        }
+        return true
+      })
     }
   },
   computed: {
@@ -559,6 +572,28 @@ export default {
 .section-more {
   font-size: 24rpx;
   color: #2979ff;
+}
+
+/* 周导航 */
+.week-nav-row {
+  display: flex;
+  align-items: center;
+  margin-bottom: 12rpx;
+}
+.week-label {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: #333;
+}
+.week-label-sub {
+  font-size: 24rpx;
+  color: #2979ff;
+  margin-left: 8rpx;
+}
+.week-back {
+  font-size: 24rpx;
+  color: #2979ff;
+  margin-left: 16rpx;
 }
 
 /* 周日历 */
@@ -782,7 +817,11 @@ export default {
     color: #2979ff;
   }
   &.type-classcheck_confirm,
-  &.type-classcheck_talk {
+  &.type-classcheck_talk,
+  &.type-leave_talk,
+  &.type-offcampus_talk,
+  &.type-vehicle_talk,
+  &.type-warning_talk {
     background: #e8ffe8;
     color: #18bc37;
   }

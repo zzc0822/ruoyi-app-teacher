@@ -130,10 +130,22 @@
           </view>
           <text style="display:block;text-align:center;font-size:20rpx;color:#666;margin-top:4rpx;">{{ item.label }}</text>
         </view>
-        <view v-if="photoList.length < 4" @click="takePhoto" style="width:200rpx;height:200rpx;border:2rpx dashed #ccc;border-radius:12rpx;display:flex;flex-direction:column;align-items:center;justify-content:center;">
+        <view v-if="photoList.length < 4" @click="onTakePhoto" style="width:200rpx;height:200rpx;border:2rpx dashed #ccc;border-radius:12rpx;display:flex;flex-direction:column;align-items:center;justify-content:center;">
           <text style="font-size:60rpx;color:#ccc;line-height:1;">+</text>
           <text style="font-size:22rpx;color:#999;margin-top:8rpx;">拍照上传</text>
         </view>
+      </view>
+      <!-- 水印要素：拍照前确认 -->
+      <view class="wm-panel" v-if="watermarkConfig && watermarkConfig.enabled === '1'">
+        <view class="wm-row">
+          <text class="wm-label">水印时间</text>
+          <text class="wm-value" :class="{ 'wm-pending': !captureInfo }">{{ captureInfo ? captureInfo.time : '待确认' }}</text>
+        </view>
+        <view class="wm-row">
+          <text class="wm-label">水印地址</text>
+          <text class="wm-value" :class="{ 'wm-pending': !captureInfo || !captureInfo.address }">{{ (captureInfo && captureInfo.address) || '待确认' }}</text>
+        </view>
+        <text class="wm-refresh" @click="refreshWatermarkInfo">重新定位</text>
       </view>
     </view>
 
@@ -165,7 +177,7 @@ import request from '@/utils/request'
 import config from '@/config'
 import { isSecretary } from '@/utils/role'
 import { getWatermarkConfig } from '@/api/work/watermark'
-import { getLocation, addWatermark } from '@/utils/watermark'
+import { addWatermark, prepareCapture } from '@/utils/watermark'
 
 // 课节时间映射表（兜底默认值）
 const FALLBACK_TIMES = [
@@ -221,7 +233,9 @@ export default {
       gradeOptions: [],  // 年级选项列表
       actualAttendance: '',  // 书记角色：实到人数
       leaveList: [],  // 请假学生列表
-      watermarkConfig: null  // 水印配置
+      watermarkConfig: null,  // 水印配置
+      watermarkConfigPromise: null,
+      captureInfo: null       // 拍照前已确认的水印取证信息（时间+地址）
     }
   },
   computed: {
@@ -276,8 +290,9 @@ export default {
     this.checkRole()
     this.loadScheduleTimes()
     // 加载水印配置
-    getWatermarkConfig('classcheck').then(res => {
+    this.watermarkConfigPromise = getWatermarkConfig('classcheck').then(res => {
       this.watermarkConfig = res.data
+      return this.watermarkConfig
     }).catch(() => {})
     this.initDateTime()
     
@@ -918,20 +933,50 @@ export default {
         }))
       }).catch(() => {})
     },
+    // 点击拍照：先确认水印要素，再打开相机
+    async onTakePhoto() {
+      const ready = await this.ensureWatermarkReady()
+      if (!ready) return
+      this.takePhoto()
+    },
+    // 拍照前确认水印时间与地址（未确认则阻断）
+    async ensureWatermarkReady() {
+      if (!this.watermarkConfig && this.watermarkConfigPromise) {
+        await this.watermarkConfigPromise
+      }
+      const config = this.watermarkConfig
+      if (!config || config.enabled !== '1') {
+        return true
+      }
+      // 已有确认信息时直接复用，避免重复定位
+      if (this.captureInfo) {
+        return true
+      }
+      uni.showLoading({ title: '定位并确认水印...' })
+      const result = await prepareCapture(config, this.form.classRoom)
+      uni.hideLoading()
+      if (!result.ready) {
+        uni.showToast({ title: result.message, icon: 'none', duration: 2500 })
+        return false
+      }
+      this.captureInfo = result.captureInfo
+      return true
+    },
+    refreshWatermarkInfo() {
+      this.captureInfo = null
+      this.ensureWatermarkReady()
+    },
     takePhoto() {
-      // 并行获取定位
-      const locPromise = getLocation()
       uni.chooseImage({
         count: 1,
         sourceType: ['camera'],
         sizeType: ['compressed'],
         success: async (res) => {
           let tempPath = res.tempFilePaths[0]
-          // 添加水印
+          // 水印：拍照前已确认的时间与地址
           if (this.watermarkConfig && this.watermarkConfig.enabled === '1') {
-            const location = await locPromise
             uni.showLoading({ title: '添加水印...' })
-            tempPath = await addWatermark(tempPath, this.watermarkConfig, location)
+            tempPath = await addWatermark(tempPath, this.watermarkConfig, this.captureInfo)
             uni.hideLoading()
           }
           this.compressAndUpload(tempPath)
@@ -1216,6 +1261,45 @@ export default {
   background: #fff;
   margin-top: 16rpx;
   padding: 20rpx 24rpx;
+}
+
+/* ===== 水印要素 ===== */
+.wm-panel {
+  margin-top: 16rpx;
+  padding: 14rpx 18rpx;
+  background: #f7fbff;
+  border: 1rpx solid #e1effe;
+  border-radius: 10rpx;
+  position: relative;
+}
+
+.wm-row {
+  display: flex;
+  align-items: center;
+  font-size: 22rpx;
+  line-height: 34rpx;
+}
+
+.wm-label {
+  color: #909399;
+  width: 120rpx;
+}
+
+.wm-value {
+  color: #2979ff;
+  flex: 1;
+}
+
+.wm-value.wm-pending {
+  color: #e6a23c;
+}
+
+.wm-refresh {
+  position: absolute;
+  right: 18rpx;
+  top: 14rpx;
+  font-size: 22rpx;
+  color: #2979ff;
 }
 
 /* ===== 空状态 ===== */

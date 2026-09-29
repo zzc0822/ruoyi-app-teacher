@@ -48,3 +48,12 @@ export function getPendingLeaves() {
   })
 }
 
+// 销假（学生本人或教师代为销假）
+export function returnLeave(data) {
+  return request({
+    url: '/api/leave/return',
+    method: 'put',
+    data: data
+  })
+}
+

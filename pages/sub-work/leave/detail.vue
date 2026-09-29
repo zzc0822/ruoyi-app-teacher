@@ -171,15 +171,18 @@
       <view class="approval-btn approve" @click="doApproval('approved')">✓ 批准</view>
       <view class="approval-btn close" @click="goBack">关闭</view>
     </view>
-    <!-- 非操作状态显示返回按钮 -->
+    <!-- 非操作状态显示返回按钮（已批准未销假时附带销假入口） -->
     <view class="back-bar" v-if="detail && (detail.approvalStatus !== 'pending' || detail.approvalLevel !== 'counselor')">
-      <view class="back-btn" @click="goBack">返回</view>
+      <view class="bar-row">
+        <view class="return-btn" v-if="canReturn" @click="doReturnLeave">✓ 销假</view>
+        <view class="back-btn" @click="goBack">返回</view>
+      </view>
     </view>
   </view>
 </template>
 
 <script>
-import { getLeave, approvalLeave } from '@/api/work/leave'
+import { getLeave, approvalLeave, returnLeave } from '@/api/work/leave'
 import config from '@/config'
 
 export default {
@@ -195,6 +198,9 @@ export default {
       if (!this.detail || !this.detail.approvalStatus) return '❓'
       const map = { pending: '⏳', approved: '✓', rejected: '✕', forward: '↑' }
       return map[this.detail.approvalStatus] || '❓'
+    },
+    canReturn() {
+      return this.detail && this.detail.approvalStatus === 'approved' && this.detail.returnStatus !== 'returned'
     }
   },
   onLoad(options) {
@@ -227,6 +233,27 @@ export default {
               this.loadDetail()
             }).catch(() => {
               uni.showToast({ title: '操作失败', icon: 'none' })
+            })
+          }
+        }
+      })
+    },
+    doReturnLeave() {
+      uni.showModal({
+        title: '确认销假',
+        content: '确认为 ' + this.detail.studentName + ' 办理销假？',
+        editable: true,
+        placeholderText: '销假备注（选填）',
+        success: (res) => {
+          if (res.confirm) {
+            returnLeave({
+              id: this.detail.id,
+              returnRemark: res.content || '小程序销假'
+            }).then(() => {
+              uni.showToast({ title: '销假成功', icon: 'success' })
+              this.loadDetail()
+            }).catch(() => {
+              uni.showToast({ title: '销假失败', icon: 'none' })
             })
           }
         }
@@ -526,7 +553,21 @@ export default {
   box-shadow: 0 -4rpx 12rpx rgba(0, 0, 0, 0.06);
 }
 
+.bar-row { display: flex; gap: 16rpx; }
+
+.return-btn {
+  flex: 1;
+  text-align: center;
+  padding: 24rpx 0;
+  border-radius: 12rpx;
+  background: #18bc37;
+  color: #fff;
+  font-size: 30rpx;
+  font-weight: 600;
+}
+
 .back-btn {
+  flex: 1;
   text-align: center;
   padding: 24rpx 0;
   border-radius: 12rpx;

@@ -503,7 +503,9 @@ export default {
         'schedule': '#18bc37', 'meeting': '#2979ff',
         'leave': '#9c27b0', 'leave_approval': '#9c27b0',
         'talk_disciplinary': '#e43d33', 'talk_daily': '#00bcd4',
-        'classcheck_talk': '#ff9800', 'classcheck_confirm': '#2979ff'
+        'classcheck_talk': '#ff9800', 'classcheck_confirm': '#2979ff',
+        'leave_talk': '#ff9800', 'offcampus_talk': '#ff9800',
+        'vehicle_talk': '#ff9800', 'warning_talk': '#ff9800'
       }
       return colorMap[type] || '#909399'
     },
@@ -513,7 +515,9 @@ export default {
         schedule: '日程', meeting: '会议', class_meeting: '班会',
         leave: '请假审批', leave_approval: '请假审批',
         talk: '谈话', talk_disciplinary: '违纪谈话', talk_daily: '日常谈心',
-        classcheck_talk: '查课谈话', classcheck_confirm: '抽查待确认'
+        classcheck_talk: '查课谈话', classcheck_confirm: '抽查待确认',
+        leave_talk: '请假逾期谈话', offcampus_talk: '外宿谈话',
+        vehicle_talk: '车辆谈话', warning_talk: '预警谈话'
       }
       return map[val] || '待办'
     },

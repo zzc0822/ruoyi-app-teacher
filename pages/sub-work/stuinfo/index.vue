@@ -2,6 +2,7 @@
   <view class="page-container">
     <!-- 书记角色：专业统计视图 -->
     <template v-if="isSecretaryRole">
+    <template v-if="!isSecretarySidebar">
       <scroll-view scroll-y class="secretary-scroll-view">
         <!-- 学院汇总卡片 -->
         <view class="summary-cards">
@@ -233,15 +234,11 @@
             <!-- 班级列表 -->
             <view class="class-list-preview" v-if="major.classes && major.classes.length > 0">
               <text class="class-list-title">班级列表</text>
-              <view class="class-item" v-for="cls in major.classes.slice(0, 6)" :key="cls.bjdm">
+              <view class="class-item" v-for="cls in major.classes" :key="cls.bjdm">
                 <view class="class-dot" :style="'background:' + getClassColor(cls)"></view>
                 <text class="class-name">{{ cls.bjjc || cls.bjname }}</text>
                 <text class="class-count">{{ cls.bcrs }}人</text>
                 <text class="class-gender">♂{{ cls.nans || 0 }} ♀{{ cls.nvsh || 0 }}</text>
-              </view>
-              <view class="more-classes-btn" v-if="major.classes.length > 6" @click="showAllClasses(major)">
-                <text class="more-classes-text">+{{ major.classes.length - 6 }}个班级</text>
-                <uni-icons type="right" size="14" color="#2979ff"></uni-icons>
               </view>
             </view>
             </view>
@@ -267,6 +264,120 @@
           </view>
         </view>
       </scroll-view>
+    </template>
+
+    <!-- 书记侧边栏：专业→班级分层导航 -->
+    <template v-else>
+    <view class="secretary-sidebar">
+      <scroll-view scroll-y class="sidebar-scroll">
+        <view class="tree-overview" :class="{ active: activeBjdm === '' }" @click="selectClass('')">
+          <text class="tree-overview-text">总览</text>
+          <text class="tree-overview-count">{{ classList.length }}个班</text>
+        </view>
+        <view class="major-group" v-for="(major, mIdx) in secretaryClassTree" :key="major.zydm">
+          <view class="major-header-tree" @click="toggleSecretaryMajor(major.zydm)">
+            <text class="major-expand-icon">{{ secretaryExpandedMajors[major.zydm] ? '▼' : '▶' }}</text>
+            <text class="major-tree-name">{{ major.majorName }}</text>
+            <text class="major-tree-count">{{ major.totalStudents }}人</text>
+          </view>
+          <view v-if="secretaryExpandedMajors[major.zydm]" class="class-tree-list">
+            <view class="class-tree-item" :class="{ active: activeBjdm === cls.bjdm }"
+              v-for="cls in major.classes" :key="cls.bjdm" @click="selectClass(cls.bjdm)">
+              <view class="class-tree-dot" :style="'background:' + classColors[mIdx % classColors.length]"></view>
+              <text class="class-tree-name">{{ cls.bjjc || cls.bjname }}</text>
+              <text class="class-tree-count">{{ cls.bcrs || 0 }}</text>
+            </view>
+          </view>
+        </view>
+      </scroll-view>
+    </view>
+    <scroll-view scroll-y class="main-area" :scroll-top="scrollTop" @scroll="onScroll">
+      <!-- 总览模式 -->
+      <template v-if="activeBjdm === ''">
+        <view class="teacher-stats-section">
+          <view class="teacher-stats-card" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+            <view class="tsc-content">
+              <view class="tsc-row">
+                <text class="tsc-label">总人数</text>
+                <text class="tsc-num">{{ teacherStats.totalStudents }}</text>
+              </view>
+              <view class="tsc-sub">
+                <view class="tsc-sub-item">
+                  <text class="tsc-sub-num">{{ teacherStats.maleCount }}</text>
+                  <text class="tsc-sub-label">♂ 男生</text>
+                </view>
+                <view class="tsc-sub-divider"></view>
+                <view class="tsc-sub-item">
+                  <text class="tsc-sub-num">{{ teacherStats.femaleCount }}</text>
+                  <text class="tsc-sub-label">♀ 女生</text>
+                </view>
+              </view>
+            </view>
+          </view>
+        </view>
+        <view class="search-bar">
+          <uni-easyinput v-model="searchKey" placeholder="搜索姓名/学号" @confirm="handleSearch" clearable @clear="handleSearch">
+            <template #right>
+              <uni-icons type="search" size="18" @click="handleSearch"></uni-icons>
+            </template>
+          </uni-easyinput>
+        </view>
+        <view class="card" v-if="searchResults.length > 0">
+          <text class="card-title">搜索结果 ({{ searchResults.length }})</text>
+          <view class="stu-row" v-for="(stu, idx) in searchResults" :key="stu.xh" @click="showDetail(stu)">
+            <text class="stu-name link">{{ stu.studentName }}</text>
+            <text :class="['stu-sex', stu.genderName === '男' ? 'male' : stu.genderName === '女' ? 'female' : 'unknown']">{{ stu.genderName === '男' ? '♂' : stu.genderName === '女' ? '♀' : '?' }}</text>
+            <text class="stu-xh">{{ stu.xh }}</text>
+            <text class="stu-zzmm">{{ stu.zzmmName || '-' }}</text>
+            <text class="stu-cls">{{ stu.className }}</text>
+          </view>
+        </view>
+      </template>
+      <!-- 单班级模式 -->
+      <template v-else>
+        <view class="search-bar">
+          <uni-easyinput v-model="searchKey" placeholder="搜索姓名/学号" @confirm="handleSearch" clearable @clear="handleSearch">
+            <template #right>
+              <uni-icons type="search" size="18" @click="handleSearch"></uni-icons>
+            </template>
+          </uni-easyinput>
+        </view>
+        <view class="class-head">
+          <view class="ch-row1">
+            <view class="ch-dot" :style="'background:' + activeClassColor"></view>
+            <text class="ch-name">{{ activeClass.bjname }}</text>
+          </view>
+          <view class="ch-row2">
+            <text class="ch-gender">♂{{ activeClass.nans || 0 }} ♀{{ activeClass.nvsh || 0 }} 共{{ activeClass.bcrs || 0 }}人</text>
+          </view>
+        </view>
+        <view class="card" v-if="classLeaves.length > 0">
+          <text class="card-title">今日请假 ({{ classLeaves.length }})</text>
+          <view class="leave-row" v-for="(item, idx) in classLeaves" :key="idx">
+            <text class="lr-name">{{ item.studentName }}</text>
+            <text class="lr-type">{{ formatLeaveType(item.leaveType) }}</text>
+            <text class="lr-days">{{ item.leaveDays }}天</text>
+          </view>
+        </view>
+        <view class="card">
+          <text class="card-title">学生名单 ({{ filteredStudents.length }})</text>
+          <view class="stu-row" v-for="(stu, idx) in filteredStudents" :key="stu.xh" @click="showDetail(stu)">
+            <text class="stu-idx">{{ idx + 1 }}</text>
+            <text class="stu-name link">{{ stu.studentName }}</text>
+            <text :class="['stu-sex', stu.genderName === '男' ? 'male' : stu.genderName === '女' ? 'female' : 'unknown']">{{ stu.genderName === '男' ? '♂' : stu.genderName === '女' ? '♀' : '?' }}</text>
+            <text class="stu-xh">{{ stu.xh }}</text>
+            <text class="stu-zzmm">{{ stu.zzmmName || '-' }}</text>
+            <text :class="['stu-status', isOnLeave(stu.xh) ? 'on-leave' : 'on-campus']">
+              {{ isOnLeave(stu.xh) ? '请假' : '在校' }}
+            </text>
+          </view>
+          <view class="empty-tip" v-if="filteredStudents.length === 0">
+            <text>无匹配学生</text>
+          </view>
+        </view>
+      </template>
+    </scroll-view>
+    </template>
     </template>
     
     <!-- 普通教师：原有班级视图 -->
@@ -454,7 +565,9 @@
         </view>
       </template>
     </scroll-view>
-    <!-- 学生详情弹窗 -->
+    </template>
+    
+    <!-- 学生详情弹窗（所有角色共享） -->
     <uni-popup ref="detailPopup" type="bottom">
       <view class="detail-panel">
         <view class="dp-header">
@@ -509,8 +622,7 @@
         </view>
       </view>
     </uni-popup>
-    </template>
-    
+
     <!-- 全部班级列表弹窗 -->
     <uni-popup ref="allClassesPopup" type="bottom">
       <view class="all-classes-popup">
@@ -541,8 +653,9 @@
 <script>
 import { getMyClasses, getClassStudents } from '@/api/work/classcheck'
 import { listLeave } from '@/api/work/leave'
-import { listStuinfo } from '@/api/student/stuinfo'
+import { listStuinfo, getCollegeClassTreeByRole } from '@/api/student/stuinfo'
 import { getRoleViewConfig } from '@/utils/roleViewConfig'
+import { isSecretary } from '@/utils/role'
 import { getCollegeSummary, getStatsByMajor, getStatsByCounselor } from '@/api/student/stats'
 
 export default {
@@ -569,6 +682,9 @@ export default {
       detailStu: null,
       // 书记角色相关
       isSecretaryRole: false,
+      isSecretarySidebar: false,
+      secretaryClassTree: [],
+      secretaryExpandedMajors: {},
       summaryData: {
         totalStudents: 0,
         maleCount: 0,
@@ -642,9 +758,27 @@ export default {
       this.isSecretaryRole = true
       this.loadSecretaryData()
     } else {
-      // 教师角色：班级列表视图
-      this.isSecretaryRole = false
-      this.loadClasses()
+      // 检测是否为书记角色 → 分层侧边栏
+      let roles = []
+      const store = this.$store
+      if (store && store.state && store.state.user && store.state.user.roles) {
+        roles = store.state.user.roles
+      } else if (store && store.getters && store.getters.roles) {
+        roles = store.getters.roles
+      }
+      if (!roles || (Array.isArray(roles) && roles.length === 0)) {
+        try { roles = uni.getStorageSync('user_roles') || [] } catch (e) {}
+      }
+      if (!Array.isArray(roles)) roles = []
+      
+      if (isSecretary(roles)) {
+        this.isSecretaryRole = true
+        this.isSecretarySidebar = true
+        this.loadSecretaryClassTree()
+      } else {
+        this.isSecretaryRole = false
+        this.loadClasses()
+      }
     }
   },
   methods: {
@@ -793,6 +927,50 @@ export default {
         // 将班级列表附加到对应的专业统计中
         this.majorStats.forEach(major => {
           major.classes = classesByMajor[major.zydm] || []
+          // 班级数以实际班级列表为准（统计口径仅含有学生入库的班级，新生班级会偏少）
+          if (major.classes.length > 0) {
+            major.classCount = major.classes.length
+          }
+        })
+        
+        // 检查是否有班级没有对应的专业统计（如26级班级但学生还未入库）
+        // 为这些班级创建专业条目，确保所有班级都能显示
+        const existingZydms = new Set(this.majorStats.map(m => m.zydm))
+        const colors = ['#2979ff', '#18bc37', '#f3a044', '#9c27b0', '#00bcd4', '#ff9800', '#795548', '#e43d33', '#607d8b', '#8bc34a']
+        
+        Object.keys(classesByMajor).forEach(zydm => {
+          if (!existingZydms.has(zydm) && zydm !== 'unknown') {
+            const classes = classesByMajor[zydm]
+            // 从班级信息中提取专业名称（尝试从班级名称或第一个班级的zydm推断）
+            const firstClass = classes[0]
+            const majorName = firstClass.zymc || firstClass.zydm || zydm
+            
+            // 计算该专业的统计数据
+            let studentCount = 0, maleCount = 0, femaleCount = 0
+            classes.forEach(cls => {
+              studentCount += (cls.bcrs || 0)
+              maleCount += (cls.nans || 0)
+              femaleCount += (cls.nvsh || 0)
+            })
+            
+            // 创建新的专业条目
+            const newMajor = {
+              zydm: zydm,
+              majorName: majorName,
+              studentCount: studentCount,
+              classCount: classes.length,
+              maleCount: maleCount,
+              femaleCount: femaleCount,
+              activeCount: studentCount,
+              malePercent: studentCount > 0 ? Math.round((maleCount / studentCount) * 100) : 0,
+              femalePercent: studentCount > 0 ? Math.round((femaleCount / studentCount) * 100) : 0,
+              avgClassSize: classes.length > 0 ? Math.round(studentCount / classes.length) : 0,
+              color: colors[this.majorStats.length % colors.length],
+              classes: classes
+            }
+            
+            this.majorStats.push(newMajor)
+          }
         })
         
         // 计算年级分布统计（用于顶部班级统计格）
@@ -829,6 +1007,21 @@ export default {
         
         // 转换为数组并排序
         this.gradeClassStats = Object.values(gradeMap).sort((a, b) => b.grade.localeCompare(a.grade))
+        
+        // 重新计算专业饼图数据（包含新添加的专业）
+        const totalStudents = this.majorStats.reduce((sum, m) => sum + m.studentCount, 0)
+        const pieColors = ['#2979ff', '#18bc37', '#f3a044', '#9c27b0', '#00bcd4', '#ff9800', '#795548', '#e43d33', '#607d8b', '#8bc34a']
+        this.majorPieData = this.majorStats.map((m, i) => ({
+          name: m.majorName,
+          value: m.studentCount,
+          percent: totalStudents > 0 ? Math.round((m.studentCount / totalStudents) * 100) : 0,
+          color: pieColors[i % pieColors.length]
+        }))
+        
+        // 重新绘制饼图
+        this.$nextTick(() => {
+          this.drawMajorPieChart()
+        })
       }).catch(err => {
         // 加载失败静默处理
       })
@@ -947,6 +1140,52 @@ export default {
           loaded++
         })
       })
+    },
+    
+    // 书记侧边栏：加载专业→班级分层树
+    loadSecretaryClassTree() {
+      getCollegeClassTreeByRole().then(res => {
+        const tree = res.data || []
+        const flatClasses = []
+        const majorGroups = []
+        const expanded = {}
+        
+        tree.forEach(college => {
+          (college.children || []).forEach(major => {
+            const classes = (major.children || []).map(cls => ({
+              bjdm: cls.bjdm,
+              bjjc: cls.bjjc || cls.label,
+              bjname: cls.bjname || cls.label,
+              bcrs: cls.bcrs || 0,
+              nans: cls.nans || 0,
+              nvsh: cls.nvsh || 0
+            }))
+            classes.forEach(c => flatClasses.push(c))
+            
+            let totalStudents = 0
+            classes.forEach(c => { totalStudents += c.bcrs })
+            
+            majorGroups.push({
+              zydm: major.zydm || major.id,
+              majorName: major.label || '',
+              totalStudents: totalStudents,
+              classes: classes
+            })
+            expanded[major.zydm || major.id] = true
+          })
+        })
+        
+        this.secretaryClassTree = majorGroups
+        this.classList = flatClasses
+        this.secretaryExpandedMajors = expanded
+        this.computeTeacherStats()
+        this.loadPoliticalStats()
+      }).catch(() => {})
+    },
+    
+    // 书记侧边栏：展开/折叠专业
+    toggleSecretaryMajor(zydm) {
+      this.$set(this.secretaryExpandedMajors, zydm, !this.secretaryExpandedMajors[zydm])
     },
     
     // 搜索输入（防抖）
@@ -1133,7 +1372,9 @@ export default {
       this.scrollTop = this.oldScrollTop
       this.$nextTick(() => { this.scrollTop = 0 })
       if (bjdm) {
-        this.sidebarExpanded = false
+        if (!this.isSecretarySidebar) {
+          this.sidebarExpanded = false
+        }
         this.loadClassDetail(bjdm)
       }
     },
@@ -2838,5 +3079,128 @@ export default {
 .csi-total {
   font-size: 22rpx;
   color: #666;
+}
+
+/* ===== 书记分层侧边栏 ===== */
+.secretary-sidebar {
+  width: 280rpx;
+  background: #f7f8fa;
+  border-right: 1rpx solid #ebedf0;
+  height: 100%;
+  flex-shrink: 0;
+}
+
+.sidebar-scroll {
+  height: 100%;
+}
+
+.tree-overview {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20rpx 20rpx;
+  background: #fff;
+  border-bottom: 1rpx solid #ebedf0;
+  
+  &.active {
+    background: #e8f4ff;
+    border-left: 4rpx solid #2979ff;
+  }
+}
+
+.tree-overview-text {
+  font-size: 26rpx;
+  font-weight: bold;
+  color: #333;
+}
+
+.tree-overview-count {
+  font-size: 22rpx;
+  color: #999;
+}
+
+.major-group {
+  border-bottom: 1rpx solid #ebedf0;
+}
+
+.major-header-tree {
+  display: flex;
+  align-items: center;
+  padding: 18rpx 16rpx;
+  background: #f0f2f5;
+  
+  &:active {
+    background: #e4e6e9;
+  }
+}
+
+.major-expand-icon {
+  font-size: 18rpx;
+  color: #999;
+  width: 28rpx;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.major-tree-name {
+  font-size: 24rpx;
+  color: #333;
+  font-weight: 500;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.major-tree-count {
+  font-size: 20rpx;
+  color: #999;
+  flex-shrink: 0;
+  margin-left: 8rpx;
+}
+
+.class-tree-list {
+  background: #fff;
+}
+
+.class-tree-item {
+  display: flex;
+  align-items: center;
+  padding: 16rpx 16rpx 16rpx 32rpx;
+  border-bottom: 1rpx solid #f5f5f5;
+  
+  &.active {
+    background: #e8f4ff;
+    border-left: 4rpx solid #2979ff;
+    padding-left: 28rpx;
+  }
+  
+  &:active {
+    background: #f0f0f0;
+  }
+}
+
+.class-tree-dot {
+  width: 14rpx;
+  height: 14rpx;
+  border-radius: 50%;
+  flex-shrink: 0;
+  margin-right: 12rpx;
+}
+
+.class-tree-name {
+  font-size: 24rpx;
+  color: #333;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.class-tree-count {
+  font-size: 20rpx;
+  color: #999;
+  flex-shrink: 0;
+  margin-left: 8rpx;
 }
 </style>

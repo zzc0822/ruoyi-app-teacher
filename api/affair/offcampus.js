@@ -63,3 +63,12 @@ export function getOffcampusHistory(xh) {
     method: 'get'
   })
 }
+
+// 查询学生出勤统计（审批参考）
+export function getOffcampusAttendance(xh, query) {
+  return request({
+    url: '/api/offcampus/attendance/' + xh,
+    method: 'get',
+    params: query
+  })
+}

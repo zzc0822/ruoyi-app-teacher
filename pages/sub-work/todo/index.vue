@@ -268,7 +268,11 @@ export default {
         { label: '违纪谈话', value: 'talk_disciplinary' },
         { label: '日常谈心', value: 'talk_daily' },
         { label: '查课谈话', value: 'classcheck_talk' },
-        { label: '抽查待确认', value: 'classcheck_confirm' }
+        { label: '抽查待确认', value: 'classcheck_confirm' },
+        { label: '请假逾期谈话', value: 'leave_talk' },
+        { label: '外宿谈话', value: 'offcampus_talk' },
+        { label: '车辆谈话', value: 'vehicle_talk' },
+        { label: '预警谈话', value: 'warning_talk' }
       ],
       // 课表相关
       myScheduleList: [],
@@ -432,6 +436,8 @@ export default {
       const colorMap = {
         'talk_disciplinary': '#e43d33', 'talk_daily': '#00bcd4',
         'classcheck_talk': '#ff9800', 'classcheck_confirm': '#2979ff',
+        'leave_talk': '#ff9800', 'offcampus_talk': '#ff9800',
+        'vehicle_talk': '#ff9800', 'warning_talk': '#ff9800',
         'leave': '#9c27b0', 'leave_approval': '#9c27b0',
         'schedule': '#18bc37', 'meeting': '#2979ff'
       }
@@ -519,7 +525,7 @@ export default {
         uni.navigateTo({ url: '/pages/sub-work/talk/add?id=' + item.businessId })
       } else if (item.todoType === 'talk' || item.todoType === 'talk_daily') {
         uni.navigateTo({ url: '/pages/sub-work/talk/index' })
-      } else if (item.todoType === 'classcheck_talk') {
+      } else if (['classcheck_talk', 'leave_talk', 'offcampus_talk', 'vehicle_talk', 'warning_talk'].includes(item.todoType)) {
         uni.navigateTo({ url: '/pages/sub-work/talk/add?todoId=' + item.id + '&businessId=' + item.businessId })
       }
     },
@@ -529,6 +535,8 @@ export default {
         leave: '请假审批', leave_approval: '请假审批',
         talk: '谈话提醒', talk_disciplinary: '违纪谈话', talk_daily: '日常谈心',
         classcheck_talk: '查课谈话', classcheck_confirm: '抽查待确认',
+        leave_talk: '请假逾期谈话', offcampus_talk: '外宿谈话',
+        vehicle_talk: '车辆谈话', warning_talk: '预警谈话',
         check: '查课提醒', overdue: '逾期提醒'
       }
       return map[val] || val || '待办'
@@ -634,7 +642,7 @@ export default {
   font-size: 20rpx; color: #fff; padding: 4rpx 12rpx; border-radius: 8rpx; flex-shrink: 0;
   &.tag-talk_disciplinary { background: #e43d33; }
   &.tag-talk_daily { background: #00bcd4; }
-  &.tag-classcheck_talk { background: #ff9800; }
+  &.tag-classcheck_talk, &.tag-leave_talk, &.tag-offcampus_talk, &.tag-vehicle_talk, &.tag-warning_talk { background: #ff9800; }
   &.tag-classcheck_confirm { background: #2979ff; }
   &.tag-leave, &.tag-leave_approval { background: #9c27b0; }
   &.tag-schedule { background: #18bc37; }
@@ -674,7 +682,7 @@ export default {
 .item-desc { font-size: 24rpx; color: #666; line-height: 1.5; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
 .item-footer { display: flex; justify-content: space-between; align-items: center; padding-top: 10rpx; border-top: 1rpx solid #f5f5f5; }
 .item-type-wrap { display: flex; align-items: center; gap: 8rpx; }
-.item-type { font-size: 20rpx; color: #fff; padding: 2rpx 14rpx; border-radius: 6rpx; &.type-schedule { background: #2979ff; } &.type-leave, &.type-leave_approval { background: #9c27b0; } &.type-talk { background: #18bc37; } &.type-talk_disciplinary { background: #e43d33; } &.type-talk_daily { background: #00bcd4; } &.type-classcheck_talk { background: #ff9800; } &.type-classcheck_confirm { background: #2979ff; } &.type-meeting { background: #2979ff; } &.type-default { background: #999; } }
+.item-type { font-size: 20rpx; color: #fff; padding: 2rpx 14rpx; border-radius: 6rpx; &.type-schedule { background: #2979ff; } &.type-leave, &.type-leave_approval { background: #9c27b0; } &.type-talk { background: #18bc37; } &.type-talk_disciplinary { background: #e43d33; } &.type-talk_daily { background: #00bcd4; } &.type-classcheck_talk, &.type-leave_talk, &.type-offcampus_talk, &.type-vehicle_talk, &.type-warning_talk { background: #ff9800; } &.type-classcheck_confirm { background: #2979ff; } &.type-meeting { background: #2979ff; } &.type-default { background: #999; } }
 .item-urgency-label { font-size: 20rpx; padding: 2rpx 10rpx; border-radius: 6rpx; &.label-overdue { color: #e43d33; background: #ffebee; } &.label-today { color: #f3a044; background: #fff8e1; } &.label-tomorrow { color: #2979ff; background: #e3f2fd; } &.label-normal { color: #18bc37; background: #e8f8ea; } }
 .item-deadline { font-size: 22rpx; color: #999; }
 .empty-tip { text-align: center; padding: 100rpx 0; color: #999; font-size: 28rpx; }

@@ -61,3 +61,47 @@ export function getTeacherReportGrid(bjdm) {
     params: { bjdm }
   })
 }
+
+// 获取学生出勤统计（按课程汇总）
+export function getAttendanceStats(params) {
+  return request({
+    url: '/stumanage/classcheck/teacher/attendanceStats',
+    method: 'get',
+    params: params
+  })
+}
+
+// 触发出勤警告生成
+export function generateWarnings(bjdm) {
+  return request({
+    url: '/stumanage/classcheck/teacher/generateWarnings',
+    method: 'post',
+    params: { bjdm }
+  })
+}
+
+// 获取警告列表
+export function getWarningList(params) {
+  return request({
+    url: '/stumanage/classcheck/warning/list',
+    method: 'get',
+    params: params
+  })
+}
+
+// 获取警告详情
+export function getWarningDetail(id) {
+  return request({
+    url: '/stumanage/classcheck/warning/' + id,
+    method: 'get'
+  })
+}
+
+// 确认警告
+export function confirmWarning(data) {
+  return request({
+    url: '/stumanage/classcheck/warning/confirm',
+    method: 'put',
+    data: data
+  })
+}

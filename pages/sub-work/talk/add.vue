@@ -133,7 +133,7 @@
         <text class="attach-hint">（可选，最多5个）</text>
       </view>
       <view class="attach-row">
-        <view class="attach-btn" @click="takePhoto"><text>📷 拍照</text></view>
+        <view class="attach-btn" @click="onTakePhoto"><text>📷 拍照</text></view>
         <view class="attach-btn" @click="chooseImage"><text>🖼 相册</text></view>
         <view class="attach-btn" @click="chooseDocument"><text>📄 文档</text></view>
         <view class="attach-btn" @click="chooseAudio"><text>🎙 录音</text></view>
@@ -171,13 +171,13 @@
 </template>
 
 <script>
-import { addTalk, updateTalk, getTalk, getMyStudents, getViolationStudents, getTalkAttachments, getDeadlineConfig } from '@/api/work/talk'
+import { addTalk, updateTalk, getTalk, getTalkByCheck, getMyStudents, getViolationStudents, getTalkAttachments, getDeadlineConfig } from '@/api/work/talk'
 import { getClassCheck } from '@/api/work/classcheck'
 import upload from '@/utils/upload'
 import config from '@/config'
 import { chooseLocation } from '@/utils/common'
 import { getWatermarkConfig } from '@/api/work/watermark'
-import { getLocation, addWatermark } from '@/utils/watermark'
+import { addWatermark, prepareCapture } from '@/utils/watermark'
 
 const TALK_TYPES = [
   { value: 'ideological', label: '思想动态' },
@@ -216,14 +216,17 @@ export default {
       // 附件
       attachList: [],
       watermarkConfig: null,
+      watermarkConfigPromise: null,
+      captureInfo: null,
     }
   },
   onLoad(options) {
     this.initDateTime()
     this.loadDeadlineConfig()
     // 加载水印配置
-    getWatermarkConfig('talk').then(res => {
+    this.watermarkConfigPromise = getWatermarkConfig('talk').then(res => {
       this.watermarkConfig = res.data
+      return this.watermarkConfig
     }).catch(() => {})
     if (options.id) {
       this.editId = options.id
@@ -231,8 +234,8 @@ export default {
     }
     // 处理从待办进入的情况：todoId + businessId
     if (options.todoId && options.businessId) {
-      // businessId 是查课记录ID，需要加载该记录的违纪学生
-      this.loadViolationStudentsFromCheck(options.businessId)
+      // businessId 是查课记录ID
+      this.openTalkByCheck(options.businessId)
     }
   },
   computed: {
@@ -440,6 +443,21 @@ export default {
         this.form.talkTypeList.push('discipline')
       }
     },
+    // 从查课待办进入：优先复用查课自动生成的待谈话计划，避免重复新建
+    openTalkByCheck(checkId) {
+      getTalkByCheck(checkId).then(res => {
+        const talk = res.data
+        if (talk && talk.id) {
+          this.editId = talk.id
+          this.loadDetail(talk.id)
+          uni.showToast({ title: '已加载该次查课的待谈话计划', icon: 'none' })
+          return
+        }
+        this.loadViolationStudentsFromCheck(checkId)
+      }).catch(() => {
+        this.loadViolationStudentsFromCheck(checkId)
+      })
+    },
     // 从查课记录加载违纪学生（从待办进入时调用）
     loadViolationStudentsFromCheck(checkId) {
       getClassCheck(checkId).then(res => {
@@ -515,12 +533,38 @@ export default {
       }
     },
     // 拍照/相册
-    takePhoto() {
+    async onTakePhoto() {
       if (this.attachList.length >= 5) {
         uni.showToast({ title: '附件最多5个', icon: 'none' })
         return
       }
-      const locPromise = getLocation()
+      const ready = await this.ensureWatermarkReady()
+      if (!ready) return
+      this.takePhoto()
+    },
+    // 拍照前确认水印时间与地址（未确认则阻断）
+    async ensureWatermarkReady() {
+      if (!this.watermarkConfig && this.watermarkConfigPromise) {
+        await this.watermarkConfigPromise
+      }
+      const config = this.watermarkConfig
+      if (!config || config.enabled !== '1') {
+        return true
+      }
+      if (this.captureInfo) {
+        return true
+      }
+      uni.showLoading({ title: '定位并确认水印...' })
+      const result = await prepareCapture(config, this.form.talkPlace)
+      uni.hideLoading()
+      if (!result.ready) {
+        uni.showToast({ title: result.message, icon: 'none', duration: 2500 })
+        return false
+      }
+      this.captureInfo = result.captureInfo
+      return true
+    },
+    takePhoto() {
       uni.chooseImage({
         count: 5 - this.attachList.length,
         sourceType: ['camera'],
@@ -529,8 +573,7 @@ export default {
           for (const p of res.tempFilePaths) {
             let path = p
             if (this.watermarkConfig && this.watermarkConfig.enabled === '1') {
-              const location = await locPromise
-              path = await addWatermark(path, this.watermarkConfig, location)
+              path = await addWatermark(path, this.watermarkConfig, this.captureInfo)
             }
             this.uploadFile(path, 'image')
           }

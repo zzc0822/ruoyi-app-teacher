@@ -149,6 +149,21 @@
         "navigationBarTitleText": "抽查确认"
       }
     }, {
+      "path": "sign/index",
+      "style": {
+        "navigationBarTitleText": "签到管理"
+      }
+    }, {
+      "path": "sign/create",
+      "style": {
+        "navigationBarTitleText": "发起签到"
+      }
+    }, {
+      "path": "sign/detail",
+      "style": {
+        "navigationBarTitleText": "签到进度"
+      }
+    }, {
       "path": "rollcall/index",
       "style": {
         "navigationBarTitleText": "课堂点名"
@@ -163,6 +178,18 @@
       "path": "attendance-summary/detail",
       "style": {
         "navigationBarTitleText": "考勤详情"
+      }
+    }, {
+      "path": "attendance-warning/index",
+      "style": {
+        "navigationBarTitleText": "出勤统计与预警",
+        "enablePullDownRefresh": true
+      }
+    }, {
+      "path": "attendance-warning/warning-list",
+      "style": {
+        "navigationBarTitleText": "警告列表",
+        "enablePullDownRefresh": true
       }
     }, {
       "path": "vehicle/index",
@@ -223,6 +250,11 @@
       "path": "schedule/index",
       "style": {
         "navigationBarTitleText": "我的课表"
+      }
+    }, {
+      "path": "counselorSchedule/index",
+      "style": {
+        "navigationBarTitleText": "辅导员课表"
       }
     }, {
       "path": "activity/index",

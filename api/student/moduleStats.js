@@ -8,7 +8,7 @@ import request from '@/utils/request'
  */
 export function getModuleOverview(params) {
   return request({
-    url: '/api/mini/moduleStats/overview',
+    url: '/stumanage/api/moduleStats/overview',
     method: 'get',
     params: params || {}
   })
@@ -23,7 +23,7 @@ export function getModuleOverview(params) {
  */
 export function getModuleStatsByCounselor(module, params) {
   return request({
-    url: '/api/mini/moduleStats/byCounselor',
+    url: '/stumanage/api/moduleStats/byCounselor',
     method: 'get',
     params: { module, ...params }
   })

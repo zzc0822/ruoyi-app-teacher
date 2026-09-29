@@ -25,6 +25,39 @@
       </view>
     </view>
 
+    <!-- 历史申请记录 -->
+    <view class="form-card" v-if="historyList.length > 0">
+      <view class="card-title">历史申请记录</view>
+      <view class="history-tip">该学生之前已有外宿申请记录，可参考以往信息</view>
+      <view class="history-item" v-for="item in historyList" :key="item.id">
+        <view class="history-row">
+          <text class="history-year">{{ item.academicYear }}</text>
+          <text class="history-status" :class="'status-' + getStatusClass(item)">{{ getStatusText(item.status) }}</text>
+        </view>
+        <view class="history-row">
+          <text class="history-type">{{ getHousingTypeText(item.housingType) }}</text>
+          <text class="history-addr" v-if="item.address">{{ item.address }}</text>
+        </view>
+        <view class="history-row">
+          <text class="history-time">{{ item.createTime }}</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 出勤记录 -->
+    <view class="form-card" v-if="attendanceList.length > 0">
+      <view class="card-title">出勤记录</view>
+      <view class="att-item" v-for="(item, idx) in attendanceList" :key="idx">
+        <view class="att-row">
+          <text class="att-course">{{ item.courseName }}</text>
+          <text class="att-rate" :class="getAttRateClass(item)">{{ calcAbsentRate(item) }}</text>
+        </view>
+        <view class="att-row">
+          <text class="att-detail">总{{ item.totalLessons }}节 | 缺勤{{ item.absentLessons }} | 迟到{{ item.lateLessons }} | 早退{{ item.earlyLeaveLessons }}</text>
+        </view>
+      </view>
+    </view>
+
     <!-- 外宿信息 -->
     <view class="form-card">
       <view class="card-title">外宿信息</view>
@@ -143,7 +176,7 @@
 </template>
 
 <script>
-import { addOffcampus } from '@/api/affair/offcampus'
+import { addOffcampus, getOffcampusHistory, getOffcampusAttendance } from '@/api/affair/offcampus'
 import { listVehicle } from '@/api/affair/vehicle'
 import { uploadFile } from '@/utils/upload'
 import studentPicker from '@/components/student-picker/index.vue'
@@ -168,6 +201,8 @@ export default {
       },
       reasonPhotoList: [],
       housingPhotoList: [],
+      historyList: [],
+      attendanceList: [],
       housingTypeOptions: [
         { label: '自有住房', value: 'own_house' },
         { label: '租房', value: 'rent_house' }
@@ -211,6 +246,10 @@ export default {
       this.form.xydm = stu.xydm || ''
       // 加载该学生的车辆登记列表
       this.loadStudentVehicles()
+      // 加载该学生的历史外宿申请
+      this.loadStudentHistory()
+      // 加载该学生的出勤记录
+      this.loadStudentAttendance()
     },
     onStudentClear() {
       this.form.xh = ''
@@ -219,6 +258,32 @@ export default {
       this.form.className = ''
       this.form.xydm = ''
       this.vehicleOptions = []
+      this.historyList = []
+      this.attendanceList = []
+    },
+    async loadStudentHistory() {
+      if (!this.form.xh) {
+        this.historyList = []
+        return
+      }
+      try {
+        const res = await getOffcampusHistory(this.form.xh)
+        this.historyList = res.data || []
+      } catch (e) {
+        this.historyList = []
+      }
+    },
+    async loadStudentAttendance() {
+      if (!this.form.xh) {
+        this.attendanceList = []
+        return
+      }
+      try {
+        const res = await getOffcampusAttendance(this.form.xh)
+        this.attendanceList = res.data || []
+      } catch (e) {
+        this.attendanceList = []
+      }
     },
     async loadStudentVehicles() {
       try {
@@ -321,6 +386,41 @@ export default {
       const map = { walk: '步行', bus: '公交车', metro: '地铁', electric_bike: '电动车', motorcycle: '摩托车', car: '汽车', other: '其他' }
       return map[type] || type
     },
+    getHousingTypeText(type) {
+      const map = { own_house: '自有住房', rent_house: '租房' }
+      return map[type] || type || '-'
+    },
+    getStatusClass(item) {
+      if (item.status === 'rejected') return 'rejected'
+      if (item.status === 'student_affairs_approved') return 'approved'
+      if (item.verifyStatus === 'pending') return 'pending'
+      return 'processing'
+    },
+    getStatusText(status) {
+      const map = {
+        pending_verify: '待核实',
+        counselor_approved: '待书记审批',
+        secretary_approved: '待学生处审批',
+        student_affairs_approved: '已通过',
+        rejected: '已驳回'
+      }
+      return map[status] || status
+    },
+    calcAbsentRate(item) {
+      const total = Number(item.totalLessons) || 0
+      if (total === 0) return '无记录'
+      const absent = (Number(item.absentLessons) || 0) + (Number(item.lateLessons) || 0) + (Number(item.earlyLeaveLessons) || 0)
+      return '缺勤率 ' + (absent / total * 100).toFixed(1) + '%'
+    },
+    getAttRateClass(item) {
+      const total = Number(item.totalLessons) || 0
+      if (total === 0) return ''
+      const absent = (Number(item.absentLessons) || 0) + (Number(item.lateLessons) || 0) + (Number(item.earlyLeaveLessons) || 0)
+      const rate = absent / total
+      if (rate >= 0.33) return 'att-rate-danger'
+      if (rate >= 0.15) return 'att-rate-warn'
+      return 'att-rate-ok'
+    },
     async submit() {
       if (!this.form.xh) return uni.showToast({ title: '请选择学生', icon: 'none' })
       if (!this.form.housingType) return uni.showToast({ title: '请选择外宿类型', icon: 'none' })
@@ -379,4 +479,26 @@ export default {
 .add-text { font-size: 22rpx; color: #999; }
 .submit-btn { position: fixed; bottom: 40rpx; left: 50%; transform: translateX(-50%); background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20rpx 80rpx; border-radius: 40rpx; box-shadow: 0 4rpx 20rpx rgba(102, 126, 234, 0.4); }
 .submit-text { color: #fff; font-size: 30rpx; font-weight: 500; }
+.history-tip { font-size: 24rpx; color: #ff9800; background: #fff3e0; padding: 16rpx; border-radius: 8rpx; margin-bottom: 16rpx; }
+.history-item { padding: 16rpx 0; border-bottom: 1rpx solid #f0f0f0; }
+.history-item:last-child { border-bottom: none; }
+.history-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8rpx; }
+.history-year { font-size: 28rpx; color: #333; font-weight: 500; }
+.history-status { font-size: 24rpx; padding: 4rpx 12rpx; border-radius: 4rpx; }
+.status-approved { color: #4caf50; background: #e8f5e9; }
+.status-rejected { color: #f44336; background: #ffebee; }
+.status-pending { color: #ff9800; background: #fff3e0; }
+.status-processing { color: #2196f3; background: #e3f2fd; }
+.history-type { font-size: 24rpx; color: #666; }
+.history-addr { font-size: 22rpx; color: #999; flex: 1; margin-left: 16rpx; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.history-time { font-size: 22rpx; color: #999; }
+.att-item { padding: 12rpx 0; border-bottom: 1rpx solid #f0f0f0; }
+.att-item:last-child { border-bottom: none; }
+.att-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4rpx; }
+.att-course { font-size: 26rpx; color: #333; font-weight: 500; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.att-rate { font-size: 24rpx; font-weight: 500; flex-shrink: 0; margin-left: 12rpx; }
+.att-rate-ok { color: #4caf50; }
+.att-rate-warn { color: #ff9800; }
+.att-rate-danger { color: #f44336; }
+.att-detail { font-size: 22rpx; color: #999; }
 </style>
