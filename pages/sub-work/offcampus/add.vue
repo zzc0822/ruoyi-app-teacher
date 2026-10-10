@@ -39,7 +39,8 @@
           <text class="history-addr" v-if="item.address">{{ item.address }}</text>
         </view>
         <view class="history-row">
-          <text class="history-time">{{ item.createTime }}</text>
+          <text class="history-time">{{ item.applyTime || item.createTime }}</text>
+          <text class="history-period" v-if="item.startDate">{{ item.startDate }} ~ {{ item.endDate }}</text>
         </view>
       </view>
     </view>
@@ -69,6 +70,24 @@
             <text class="picker-arrow">▼</text>
           </view>
         </picker>
+        <text v-if="housingTypeHint()" class="period-tip">{{ housingTypeHint() }}</text>
+      </view>
+      <view class="form-item">
+        <text class="form-label">外宿期限 <text class="required">*</text></text>
+        <view class="period-chips">
+          <text v-for="p in periodOptions" :key="p.code" class="period-chip" :class="{ active: periodPreset === p.code }" @click="pickPreset(p.code)">{{ p.short }}</text>
+          <text class="period-chip" :class="{ active: periodPreset === 'custom' }" @click="periodPreset = 'custom'">自定义</text>
+        </view>
+        <view class="period-range">
+          <picker class="period-cell" mode="date" :value="form.startDate" @change="onStartDateChange">
+            <view class="form-picker"><text :class="{ placeholder: !form.startDate }">{{ form.startDate || '开始日期' }}</text></view>
+          </picker>
+          <text class="period-sep">至</text>
+          <picker class="period-cell" mode="date" :value="form.endDate" @change="onEndDateChange">
+            <view class="form-picker"><text :class="{ placeholder: !form.endDate }">{{ form.endDate || '结束日期' }}</text></view>
+          </picker>
+        </view>
+        <text class="period-tip">外宿一般覆盖整学年；学期中途开始可自开学日起、学年末止</text>
       </view>
       <view class="form-item">
         <text class="form-label">外宿地址 <text class="required">*</text></text>
@@ -80,59 +99,17 @@
       </view>
     </view>
 
-    <!-- 佐证材料 -->
+    <!-- 佐证材料：不分门别类，一律传到同一处 -->
     <view class="form-card">
-      <view class="card-title">佐证材料</view>
-      <!-- 自有住房 -->
-      <view v-if="form.housingType === 'own_house'">
-        <view class="form-item">
-          <text class="form-label">房产证照片 <text class="required">*</text></text>
-          <view class="upload-area" @click="chooseImage('propertyCert')">
-            <image v-if="form.propertyCert" :src="form.propertyCert" class="preview-img" mode="aspectFill" />
-            <view v-else class="upload-placeholder"><text class="upload-icon">+</text><text class="upload-text">拍照上传</text></view>
-          </view>
+      <view class="card-title">佐证材料 <text class="required">*</text></view>
+      <text class="upload-hint">{{ uploadHint() }}</text>
+      <view class="photo-upload-grid">
+        <view class="upload-item" v-for="(photo, idx) in materialPhotoList" :key="idx">
+          <image :src="photo" class="upload-preview" mode="aspectFill" @click="previewMaterial(idx)" />
+          <view class="remove-btn" @click="removeMaterial(idx)">×</view>
         </view>
-        <view class="form-item">
-          <text class="form-label">关系证明（户口本）<text class="required">*</text></text>
-          <view class="upload-area" @click="chooseImage('relationCert')">
-            <image v-if="form.relationCert" :src="form.relationCert" class="preview-img" mode="aspectFill" />
-            <view v-else class="upload-placeholder"><text class="upload-icon">+</text><text class="upload-text">拍照上传</text></view>
-          </view>
-        </view>
-      </view>
-      <!-- 租房 -->
-      <view v-if="form.housingType === 'rent_house'">
-        <view class="form-item">
-          <text class="form-label">租房合同照片 <text class="required">*</text></text>
-          <view class="upload-area" @click="chooseImage('rentContract')">
-            <image v-if="form.rentContract" :src="form.rentContract" class="preview-img" mode="aspectFill" />
-            <view v-else class="upload-placeholder"><text class="upload-icon">+</text><text class="upload-text">拍照上传</text></view>
-          </view>
-        </view>
-      </view>
-      <!-- 通用材料 -->
-      <view class="form-item" v-if="form.housingType">
-        <text class="form-label">外宿理由佐证（3-5张）<text class="required">*</text></text>
-        <view class="photo-upload-grid">
-          <view class="upload-item" v-for="(photo, idx) in reasonPhotoList" :key="idx">
-            <image :src="photo" class="upload-preview" mode="aspectFill" />
-            <view class="remove-btn" @click="removePhoto('reason', idx)">×</view>
-          </view>
-          <view class="upload-item add-item" v-if="reasonPhotoList.length < 5" @click="chooseMultiImage('reason')">
-            <text class="add-icon">+</text><text class="add-text">拍照</text>
-          </view>
-        </view>
-      </view>
-      <view class="form-item" v-if="form.housingType">
-        <text class="form-label">住宿环境照片（3-5张）<text class="required">*</text></text>
-        <view class="photo-upload-grid">
-          <view class="upload-item" v-for="(photo, idx) in housingPhotoList" :key="idx">
-            <image :src="photo" class="upload-preview" mode="aspectFill" />
-            <view class="remove-btn" @click="removePhoto('housing', idx)">×</view>
-          </view>
-          <view class="upload-item add-item" v-if="housingPhotoList.length < 5" @click="chooseMultiImage('housing')">
-            <text class="add-icon">+</text><text class="add-text">拍照</text>
-          </view>
+        <view class="upload-item add-item" v-if="materialPhotoList.length < 9" @click="chooseMaterial">
+          <text class="add-icon">+</text><text class="add-text">拍照</text>
         </view>
       </view>
     </view>
@@ -158,13 +135,6 @@
           </view>
         </picker>
       </view>
-      <view class="form-item">
-        <text class="form-label">交通证明照片</text>
-        <view class="upload-area" @click="chooseImage('transportProof')">
-          <image v-if="form.transportProof" :src="form.transportProof" class="preview-img" mode="aspectFill" />
-          <view v-else class="upload-placeholder"><text class="upload-icon">+</text><text class="upload-text">拍照上传</text></view>
-        </view>
-      </view>
     </view>
 
     <view class="submit-btn" @click="submit">
@@ -176,11 +146,12 @@
 </template>
 
 <script>
-import { addOffcampus, getOffcampusHistory, getOffcampusAttendance } from '@/api/affair/offcampus'
+import { addOffcampus, getOffcampusHistory, getOffcampusAttendance, getOffcampusPeriods } from '@/api/affair/offcampus'
 import { listVehicle } from '@/api/affair/vehicle'
-import { uploadFile } from '@/utils/upload'
+import { uploadFile, stripBaseUrl } from '@/utils/upload'
 import studentPicker from '@/components/student-picker/index.vue'
 import { getWatermarkConfig } from '@/api/work/watermark'
+import { getDicts } from '@/api/system/dict/data'
 import { getLocation, addWatermark } from '@/utils/watermark'
 
 export default {
@@ -195,25 +166,32 @@ export default {
     return {
       form: {
         xh: '', studentName: '', bjdm: '', className: '', xydm: '',
-        academicYear: '', housingType: '', applyReason: '', address: '',
-        propertyCert: '', relationCert: '', rentContract: '',
-        transportType: '', transportProof: '', vehicleId: null
+        academicYear: '', startDate: '', endDate: '', housingType: '', applyReason: '', address: '',
+        transportType: '', vehicleId: null
       },
-      reasonPhotoList: [],
-      housingPhotoList: [],
+      // 外宿期限快捷项，来自校历
+      periodOptions: [],
+      periodPreset: 'full_year',
+      // 佐证材料不分门别类，全部落 material_photos
+      materialPhotoList: [],
       historyList: [],
       attendanceList: [],
+      // 字典 fd_offcampus_housing_type 拉取前的兜底选项，onLoad 里会被字典结果整体替换
       housingTypeOptions: [
-        { label: '自有住房', value: 'own_house' },
-        { label: '租房', value: 'rent_house' }
+        { label: '自有住房', value: 'own_house', remark: '需房产证照片＋产权人关系证明' },
+        { label: '租房', value: 'rent_house', remark: '需租房合同照片' },
+        { label: '投靠亲属', value: 'relative', remark: '需关系证明（户口本或亲属关系材料）' },
+        { label: '其他', value: 'other', remark: '无专项材料，交理由佐证与住宿环境照片' }
       ],
+      // 字典 transport_type 与请假共用，拉取前用这份兜底
       transportOptions: [
+        { label: '火车', value: 'train' },
+        { label: '飞机', value: 'plane' },
+        { label: '汽车', value: 'bus' },
         { label: '步行', value: 'walk' },
-        { label: '公交车', value: 'bus' },
         { label: '地铁', value: 'metro' },
         { label: '电动车', value: 'electric_bike' },
         { label: '摩托车', value: 'motorcycle' },
-        { label: '汽车', value: 'car' },
         { label: '其他', value: 'other' }
       ],
       vehicleOptions: [],
@@ -222,11 +200,65 @@ export default {
   },
   onLoad() {
     this.calcAcademicYear()
+    this.loadPeriods()
+    this.loadHousingTypes()
+    this.loadTransportTypes()
     getWatermarkConfig('offcampus').then(res => {
       this.watermarkConfig = res.data
     }).catch(() => {})
   },
   methods: {
+    /** 外宿类型读字典，字典不可用时保留内置选项 */
+    loadHousingTypes() {
+      return getDicts('fd_offcampus_housing_type').then(res => {
+        const options = (res.data || []).map(d => ({ label: d.dictLabel, value: d.dictValue, remark: d.remark }))
+        if (options.length) this.housingTypeOptions = options
+      }).catch(() => {})
+    },
+    /** 交通工具与请假共用字典 transport_type */
+    loadTransportTypes() {
+      return getDicts('transport_type').then(res => {
+        const options = (res.data || []).map(d => ({ label: d.dictLabel, value: d.dictValue }))
+        if (options.length) this.transportOptions = options
+      }).catch(() => {})
+    },
+    housingTypeHint() {
+      const hit = this.housingTypeOptions.find(o => o.value === this.form.housingType)
+      return hit && hit.remark ? hit.remark : ''
+    },
+    /** 上传提示：先按外宿类型点明该交什么，再说明不必分类 */
+    uploadHint() {
+      const need = this.housingTypeHint()
+      const base = '材料一律传到同一处、无需分类，最多 9 张，建议 3 张以上；请含住宿环境现场照片'
+      return need ? need + '；' + base : base
+    },
+    /** 期限候选取自校历：整学年 + 该学年各学期 */
+    loadPeriods() {
+      return getOffcampusPeriods(this.form.academicYear).then(res => {
+        this.periodOptions = (res.data || []).map(p => ({
+          code: p.code,
+          short: p.code === 'full_year' ? '整学年' : String(p.label || '').replace(/^\d{4}-\d{4}学年/, ''),
+          startDate: p.startDate,
+          endDate: p.endDate
+        }))
+        if (this.periodPreset !== 'custom') this.pickPreset(this.periodPreset)
+      }).catch(() => { this.periodOptions = [] })
+    },
+    pickPreset(code) {
+      const p = this.periodOptions.find(item => item.code === code)
+      if (!p) return
+      this.periodPreset = code
+      this.form.startDate = p.startDate
+      this.form.endDate = p.endDate
+    },
+    onStartDateChange(e) {
+      this.form.startDate = e.detail.value
+      this.periodPreset = 'custom'
+    },
+    onEndDateChange(e) {
+      this.form.endDate = e.detail.value
+      this.periodPreset = 'custom'
+    },
     calcAcademicYear() {
       const now = new Date()
       const year = now.getFullYear()
@@ -306,43 +338,9 @@ export default {
     onVehicleChange(e) {
       this.form.vehicleId = this.vehicleOptions[e.detail.value].value
     },
-    chooseImage(field) {
-      uni.showActionSheet({
-        itemList: ['拍照上传', '从相册选择'],
-        success: (action) => {
-          if (action.index === 0) {
-            // 拍照 → 加水印
-            const locPromise = getLocation()
-            uni.chooseImage({
-              count: 1, sizeType: ['compressed'], sourceType: ['camera'],
-              success: async (res) => {
-                let path = res.tempFilePaths[0]
-                if (this.watermarkConfig && this.watermarkConfig.enabled === '1') {
-                  const location = await locPromise
-                  path = await addWatermark(path, this.watermarkConfig, location)
-                }
-                uploadFile(path).then(url => {
-                  this.form[field] = url
-                }).catch(() => { uni.showToast({ title: '上传失败', icon: 'none' }) })
-              }
-            })
-          } else {
-            // 相册 → 不加水印
-            uni.chooseImage({
-              count: 1, sizeType: ['compressed'], sourceType: ['album'],
-              success: (res) => {
-                uploadFile(res.tempFilePaths[0]).then(url => {
-                  this.form[field] = url
-                }).catch(() => { uni.showToast({ title: '上传失败', icon: 'none' }) })
-              }
-            })
-          }
-        }
-      })
-    },
-    chooseMultiImage(type) {
-      const list = type === 'reason' ? this.reasonPhotoList : this.housingPhotoList
-      if (list.length >= 5) return uni.showToast({ title: '最多5张', icon: 'none' })
+    /** 佐证材料：拍照走水印、相册不加水印，都落到同一个桶 */
+    chooseMaterial() {
+      if (this.materialPhotoList.length >= 9) return uni.showToast({ title: '最多9张', icon: 'none' })
       uni.showActionSheet({
         itemList: ['拍照上传', '从相册选择'],
         success: (action) => {
@@ -356,39 +354,37 @@ export default {
                   const location = await locPromise
                   path = await addWatermark(path, this.watermarkConfig, location)
                 }
-                uploadFile(path).then(url => {
-                  list.push(url)
-                }).catch(() => { uni.showToast({ title: '上传失败', icon: 'none' }) })
+                this.appendMaterial(path)
               }
             })
           } else {
             uni.chooseImage({
               count: 1, sizeType: ['compressed'], sourceType: ['album'],
               success: (res) => {
-                uploadFile(res.tempFilePaths[0]).then(url => {
-                  list.push(url)
-                }).catch(() => { uni.showToast({ title: '上传失败', icon: 'none' }) })
+                this.appendMaterial(res.tempFilePaths[0])
               }
             })
           }
         }
       })
     },
-    removePhoto(type, idx) {
-      if (type === 'reason') this.reasonPhotoList.splice(idx, 1)
-      else this.housingPhotoList.splice(idx, 1)
+    appendMaterial(path) {
+      uploadFile(path).then(url => {
+        this.materialPhotoList.push(url)
+      }).catch(() => { uni.showToast({ title: '上传失败', icon: 'none' }) })
     },
-    getHousingTypeText(type) {
-      const map = { own_house: '自有住房', rent_house: '租房' }
-      return map[type] || type
-    },
+    removeMaterial(idx) { this.materialPhotoList.splice(idx, 1) },
+    previewMaterial(idx) { uni.previewImage({ current: idx, urls: this.materialPhotoList }) },
+    /** 交通工具文案取自字典；老数据里的 car 字典没有，单独兜底 */
     getTransportText(type) {
-      const map = { walk: '步行', bus: '公交车', metro: '地铁', electric_bike: '电动车', motorcycle: '摩托车', car: '汽车', other: '其他' }
-      return map[type] || type
+      if (!type) return '-'
+      const hit = this.transportOptions.find(o => o.value === type)
+      if (hit) return hit.label
+      return type === 'car' ? '汽车' : type
     },
     getHousingTypeText(type) {
-      const map = { own_house: '自有住房', rent_house: '租房' }
-      return map[type] || type || '-'
+      const hit = this.housingTypeOptions.find(o => o.value === type)
+      return hit ? hit.label : (type || '-')
     },
     getStatusClass(item) {
       if (item.status === 'rejected') return 'rejected'
@@ -424,19 +420,16 @@ export default {
     async submit() {
       if (!this.form.xh) return uni.showToast({ title: '请选择学生', icon: 'none' })
       if (!this.form.housingType) return uni.showToast({ title: '请选择外宿类型', icon: 'none' })
+      if (!this.form.startDate || !this.form.endDate) return uni.showToast({ title: '请选择外宿期限', icon: 'none' })
+      if (this.form.startDate > this.form.endDate) return uni.showToast({ title: '结束日期不能早于开始日期', icon: 'none' })
       if (!this.form.address) return uni.showToast({ title: '请输入外宿地址', icon: 'none' })
       if (!this.form.applyReason) return uni.showToast({ title: '请输入外宿理由', icon: 'none' })
-      if (this.form.housingType === 'own_house' && !this.form.propertyCert) return uni.showToast({ title: '请上传房产证照片', icon: 'none' })
-      if (this.form.housingType === 'own_house' && !this.form.relationCert) return uni.showToast({ title: '请上传关系证明', icon: 'none' })
-      if (this.form.housingType === 'rent_house' && !this.form.rentContract) return uni.showToast({ title: '请上传租房合同', icon: 'none' })
-      if (this.reasonPhotoList.length < 3) return uni.showToast({ title: '外宿理由佐证至少3张', icon: 'none' })
-      if (this.housingPhotoList.length < 3) return uni.showToast({ title: '住宿环境照片至少3张', icon: 'none' })
+      if (this.materialPhotoList.length < 3) return uni.showToast({ title: '请至少上传3张佐证材料', icon: 'none' })
       if (!this.form.transportType) return uni.showToast({ title: '请选择交通工具', icon: 'none' })
 
       const data = {
         ...this.form,
-        reasonPhotos: JSON.stringify(this.reasonPhotoList),
-        housingPhotos: JSON.stringify(this.housingPhotoList)
+        materialPhotos: JSON.stringify(this.materialPhotoList.map(stripBaseUrl))
       }
 
       try {
@@ -465,11 +458,17 @@ export default {
 .form-picker { background: #f5f5f5; padding: 20rpx 24rpx; border-radius: 8rpx; font-size: 28rpx; min-height: 72rpx; line-height: 72rpx; display: flex; justify-content: space-between; align-items: center; box-sizing: border-box; }
 .placeholder { color: #999; }
 .picker-arrow { font-size: 20rpx; color: #999; }
-.upload-area { width: 200rpx; height: 200rpx; border-radius: 8rpx; overflow: hidden; }
-.upload-placeholder { width: 100%; height: 100%; background: #f5f5f5; display: flex; flex-direction: column; align-items: center; justify-content: center; border: 2rpx dashed #ddd; }
-.upload-icon { font-size: 48rpx; color: #999; }
-.upload-text { font-size: 22rpx; color: #999; margin-top: 8rpx; }
-.preview-img { width: 100%; height: 100%; }
+/* 外宿期限 */
+.period-chips { display: flex; flex-wrap: wrap; gap: 12rpx; margin-bottom: 14rpx; }
+.period-chip { padding: 8rpx 22rpx; border-radius: 24rpx; background: #f0f2f5; color: #666; font-size: 24rpx; border: 2rpx solid transparent; }
+.period-chip.active { background: #eef1ff; color: #667eea; border-color: #667eea; }
+.period-range { display: flex; align-items: center; }
+.period-cell { flex: 1; }
+.period-sep { padding: 0 14rpx; font-size: 24rpx; color: #999; }
+.period-tip { display: block; margin-top: 10rpx; font-size: 22rpx; color: #999; line-height: 32rpx; }
+.history-period { font-size: 22rpx; color: #999; }
+/* 上传提示压在九宫格上方，先看清要交什么再拍 */
+.upload-hint { display: block; font-size: 22rpx; color: #999; line-height: 32rpx; margin-bottom: 16rpx; }
 .photo-upload-grid { display: flex; flex-wrap: wrap; gap: 16rpx; }
 .upload-item { width: 160rpx; height: 160rpx; position: relative; }
 .upload-preview { width: 100%; height: 100%; border-radius: 8rpx; }

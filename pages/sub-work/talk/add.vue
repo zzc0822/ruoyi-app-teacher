@@ -1,8 +1,26 @@
 <template>
   <view class="page-wrap">
+    <!-- 只读提示：班主任看不到辅导员未共享的谈话，能看到共享的但不能改 -->
+    <view class="readonly-banner" v-if="readOnly">
+      <text class="readonly-text">该谈话由「{{ talkName || '他人' }}」记录，仅可查看</text>
+    </view>
     <!-- 基本信息 -->
     <view class="form-section">
       <view class="section-title">基本信息</view>
+      <!-- 记录身份：兼辅导员与班主任时选择以哪个身份记录 -->
+      <view class="form-item" v-if="!editId && dualRole">
+        <text class="form-label">记录身份</text>
+        <view class="type-tags">
+          <view v-for="r in recorderRoles" :key="r.value" :class="['type-tag', form.recorderRole === r.value ? 'type-active' : '']" @click="setRecorderRole(r.value)">
+            <text>{{ r.label }}</text>
+          </view>
+        </view>
+      </view>
+      <view class="form-item" v-if="editId">
+        <text class="form-label">记录身份</text>
+        <text class="readonly-value">{{ recorderRole === 'headteacher' ? '班主任' : '辅导员' }}</text>
+        <text class="share-count" v-if="shareCount > 0">已共享 {{ shareCount }} 位班主任</text>
+      </view>
       <!-- 谈话类型 -->
       <view class="form-item">
         <text class="form-label">谈话类型</text>
@@ -15,26 +33,26 @@
       <!-- 谈话时间 -->
       <view class="form-item">
         <text class="form-label">谈话时间</text>
-        <picker mode="date" :value="talkDate" @change="onDateChange">
+        <picker mode="date" :value="talkDate" :disabled="readOnly" @change="onDateChange">
           <view class="picker-value">{{ talkDate }}</view>
         </picker>
-        <picker mode="time" :value="talkTime" @change="onTimeChange">
+        <picker mode="time" :value="talkTime" :disabled="readOnly" @change="onTimeChange">
           <view class="picker-value">{{ talkTime }}</view>
         </picker>
       </view>
       <!-- 谈话地点 -->
       <view class="form-item">
         <text class="form-label">谈话地点</text>
-        <input class="form-input" v-model="form.talkPlace" placeholder="请输入谈话地点" />
-        <view class="loc-btn" @click="pickLocation"><text class="loc-icon">📍</text></view>
+        <input class="form-input" v-model="form.talkPlace" :disabled="readOnly" placeholder="请输入谈话地点" />
+        <view class="loc-btn" v-if="!readOnly" @click="pickLocation"><text class="loc-icon">📍</text></view>
       </view>
       <!-- 截止时间（有谈话对象时显示） -->
       <view class="form-item" v-if="hasViolationStudent">
         <text class="form-label">截止时间</text>
-        <picker mode="date" :value="deadlineDate" @change="onDeadlineDateChange">
+        <picker mode="date" :value="deadlineDate" :disabled="readOnly" @change="onDeadlineDateChange">
           <view class="picker-value">{{ deadlineDate }}</view>
         </picker>
-        <picker mode="time" :value="deadlineTime" @change="onDeadlineTimeChange">
+        <picker mode="time" :value="deadlineTime" :disabled="readOnly" @change="onDeadlineTimeChange">
           <view class="picker-value">{{ deadlineTime }}</view>
         </picker>
       </view>
@@ -51,13 +69,13 @@
             <text v-if="stu.violationType === 'late'" class="tag-vi vi-late">迟</text>
             <text v-else-if="stu.violationType === 'early_leave'" class="tag-vi vi-early">退</text>
             <text v-else-if="stu.violationType === 'truant'" class="tag-vi vi-truant">旷</text>
-            <text class="tag-x" @tap.stop="removeStudent(idx)">×</text>
+            <text class="tag-x" v-if="!readOnly" @tap.stop="removeStudent(idx)">×</text>
           </view>
         </view>
-        <input class="tag-field" v-model="stuKeyword" placeholder="输入学号或姓名自动搜索" @input="onStuInput" @focus="onInputFocus" />
+        <input class="tag-field" v-if="!readOnly" v-model="stuKeyword" placeholder="输入学号或姓名自动搜索" @input="onStuInput" @focus="onInputFocus" />
       </view>
       <!-- 操作按钮 -->
-      <view class="action-row">
+      <view class="action-row" v-if="!readOnly">
         <view class="action-btn btn-warn" @tap.stop="toggleViolationList">
           <text class="action-icon">⚠️</text>
           <text>{{ showViolationList ? '收起列表' : '谈话对象' }}</text>
@@ -117,12 +135,15 @@
           <view class="history-body">{{ c.content }}</view>
         </view>
       </view>
-      <textarea class="content-textarea" v-model="form.newContent" :placeholder="historyContent.length > 0 ? '请输入追加的谈话内容...' : '请输入谈话内容...'" />
-      <view class="ended-check">
+      <textarea class="content-textarea" v-if="!readOnly" v-model="form.newContent" :placeholder="historyContent.length > 0 ? '请输入追加的谈话内容...' : '请输入谈话内容...'" />
+      <view class="ended-check" v-if="!readOnly">
         <view :class="['check-box', form.isEnded === '1' ? 'checked' : '']" @click="toggleEnded">
           <text v-if="form.isEnded === '1'" style="color:#fff;font-size:20rpx;">✓</text>
         </view>
         <text style="font-size:26rpx;color:#666;margin-left:12rpx;">该谈话已结束</text>
+      </view>
+      <view class="history-empty" v-if="readOnly && historyContent.length === 0">
+        <text>暂无谈话内容</text>
       </view>
     </view>
 
@@ -130,9 +151,9 @@
     <view class="form-section attach-section">
       <view class="section-title attach-title">
         <text>📎 佐证材料</text>
-        <text class="attach-hint">（可选，最多5个）</text>
+        <text class="attach-hint" v-if="!readOnly">（可选，最多5个）</text>
       </view>
-      <view class="attach-row">
+      <view class="attach-row" v-if="!readOnly">
         <view class="attach-btn" @click="onTakePhoto"><text>📷 拍照</text></view>
         <view class="attach-btn" @click="chooseImage"><text>🖼 相册</text></view>
         <view class="attach-btn" @click="chooseDocument"><text>📄 文档</text></view>
@@ -151,33 +172,71 @@
               <text class="attach-file-name">{{ item.fileName }}</text>
             </view>
           </template>
-          <view class="attach-del" @click="removeAttach(idx)"><text>x</text></view>
+          <view class="attach-del" v-if="!readOnly" @click="removeAttach(idx)"><text>x</text></view>
         </view>
       </view>
-      <view class="attach-tip">
+      <view class="attach-tip" v-if="!readOnly">
         <text>附件总数不超过5个</text>
       </view>
     </view>
 
     <!-- 底部按钮 -->
-    <view class="bottom-bar">
-      <button class="submit-btn" @click="submitForm" :loading="submitting" :disabled="submitting">
+    <view class="bottom-bar" v-if="!readOnly || canShare">
+      <button class="submit-btn" v-if="!readOnly" @click="submitForm" :loading="submitting" :disabled="submitting">
         {{ editId ? '确认修改' : '提交谈话' }}
       </button>
+      <button class="share-btn" v-if="canShare" @click="openShare">共享给班主任</button>
     </view>
+
+    <!-- 共享给班主任 -->
+    <uni-popup ref="sharePopup" type="bottom">
+      <view class="share-panel">
+        <view class="sp-header">
+          <text class="sp-title">共享给班主任</text>
+          <text class="sp-close" @click="closeShare">×</text>
+        </view>
+        <text class="sp-subject">谈话对象：{{ shareStudentNames }}</text>
+        <scroll-view scroll-y class="sp-body">
+          <view class="sp-item" v-for="c in shareCandidates" :key="c.toTeacherId" @click="toggleSharePick(c)">
+            <view :class="['sp-check', isShareChecked(c.toTeacherId) ? 'sp-checked' : '']">
+              <text v-if="isShareChecked(c.toTeacherId)" class="sp-tick">✓</text>
+            </view>
+            <view class="sp-info">
+              <text class="sp-name">{{ c.toName }}</text>
+              <text class="sp-classes">{{ c.classNames || '' }}</text>
+            </view>
+            <text class="sp-shared" v-if="isAlreadyShared(c.toTeacherId)">已共享</text>
+          </view>
+          <view class="sp-empty" v-if="shareCandidates.length === 0">
+            <text>本次谈话对象所属班级暂无班主任</text>
+          </view>
+        </scroll-view>
+        <view class="sp-current" v-if="shareList.length > 0">
+          <text class="sp-current-title">当前共享名单</text>
+          <view class="sp-current-item" v-for="s in shareList" :key="s.shareId || s.toTeacherId">
+            <text class="sp-current-name">{{ s.toName }}</text>
+            <text class="sp-revoke" @click="doRevoke(s)">撤销</text>
+          </view>
+        </view>
+        <button class="sp-submit" @click="doShare" :disabled="sharing">
+          {{ sharing ? '共享中...' : '确认共享' }}
+        </button>
+      </view>
+    </uni-popup>
     <!-- 水印Canvas（离屏） -->
     <canvas canvas-id="watermarkCanvas" style="position:fixed;left:-9999px;top:-9999px;width:1920px;height:1920px;"></canvas>
   </view>
 </template>
 
 <script>
-import { addTalk, updateTalk, getTalk, getTalkByCheck, getMyStudents, getViolationStudents, getTalkAttachments, getDeadlineConfig } from '@/api/work/talk'
+import { addTalk, updateTalk, getTalk, getTalkByCheck, getMyStudents, getViolationStudents, getTalkAttachments, getDeadlineConfig, getShareCandidates, getTalkShares, shareTalk, revokeTalkShare } from '@/api/work/talk'
 import { getClassCheck } from '@/api/work/classcheck'
 import upload from '@/utils/upload'
 import config from '@/config'
 import { chooseLocation } from '@/utils/common'
 import { getWatermarkConfig } from '@/api/work/watermark'
 import { addWatermark, prepareCapture } from '@/utils/watermark'
+import { isCounselor, isHeadteacher } from '@/utils/role'
 
 const TALK_TYPES = [
   { value: 'ideological', label: '思想动态' },
@@ -202,7 +261,19 @@ export default {
         isEnded: '0',
         newContent: '',
         studentList: [],
+        recorderRole: 'counselor',
       },
+      // 已存在记录的归属信息（可见不等于可改）
+      writable: true,
+      recorderRole: '',
+      talkName: '',
+      shareCount: 0,
+      // 共享面板
+      sharing: false,
+      shareCandidates: [],
+      shareList: [],
+      checkedTeacherIds: [],
+      loginRoles: [],
       talkDate: '',
       talkTime: '',
       deadlineDate: '',
@@ -222,6 +293,8 @@ export default {
   },
   onLoad(options) {
     this.initDateTime()
+    this.loginRoles = this.currentRoles()
+    this.form.recorderRole = this.defaultRecorderRole()
     this.loadDeadlineConfig()
     // 加载水印配置
     this.watermarkConfigPromise = getWatermarkConfig('talk').then(res => {
@@ -241,9 +314,52 @@ export default {
   computed: {
     hasViolationStudent() {
       return this.form.studentList.some(s => s.violationType != null)
+    },
+    // 只读：看得到但不是自己记录的谈话
+    readOnly() {
+      return !!this.editId && this.writable === false
+    },
+    // 共享入口：只有辅导员自己记录的谈话可以共享给班主任
+    canShare() {
+      if (!this.editId || this.writable === false) return false
+      return this.recorderRole !== 'headteacher'
+    },
+    dualRole() {
+      return isCounselor(this.loginRoles) && isHeadteacher(this.loginRoles)
+    },
+    recorderRoles() {
+      return [
+        { value: 'counselor', label: '辅导员' },
+        { value: 'headteacher', label: '班主任' },
+      ]
+    },
+    shareStudentNames() {
+      return this.form.studentList.map(s => s.studentName).filter(Boolean).join('、') || '-'
     }
   },
   methods: {
+    currentRoles() {
+      let roles = []
+      try { roles = uni.getStorageSync('user_roles') || [] } catch (e) {}
+      if (!Array.isArray(roles) || roles.length === 0) {
+        const store = this.$store
+        if (store && store.state && store.state.user && store.state.user.roles) {
+          roles = store.state.user.roles
+        }
+      }
+      return Array.isArray(roles) ? roles : []
+    },
+    // 兼双职时默认以辅导员身份记录，仅有班主任身份时以班主任记录
+    defaultRecorderRole() {
+      const roles = this.currentRoles()
+      if (isCounselor(roles)) return 'counselor'
+      if (isHeadteacher(roles)) return 'headteacher'
+      return 'counselor'
+    },
+    setRecorderRole(val) {
+      if (this.readOnly) return
+      this.form.recorderRole = val
+    },
     initDateTime() {
       const now = new Date()
       this.talkDate = this.formatDate(now)
@@ -280,6 +396,11 @@ export default {
         const data = res.data
         
         if (!data) return
+        this.writable = data.writable !== false
+        this.recorderRole = data.recorderRole || 'counselor'
+        this.talkName = data.talkName || ''
+        this.shareCount = data.shareCount || 0
+        this.form.recorderRole = this.recorderRole
         this.form.talkCategory = data.talkCategory || 'daily'
         this.form.talkTypeList = data.talkType ? data.talkType.split(',') : []
         this.form.talkPlace = data.talkPlace || ''
@@ -334,6 +455,7 @@ export default {
       return this.form.talkTypeList.indexOf(val) >= 0
     },
     toggleType(val) {
+      if (this.readOnly) return
       const idx = this.form.talkTypeList.indexOf(val)
       if (idx >= 0) {
         this.form.talkTypeList.splice(idx, 1)
@@ -342,6 +464,7 @@ export default {
       }
     },
     toggleEnded() {
+      if (this.readOnly) return
       this.form.isEnded = this.form.isEnded === '1' ? '0' : '1'
     },
     pickLocation() {
@@ -687,6 +810,69 @@ export default {
         }
       })
     },
+    // 共享给班主任
+    openShare() {
+      if (!this.canShare) return
+      this.loadShare()
+      this.$refs.sharePopup && this.$refs.sharePopup.open()
+    },
+    closeShare() {
+      this.$refs.sharePopup && this.$refs.sharePopup.close()
+    },
+    loadShare() {
+      Promise.all([getShareCandidates(this.editId), getTalkShares(this.editId)]).then(([cRes, sRes]) => {
+        this.shareCandidates = cRes.data || []
+        this.shareList = sRes.data || []
+        this.shareCount = this.shareList.length
+        this.checkedTeacherIds = this.shareList.map(s => s.toTeacherId)
+      }).catch(() => {})
+    },
+    isShareChecked(teacherId) {
+      return this.checkedTeacherIds.indexOf(teacherId) >= 0
+    },
+    isAlreadyShared(teacherId) {
+      return this.shareList.some(s => s.toTeacherId === teacherId)
+    },
+    toggleSharePick(c) {
+      if (!c || !c.toTeacherId) return
+      if (this.isAlreadyShared(c.toTeacherId)) return
+      const idx = this.checkedTeacherIds.indexOf(c.toTeacherId)
+      if (idx >= 0) {
+        this.checkedTeacherIds.splice(idx, 1)
+      } else {
+        this.checkedTeacherIds.push(c.toTeacherId)
+      }
+    },
+    doShare() {
+      const toAdd = this.checkedTeacherIds.filter(id => !this.isAlreadyShared(id))
+      if (toAdd.length === 0) {
+        uni.showToast({ title: '请选择要共享的班主任', icon: 'none' })
+        return
+      }
+      this.sharing = true
+      shareTalk(this.editId, toAdd).then(res => {
+        uni.showToast({ title: '已共享', icon: 'success' })
+        this.loadShare()
+      }).catch(err => {
+        uni.showToast({ title: '共享失败: ' + ((err && (err.msg || err.message)) || '未知错误'), icon: 'none', duration: 3000 })
+      }).finally(() => { this.sharing = false })
+    },
+    doRevoke(item) {
+      if (!item) return
+      uni.showModal({
+        title: '撤销共享',
+        content: '撤销后「' + (item.toName || '') + '」将不能再看到这条谈话',
+        success: (r) => {
+          if (!r.confirm) return
+          revokeTalkShare(this.editId, item.toTeacherId).then(() => {
+            uni.showToast({ title: '已撤销', icon: 'success' })
+            this.loadShare()
+          }).catch(() => {
+            uni.showToast({ title: '撤销失败', icon: 'none' })
+          })
+        }
+      })
+    },
     // 提交
     submitForm() {
       if (this.form.studentList.length === 0) {
@@ -704,6 +890,7 @@ export default {
       // 构建提交数据
       const data = {
         id: this.editId || undefined,
+        recorderRole: this.editId ? undefined : this.form.recorderRole,
         talkCategory: this.form.talkCategory,
         talkType: this.form.talkTypeList.join(','),
         talkTime: talkTimeStr,
@@ -1378,5 +1565,188 @@ export default {
   height: 80rpx;
   line-height: 80rpx;
   text-align: center;
+}
+
+/* ===== 只读与归属 ===== */
+.readonly-banner {
+  margin: 20rpx 24rpx 0;
+  padding: 20rpx 24rpx;
+  background: #fef3e2;
+  border-radius: 12rpx;
+}
+
+.readonly-text {
+  font-size: 26rpx;
+  color: #e07e1c;
+}
+
+.readonly-value {
+  font-size: 28rpx;
+  color: #333;
+  margin-right: 16rpx;
+}
+
+.share-count {
+  font-size: 24rpx;
+  color: #2979ff;
+}
+
+.history-empty {
+  padding: 24rpx 0;
+  text-align: center;
+}
+
+.history-empty text {
+  font-size: 26rpx;
+  color: #999;
+}
+
+.share-btn {
+  width: 100%;
+  margin-top: 12rpx;
+  background: #fff;
+  color: #2979ff;
+  border: 1rpx solid #2979ff;
+  font-size: 30rpx;
+  border-radius: 12rpx;
+  height: 80rpx;
+  line-height: 80rpx;
+  text-align: center;
+}
+
+/* ===== 共享面板 ===== */
+.share-panel {
+  background: #fff;
+  border-radius: 24rpx 24rpx 0 0;
+  padding: 24rpx;
+  padding-bottom: calc(24rpx + env(safe-area-inset-bottom));
+}
+
+.sp-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.sp-title {
+  font-size: 32rpx;
+  font-weight: bold;
+  color: #333;
+}
+
+.sp-close {
+  font-size: 40rpx;
+  color: #999;
+  line-height: 1;
+  padding: 0 12rpx;
+}
+
+.sp-subject {
+  display: block;
+  font-size: 24rpx;
+  color: #666;
+  margin-top: 8rpx;
+}
+
+.sp-body {
+  max-height: 480rpx;
+  margin-top: 16rpx;
+}
+
+.sp-item {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  padding: 20rpx 0;
+  border-bottom: 1rpx solid #f5f5f5;
+}
+
+.sp-check {
+  width: 40rpx;
+  height: 40rpx;
+  border-radius: 8rpx;
+  border: 2rpx solid #dcdfe6;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.sp-checked {
+  background: #2979ff;
+  border-color: #2979ff;
+}
+
+.sp-tick {
+  color: #fff;
+  font-size: 24rpx;
+}
+
+.sp-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.sp-name {
+  font-size: 28rpx;
+  color: #333;
+}
+
+.sp-classes {
+  font-size: 22rpx;
+  color: #999;
+  margin-top: 4rpx;
+}
+
+.sp-shared {
+  font-size: 22rpx;
+  color: #18bc37;
+}
+
+.sp-empty {
+  padding: 40rpx 0;
+  text-align: center;
+  font-size: 26rpx;
+  color: #999;
+}
+
+.sp-current {
+  margin-top: 16rpx;
+  padding-top: 16rpx;
+  border-top: 1rpx solid #eee;
+}
+
+.sp-current-title {
+  font-size: 24rpx;
+  color: #666;
+}
+
+.sp-current-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12rpx 0;
+}
+
+.sp-current-name {
+  font-size: 26rpx;
+  color: #333;
+}
+
+.sp-revoke {
+  font-size: 24rpx;
+  color: #e43d33;
+}
+
+.sp-submit {
+  margin-top: 24rpx;
+  width: 100%;
+  background: #2979ff;
+  color: #fff;
+  font-size: 30rpx;
+  border-radius: 12rpx;
+  height: 80rpx;
+  line-height: 80rpx;
 }
 </style>

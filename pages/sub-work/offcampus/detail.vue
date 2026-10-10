@@ -24,6 +24,10 @@
         <text class="info-value">{{ detail.academicYear }}</text>
       </view>
       <view class="info-row">
+        <text class="info-label">申请时间</text>
+        <text class="info-value">{{ detail.applyTime || detail.createTime || '-' }}</text>
+      </view>
+      <view class="info-row">
         <text class="info-label">当前状态</text>
         <text class="info-value" :class="'status-text-' + getStatusClass()">{{ getStatusText(detail.status, detail.verifyStatus) }}</text>
       </view>
@@ -35,6 +39,10 @@
       <view class="info-row">
         <text class="info-label">外宿类型</text>
         <text class="info-value">{{ getHousingTypeText(detail.housingType) }}</text>
+      </view>
+      <view class="info-row" v-if="detail.startDate">
+        <text class="info-label">外宿期限</text>
+        <text class="info-value">{{ detail.startDate }} 至 {{ detail.endDate }}</text>
       </view>
       <view class="info-row">
         <text class="info-label">外宿地址</text>
@@ -50,37 +58,15 @@
       </view>
     </view>
 
-    <!-- 佐证材料 -->
+    <!-- 佐证材料：不分门别类，新旧数据合并成一组 -->
     <view class="info-card">
       <view class="card-title">佐证材料</view>
-      <view class="photo-section" v-if="detail.propertyCert">
-        <text class="section-label">房产证</text>
-        <image :src="detail.propertyCert" class="photo-single" mode="aspectFill" @click="previewImage(detail.propertyCert)" />
-      </view>
-      <view class="photo-section" v-if="detail.relationCert">
-        <text class="section-label">关系证明</text>
-        <image :src="detail.relationCert" class="photo-single" mode="aspectFill" @click="previewImage(detail.relationCert)" />
-      </view>
-      <view class="photo-section" v-if="detail.rentContract">
-        <text class="section-label">租房合同</text>
-        <image :src="detail.rentContract" class="photo-single" mode="aspectFill" @click="previewImage(detail.rentContract)" />
-      </view>
-      <view class="photo-section" v-if="parsePhotos(detail.reasonPhotos).length">
-        <text class="section-label">外宿理由佐证</text>
+      <view class="photo-section" v-if="materialUrls.length">
         <view class="photo-grid">
-          <image v-for="(url, idx) in parsePhotos(detail.reasonPhotos)" :key="'r'+idx" :src="url" class="photo-thumb" mode="aspectFill" @click="previewImage(url)" />
+          <image v-for="(url, idx) in materialUrls" :key="'m'+idx" :src="url" class="photo-thumb" mode="aspectFill" @click="previewMaterial(idx)" />
         </view>
       </view>
-      <view class="photo-section" v-if="parsePhotos(detail.housingPhotos).length">
-        <text class="section-label">住宿环境照片</text>
-        <view class="photo-grid">
-          <image v-for="(url, idx) in parsePhotos(detail.housingPhotos)" :key="'h'+idx" :src="url" class="photo-thumb" mode="aspectFill" @click="previewImage(url)" />
-        </view>
-      </view>
-      <view class="photo-section" v-if="detail.transportProof">
-        <text class="section-label">交通证明</text>
-        <image :src="detail.transportProof" class="photo-single" mode="aspectFill" @click="previewImage(detail.transportProof)" />
-      </view>
+      <text class="empty-tip" v-else>暂无佐证材料</text>
     </view>
 
     <!-- 现场核实结果 -->
@@ -98,10 +84,10 @@
         <text class="info-label">核实备注</text>
         <text class="info-value">{{ detail.verifyRemark }}</text>
       </view>
-      <view class="photo-section" v-if="parsePhotos(detail.verifyPhotos).length">
+      <view class="photo-section" v-if="verifyUrls.length">
         <text class="section-label">现场核实照片</text>
         <view class="photo-grid">
-          <image v-for="(url, idx) in parsePhotos(detail.verifyPhotos)" :key="'v'+idx" :src="url" class="photo-thumb" mode="aspectFill" @click="previewImage(url)" />
+          <image v-for="(url, idx) in verifyUrls" :key="'v'+idx" :src="url" class="photo-thumb" mode="aspectFill" @click="previewVerify(idx)" />
         </view>
       </view>
     </view>
@@ -131,7 +117,7 @@
           <text class="history-status" :class="'status-text-' + getHistoryStatusClass(item)">{{ getStatusText(item.status, item.verifyStatus) }}</text>
         </view>
         <view class="history-row">
-          <text class="history-time">{{ item.createTime }}</text>
+          <text class="history-time">{{ item.applyTime || item.createTime }}</text>
           <text class="history-type">{{ getHousingTypeText(item.housingType) }}</text>
         </view>
       </view>
@@ -156,16 +142,56 @@
 
 <script>
 import { getOffcampus, approveOffcampus, getOffcampusHistory } from '@/api/affair/offcampus'
+import { getDicts } from '@/api/system/dict/data'
+import { mergePhotoFields } from '@/utils/image'
 
 export default {
   data() {
     return {
       detail: {},
       historyList: [],
-      approvalOpinion: ''
+      approvalOpinion: '',
+      // 字典拉取前的兜底选项，onLoad 里会被字典结果整体替换
+      housingTypeOptions: [
+        { label: '自有住房', value: 'own_house' },
+        { label: '租房', value: 'rent_house' },
+        { label: '投靠亲属', value: 'relative' },
+        { label: '其他', value: 'other' }
+      ],
+      transportOptions: [
+        { label: '火车', value: 'train' },
+        { label: '飞机', value: 'plane' },
+        { label: '汽车', value: 'bus' },
+        { label: '步行', value: 'walk' },
+        { label: '地铁', value: 'metro' },
+        { label: '电动车', value: 'electric_bike' },
+        { label: '摩托车', value: 'motorcycle' },
+        { label: '其他', value: 'other' }
+      ]
+    }
+  },
+  computed: {
+    /** 佐证材料：新字段 material_photos 优先，历史分类列跟在后面，按 URL 去重 */
+    materialUrls() {
+      const d = this.detail
+      return mergePhotoFields(
+        d.materialPhotos,
+        d.propertyCert,
+        d.relationCert,
+        d.rentContract,
+        d.reasonPhotos,
+        d.housingPhotos,
+        d.extraMaterials,
+        d.transportProof
+      )
+    },
+    verifyUrls() {
+      return mergePhotoFields(this.detail.verifyPhotos)
     }
   },
   onLoad(options) {
+    this.loadHousingTypes()
+    this.loadTransportTypes()
     this.loadDetail(options.id)
   },
   methods: {
@@ -210,22 +236,34 @@ export default {
       return status
     },
     getHousingTypeText(type) {
-      const map = { own_house: '自有住房', rent_house: '租房' }
-      return map[type] || type
+      if (!type) return '-'
+      const hit = this.housingTypeOptions.find(o => o.value === type)
+      return hit ? hit.label : type
     },
     getTransportText(type) {
-      const map = { walk: '步行', bus: '公交车', metro: '地铁', electric_bike: '电动车', motorcycle: '摩托车', car: '汽车', other: '其他' }
-      return map[type] || type
+      if (!type) return '-'
+      const hit = this.transportOptions.find(o => o.value === type)
+      if (hit) return hit.label
+      return type === 'car' ? '汽车' : type
+    },
+    loadHousingTypes() {
+      return getDicts('fd_offcampus_housing_type').then(res => {
+        const options = (res.data || []).map(d => ({ label: d.dictLabel, value: d.dictValue }))
+        if (options.length) this.housingTypeOptions = options
+      }).catch(() => {})
+    },
+    loadTransportTypes() {
+      return getDicts('transport_type').then(res => {
+        const options = (res.data || []).map(d => ({ label: d.dictLabel, value: d.dictValue }))
+        if (options.length) this.transportOptions = options
+      }).catch(() => {})
     },
     getLevelText(level) {
       const map = { counselor: '辅导员', secretary: '书记', student_affairs: '学生处' }
       return map[level] || level
     },
-    parsePhotos(str) {
-      if (!str) return []
-      try { return JSON.parse(str) } catch (e) { return [] }
-    },
-    previewImage(url) { uni.previewImage({ urls: [url] }) },
+    previewMaterial(idx) { uni.previewImage({ current: idx, urls: this.materialUrls }) },
+    previewVerify(idx) { uni.previewImage({ current: idx, urls: this.verifyUrls }) },
     goHistoryDetail(item) {
       uni.navigateTo({ url: '/pages/sub-work/offcampus/detail?id=' + item.id })
     },
@@ -275,9 +313,9 @@ export default {
 .status-text-processing { color: #2196f3; font-weight: 500; }
 .photo-section { margin-bottom: 16rpx; }
 .section-label { font-size: 24rpx; color: #666; margin-bottom: 8rpx; display: block; }
-.photo-single { width: 300rpx; height: 200rpx; border-radius: 8rpx; }
 .photo-grid { display: flex; flex-wrap: wrap; gap: 12rpx; }
 .photo-thumb { width: 160rpx; height: 160rpx; border-radius: 8rpx; }
+.empty-tip { font-size: 24rpx; color: #bbb; }
 .approval-item { display: flex; gap: 16rpx; padding: 16rpx 0; border-bottom: 1rpx solid #f0f0f0; }
 .approval-item:last-child { border-bottom: none; }
 .approval-dot { width: 16rpx; height: 16rpx; border-radius: 50%; margin-top: 8rpx; flex-shrink: 0; }

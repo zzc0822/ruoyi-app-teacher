@@ -232,6 +232,31 @@
         "navigationBarTitleText": "外宿申请详情"
       }
     }, {
+      "path": "dormcheck/index",
+      "style": {
+        "navigationBarTitleText": "宿舍查寝"
+      }
+    }, {
+      "path": "dormcheck/night",
+      "style": {
+        "navigationBarTitleText": "晚寝点名"
+      }
+    }, {
+      "path": "dormcheck/detail",
+      "style": {
+        "navigationBarTitleText": "晚寝点名详情"
+      }
+    }, {
+      "path": "dormcheck/rectify",
+      "style": {
+        "navigationBarTitleText": "整改复核"
+      }
+    }, {
+      "path": "dormcheck/rectifyDetail",
+      "style": {
+        "navigationBarTitleText": "整改单详情"
+      }
+    }, {
       "path": "leave/index",
       "style": {
         "navigationBarTitleText": "请假审批"
@@ -305,6 +330,11 @@
       "path": "headteacher/worklog-add",
       "style": {
         "navigationBarTitleText": "新增工作记录"
+      }
+    }, {
+      "path": "headteacher/apply",
+      "style": {
+        "navigationBarTitleText": "担任班主任申请"
       }
     },
     {

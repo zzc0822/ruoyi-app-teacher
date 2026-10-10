@@ -115,6 +115,12 @@
             <text class="func-name">我的班级</text>
             <text class="func-name ht-count" v-if="htClassList.length > 0">({{ htClassList.length }})</text>
           </view>
+          <view :class="getHtItemClass('talk')" @click="onHtFuncClick('talk')">
+            <view class="func-icon icon-orange">
+              <uni-icons type="chat-filled" size="26" color="#fff"></uni-icons>
+            </view>
+            <text class="func-name">谈心谈话</text>
+          </view>
           <view :class="getHtItemClass('worklog')" @click="onHtFuncClick('worklog')">
             <view class="func-icon icon-blue">
               <uni-icons type="list" size="26" color="#fff"></uni-icons>
@@ -204,7 +210,8 @@ const ALL_FUNCS = [
   { key: 'todo', name: '待办事项', icon: 'flag-filled', color: 'purple', url: '/pages/sub-work/todo/index' },
   { key: 'party', name: '党务管理', icon: 'star-filled', color: 'red', url: '/pages/sub-work/party/index' },
   { key: 'vehicle', name: '车辆登记', icon: 'car', color: 'cyan', url: '/pages/sub-work/vehicle/index' },
-  { key: 'offcampus', name: '外宿管理', icon: 'home', color: 'purple', url: '/pages/sub-work/offcampus/index' }
+  { key: 'offcampus', name: '外宿管理', icon: 'home', color: 'purple', url: '/pages/sub-work/offcampus/index' },
+  { key: 'dormcheck', name: '宿舍查寝', icon: 'home', color: 'cyan', url: '/pages/sub-work/dormcheck/index' }
 ]
 
 // 默认常用功能 key
@@ -267,19 +274,19 @@ export default {
     },
     allStudentFuncs() {
       const funcs = (this.miniConfig.student && this.miniConfig.student.funcs) || {}
-      const funcKeyMap = { stuinfo: 'stuinfo', classcheck: 'classcheck', talk: 'talk', leave: 'leave', offcampus: 'offcampus' }
+      const funcKeyMap = { stuinfo: 'stuinfo', classcheck: 'classcheck', talk: 'talk', leave: 'leave', offcampus: 'offcampus', dormcheck: 'dormcheck' }
       return ALL_FUNCS.filter(f => funcKeyMap[f.key] && funcs[funcKeyMap[f.key]])
     },
     commonList() {
       const studentFuncs = (this.miniConfig.student && this.miniConfig.student.funcs) || {}
-      const funcKeyMap = { stuinfo: 'stuinfo', classcheck: 'classcheck', talk: 'talk', leave: 'leave', offcampus: 'offcampus' }
+      const funcKeyMap = { stuinfo: 'stuinfo', classcheck: 'classcheck', talk: 'talk', leave: 'leave', offcampus: 'offcampus', dormcheck: 'dormcheck' }
       return this.commonKeys
         .map(k => ALL_FUNCS.find(f => f.key === k))
         .filter(f => f && (funcKeyMap[f.key] ? studentFuncs[funcKeyMap[f.key]] : true))
     },
     availableToAdd() {
       const studentFuncs = (this.miniConfig.student && this.miniConfig.student.funcs) || {}
-      const funcKeyMap = { stuinfo: 'stuinfo', classcheck: 'classcheck', talk: 'talk', leave: 'leave', offcampus: 'offcampus' }
+      const funcKeyMap = { stuinfo: 'stuinfo', classcheck: 'classcheck', talk: 'talk', leave: 'leave', offcampus: 'offcampus', dormcheck: 'dormcheck' }
       return ALL_FUNCS.filter(f => !this.commonKeys.includes(f.key) && (funcKeyMap[f.key] ? studentFuncs[funcKeyMap[f.key]] : true))
     }
   },
@@ -575,6 +582,8 @@ export default {
       const hasClass = this.htClassList.length > 0
       // 我的班级和我的申请始终可用
       if (key === 'myClass') return 'func-item'
+      // 谈话记录要看已共享给自己的记录，不要求带班
+      if (key === 'talk') return 'func-item'
       // 其他功能需要有班级才可用
       return hasClass ? 'func-item' : 'func-item func-item-disabled'
     },
@@ -583,6 +592,8 @@ export default {
       const hasClass = this.htClassList.length > 0
       if (key === 'myClass') {
         uni.navigateTo({ url: '/pages/sub-work/headteacher/index' })
+      } else if (key === 'talk') {
+        uni.navigateTo({ url: '/pages/sub-work/talk/index' })
       } else if (!hasClass) {
         uni.showToast({ title: '暂未分配班级，操作不可用', icon: 'none' })
       } else if (key === 'worklog') {

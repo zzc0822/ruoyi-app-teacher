@@ -9,21 +9,21 @@
             <text class="wl-num">{{ workload.meetingCompleted }}</text>
             <text class="wl-den">/{{ workload.meetingRequired }}</text>
           </view>
-          <text class="wl-label">班会</text>
+          <text class="wl-label">{{ chapterLabel('meeting', '班会') }}</text>
         </view>
         <view class="workload-item">
           <view class="wl-circle" :class="talkPercent >= 100 ? 'done' : ''">
             <text class="wl-num">{{ workload.talkCompleted }}</text>
             <text class="wl-den">/{{ workload.talkRequired }}</text>
           </view>
-          <text class="wl-label">谈话</text>
+          <text class="wl-label">{{ chapterLabel('talk', '谈话') }}</text>
         </view>
         <view class="workload-item">
           <view class="wl-circle" :class="dormPercent >= 100 ? 'done' : ''">
             <text class="wl-num">{{ workload.dormCompleted }}</text>
             <text class="wl-den">/{{ workload.dormRequired }}</text>
           </view>
-          <text class="wl-label">宿舍巡查</text>
+          <text class="wl-label">{{ chapterLabel('dorm', '宿舍巡查') }}</text>
         </view>
       </view>
     </view>
@@ -44,6 +44,7 @@
       </view>
       <view class="empty" v-if="classList.length === 0">
         <text>暂无班主任任职记录</text>
+        <text class="empty-link" @click="goApply">我想担任班主任，去申请</text>
       </view>
     </view>
 
@@ -76,11 +77,15 @@
     <view class="section" v-if="applyList.length > 0">
       <view class="section-header">
         <text class="section-title">申请记录</text>
+        <text class="section-count" @click="goApply">继续申请</text>
       </view>
       <view class="apply-item" v-for="(item, idx) in applyList" :key="idx">
         <view class="apply-info">
-          <text class="apply-xydm">申请学院：{{ item.applyXydm || '默认' }}</text>
+          <text class="apply-xydm">申请学院：{{ item.applyCollegeName || item.applyXydm || '默认' }}</text>
           <text class="apply-time">{{ formatDate(item.createTime) }}</text>
+          <text class="apply-time" v-if="item.status === '1'">
+            {{ item.assignedFlag > 0 ? '已带班：' + item.assignClassNames : '待学院分配班级' }}
+          </text>
         </view>
         <view class="apply-status" :class="statusClass(item.status)">
           {{ statusText(item.status) }}
@@ -91,7 +96,7 @@
 </template>
 
 <script>
-import { getMyClasses, getMyWorkload, getMyApply } from '@/api/affair/headteacher'
+import { getMyClasses, getMyWorkload, getMyApply, getWorklogContext } from '@/api/affair/headteacher'
 
 export default {
   data() {
@@ -106,6 +111,7 @@ export default {
         dormCompleted: 0,
         dormRequired: 4
       },
+      chapters: [],
       colors: ['#2979ff', '#18bc37', '#f3a044', '#9c27b0', '#00bcd4', '#ff9800']
     }
   },
@@ -126,6 +132,7 @@ export default {
   methods: {
     loadData() {
       this.loadClasses()
+      this.loadChapters()
       this.loadWorkload()
       this.loadApply()
     },
@@ -133,6 +140,16 @@ export default {
       getMyClasses().then(res => {
         this.classList = res.data || []
       }).catch(() => {})
+    },
+    loadChapters() {
+      getWorklogContext().then(res => {
+        this.chapters = (res.data && res.data.chapters) || []
+      }).catch(() => {})
+    },
+    /** 章节名以班主任工作配置为准 */
+    chapterLabel(type, fallback) {
+      const hit = this.chapters.find(item => item.type === type)
+      return hit && hit.typeName ? hit.typeName : fallback
     },
     loadWorkload() {
       getMyWorkload().then(res => {
@@ -162,10 +179,8 @@ export default {
       })
     },
     goApply() {
-      uni.showModal({
-        title: '班主任申请',
-        content: '请前往PC端或联系学院书记进行班主任申请',
-        showCancel: false
+      uni.navigateTo({
+        url: '/pages/sub-work/headteacher/apply'
       })
     },
     goCertificate() {
@@ -330,6 +345,13 @@ export default {
   text-align: center;
   padding: 40rpx 0;
   color: #999;
+  font-size: 26rpx;
+}
+
+.empty-link {
+  display: block;
+  margin-top: 12rpx;
+  color: #2979ff;
   font-size: 26rpx;
 }
 

@@ -96,3 +96,36 @@ export function getDeadlineConfig() {
     method: 'get'
   })
 }
+
+// 共享候选：本次谈话对象所在班级的现任班主任
+export function getShareCandidates(talkId) {
+  return request({
+    url: '/api/talk/shareCandidates/' + talkId,
+    method: 'get'
+  })
+}
+
+// 某条谈话的有效共享名单
+export function getTalkShares(talkId) {
+  return request({
+    url: '/api/talk/share/' + talkId,
+    method: 'get'
+  })
+}
+
+// 把整条谈话记录共享给指定班主任
+export function shareTalk(talkId, toTeacherIds) {
+  return request({
+    url: '/api/talk/share',
+    method: 'post',
+    data: { talkId, toTeacherIds }
+  })
+}
+
+// 撤销对某班主任的共享
+export function revokeTalkShare(talkId, toTeacherId) {
+  return request({
+    url: '/api/talk/share/' + talkId + '/' + toTeacherId,
+    method: 'delete'
+  })
+}

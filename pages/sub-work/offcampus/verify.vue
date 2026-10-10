@@ -16,8 +16,16 @@
         <text class="info-value">{{ detail.academicYear }}</text>
       </view>
       <view class="info-row">
+        <text class="info-label">申请时间</text>
+        <text class="info-value">{{ detail.applyTime || detail.createTime || '-' }}</text>
+      </view>
+      <view class="info-row">
         <text class="info-label">外宿类型</text>
         <text class="info-value">{{ getHousingTypeText(detail.housingType) }}</text>
+      </view>
+      <view class="info-row" v-if="detail.startDate">
+        <text class="info-label">外宿期限</text>
+        <text class="info-value">{{ detail.startDate }} 至 {{ detail.endDate }}</text>
       </view>
       <view class="info-row">
         <text class="info-label">外宿地址</text>
@@ -29,33 +37,15 @@
       </view>
     </view>
 
-    <!-- 佐证材料展示 -->
+    <!-- 佐证材料：不分门别类，新旧数据合并成一组 -->
     <view class="info-card">
       <view class="card-title">佐证材料</view>
-      <view class="photo-section" v-if="detail.propertyCert">
-        <text class="section-label">房产证</text>
-        <image :src="detail.propertyCert" class="photo-single" mode="aspectFill" @click="previewImage(detail.propertyCert)" />
-      </view>
-      <view class="photo-section" v-if="detail.relationCert">
-        <text class="section-label">关系证明</text>
-        <image :src="detail.relationCert" class="photo-single" mode="aspectFill" @click="previewImage(detail.relationCert)" />
-      </view>
-      <view class="photo-section" v-if="detail.rentContract">
-        <text class="section-label">租房合同</text>
-        <image :src="detail.rentContract" class="photo-single" mode="aspectFill" @click="previewImage(detail.rentContract)" />
-      </view>
-      <view class="photo-section" v-if="parsePhotos(detail.reasonPhotos).length">
-        <text class="section-label">外宿理由佐证</text>
+      <view class="photo-section" v-if="materialUrls.length">
         <view class="photo-grid">
-          <image v-for="(url, idx) in parsePhotos(detail.reasonPhotos)" :key="idx" :src="url" class="photo-thumb" mode="aspectFill" @click="previewImage(url)" />
+          <image v-for="(url, idx) in materialUrls" :key="'m'+idx" :src="url" class="photo-thumb" mode="aspectFill" @click="previewMaterial(idx)" />
         </view>
       </view>
-      <view class="photo-section" v-if="parsePhotos(detail.housingPhotos).length">
-        <text class="section-label">住宿环境照片</text>
-        <view class="photo-grid">
-          <image v-for="(url, idx) in parsePhotos(detail.housingPhotos)" :key="idx" :src="url" class="photo-thumb" mode="aspectFill" @click="previewImage(url)" />
-        </view>
-      </view>
+      <text class="empty-tip" v-else>暂无佐证材料</text>
     </view>
 
     <!-- 历史申请记录 -->
@@ -67,7 +57,7 @@
           <text class="history-status" :class="'status-text-' + getStatusClass(item)">{{ getStatusText(item.status, item.verifyStatus) }}</text>
         </view>
         <view class="history-row">
-          <text class="history-time">{{ item.createTime }}</text>
+          <text class="history-time">{{ item.applyTime || item.createTime }}</text>
           <text class="history-type">{{ getHousingTypeText(item.housingType) }}</text>
         </view>
       </view>
@@ -87,30 +77,15 @@
       </view>
     </view>
 
-    <!-- 现场核实 -->
-    <view class="verify-card">
-      <view class="card-title">现场核实</view>
-      <view class="tip-text">请到现场查看住宿环境实际情况，拍摄3-5张核实照片</view>
-
-      <view class="form-item">
-        <text class="form-label">现场照片（3-5张）<text class="required">*</text></text>
-        <view class="photo-upload-grid">
-          <view class="upload-item" v-for="(photo, idx) in verifyPhotoList" :key="idx">
-            <image :src="photo" class="upload-preview" mode="aspectFill" />
-            <view class="remove-btn" @click="removePhoto(idx)">×</view>
-          </view>
-          <view class="upload-item add-item" v-if="verifyPhotoList.length < 5" @click="chooseVerifyPhoto">
-            <text class="add-icon">+</text>
-            <text class="add-text">拍照</text>
-          </view>
-        </view>
-      </view>
-
-      <view class="form-item">
-        <text class="form-label">核实备注</text>
-        <textarea class="form-textarea" v-model="verifyRemark" placeholder="请填写核实情况（选填）" maxlength="200" />
-      </view>
-    </view>
+    <!-- 现场核实（与车辆核实共用取证面板） -->
+    <verify-capture
+      ref="capture"
+      scene-code="offcampus"
+      :photos.sync="verifyPhotoList"
+      :remark.sync="verifyRemark"
+      :fallback-address="detail.address"
+      tip="请到现场查看住宿环境实际情况，拍摄3-5张核实照片"
+    />
 
     <!-- 操作按钮 -->
     <view class="action-bar">
@@ -121,18 +96,17 @@
         <text class="action-text">通过</text>
       </view>
     </view>
-    <!-- 水印Canvas（离屏） -->
-    <canvas canvas-id="watermarkCanvas" style="position:fixed;left:-9999px;top:-9999px;width:1920px;height:1920px;"></canvas>
   </view>
 </template>
 
 <script>
 import { getOffcampus, verifyOffcampus, getOffcampusHistory, getOffcampusAttendance } from '@/api/affair/offcampus'
-import { uploadFile } from '@/utils/upload'
-import { getWatermarkConfig } from '@/api/work/watermark'
-import { getLocation, addWatermark } from '@/utils/watermark'
+import { mergePhotoFields } from '@/utils/image'
+import { getDicts } from '@/api/system/dict/data'
+import verifyCapture from '@/components/verify-capture/index.vue'
 
 export default {
+  components: { verifyCapture },
   data() {
     return {
       id: null,
@@ -141,16 +115,35 @@ export default {
       verifyRemark: '',
       historyList: [],
       attendanceList: [],
-      watermarkConfig: null
+      // 字典 fd_offcampus_housing_type 拉取前的兜底选项
+      housingTypeOptions: [
+        { label: '自有住房', value: 'own_house' },
+        { label: '租房', value: 'rent_house' },
+        { label: '投靠亲属', value: 'relative' },
+        { label: '其他', value: 'other' }
+      ]
+    }
+  },
+  computed: {
+    /** 佐证材料：新字段 material_photos 优先，历史分类列跟在后面，按 URL 去重 */
+    materialUrls() {
+      const d = this.detail
+      return mergePhotoFields(
+        d.materialPhotos,
+        d.propertyCert,
+        d.relationCert,
+        d.rentContract,
+        d.reasonPhotos,
+        d.housingPhotos,
+        d.extraMaterials,
+        d.transportProof
+      )
     }
   },
   onLoad(options) {
     this.id = options.id
     this.loadDetail()
-    // 加载水印配置
-    getWatermarkConfig('offcampus').then(res => {
-      this.watermarkConfig = res.data
-    }).catch(() => {})
+    this.loadHousingTypes()
   },
   methods: {
     async loadDetail() {
@@ -174,47 +167,7 @@ export default {
         uni.showToast({ title: '加载失败', icon: 'none' })
       }
     },
-    chooseVerifyPhoto() {
-      if (this.verifyPhotoList.length >= 5) return uni.showToast({ title: '最多5张', icon: 'none' })
-      uni.showActionSheet({
-        itemList: ['拍照上传', '从相册选择'],
-        success: (action) => {
-          if (action.index === 0) {
-            // 拍照 → 加水印
-            const locPromise = getLocation()
-            uni.chooseImage({
-              count: 1, sizeType: ['compressed'], sourceType: ['camera'],
-              success: async (res) => {
-                let path = res.tempFilePaths[0]
-                if (this.watermarkConfig && this.watermarkConfig.enabled === '1') {
-                  const location = await locPromise
-                  path = await addWatermark(path, this.watermarkConfig, location)
-                }
-                uploadFile(path).then(url => {
-                  this.verifyPhotoList.push(url)
-                }).catch(() => { uni.showToast({ title: '上传失败', icon: 'none' }) })
-              }
-            })
-          } else {
-            // 相册 → 不加水印
-            uni.chooseImage({
-              count: 1, sizeType: ['compressed'], sourceType: ['album'],
-              success: (res) => {
-                uploadFile(res.tempFilePaths[0]).then(url => {
-                  this.verifyPhotoList.push(url)
-                }).catch(() => { uni.showToast({ title: '上传失败', icon: 'none' }) })
-              }
-            })
-          }
-        }
-      })
-    },
-    removePhoto(idx) { this.verifyPhotoList.splice(idx, 1) },
-    previewImage(url) { uni.previewImage({ urls: [url] }) },
-    parsePhotos(str) {
-      if (!str) return []
-      try { return JSON.parse(str) } catch (e) { return [] }
-    },
+    previewMaterial(idx) { uni.previewImage({ current: idx, urls: this.materialUrls }) },
     getStatusClass(item) {
       if (item.status === 'rejected') return 'rejected'
       if (item.status === 'student_affairs_approved') return 'approved'
@@ -230,8 +183,15 @@ export default {
       return status
     },
     getHousingTypeText(type) {
-      const map = { own_house: '自有住房', rent_house: '租房' }
-      return map[type] || type
+      if (!type) return '-'
+      const hit = this.housingTypeOptions.find(o => o.value === type)
+      return hit ? hit.label : type
+    },
+    loadHousingTypes() {
+      return getDicts('fd_offcampus_housing_type').then(res => {
+        const options = (res.data || []).map(d => ({ label: d.dictLabel, value: d.dictValue }))
+        if (options.length) this.housingTypeOptions = options
+      }).catch(() => {})
     },
     calcAbsentRate(item) {
       const total = Number(item.totalLessons) || 0
@@ -249,10 +209,8 @@ export default {
       if (rate >= 0.15) return 'att-rate-warn'
       return 'att-rate-ok'
     },
-    async doVerify(status) {
-      if (status === 'verified' && this.verifyPhotoList.length < 3) {
-        return uni.showToast({ title: '请至少拍摄3张现场核实照片', icon: 'none' })
-      }
+    doVerify(status) {
+      if (status === 'verified' && !this.$refs.capture.ensurePhotoCount()) return
       const actionText = status === 'verified' ? '通过' : '驳回'
       uni.showModal({
         title: '确认' + actionText,
@@ -283,14 +241,13 @@ export default {
 
 <style scoped>
 .verify-page { min-height: 100vh; background: #f5f6f8; padding-bottom: 140rpx; }
-.info-card, .verify-card { background: #fff; margin: 20rpx; border-radius: 12rpx; padding: 24rpx; }
+.info-card { background: #fff; margin: 20rpx; border-radius: 12rpx; padding: 24rpx; }
 .card-title { font-size: 30rpx; font-weight: 600; color: #333; margin-bottom: 20rpx; padding-left: 12rpx; border-left: 6rpx solid #667eea; }
 .info-row { display: flex; margin-bottom: 12rpx; }
 .info-label { font-size: 26rpx; color: #999; width: 140rpx; flex-shrink: 0; }
 .info-value { font-size: 26rpx; color: #333; flex: 1; }
 .photo-section { margin-bottom: 16rpx; }
-.section-label { font-size: 24rpx; color: #666; margin-bottom: 8rpx; display: block; }
-.photo-single { width: 300rpx; height: 200rpx; border-radius: 8rpx; }
+.empty-tip { font-size: 24rpx; color: #bbb; }
 .photo-grid { display: flex; flex-wrap: wrap; gap: 12rpx; }
 .photo-thumb { width: 160rpx; height: 160rpx; border-radius: 8rpx; }
 .history-item { padding: 12rpx 0; border-bottom: 1rpx solid #f0f0f0; }
@@ -303,18 +260,6 @@ export default {
 .status-text-approved { color: #4caf50; }
 .status-text-pending { color: #ff9800; }
 .status-text-processing { color: #2196f3; }
-.tip-text { font-size: 24rpx; color: #ff9800; background: #fff3e0; padding: 16rpx; border-radius: 8rpx; margin-bottom: 20rpx; }
-.form-item { margin-bottom: 20rpx; }
-.form-label { font-size: 26rpx; color: #666; margin-bottom: 12rpx; display: block; }
-.required { color: #f56c6c; }
-.photo-upload-grid { display: flex; flex-wrap: wrap; gap: 16rpx; }
-.upload-item { width: 160rpx; height: 160rpx; position: relative; }
-.upload-preview { width: 100%; height: 100%; border-radius: 8rpx; }
-.remove-btn { position: absolute; top: -10rpx; right: -10rpx; width: 36rpx; height: 36rpx; background: #f56c6c; color: #fff; border-radius: 50%; text-align: center; line-height: 36rpx; font-size: 24rpx; }
-.add-item { background: #f5f5f5; border: 2rpx dashed #ddd; display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 8rpx; }
-.add-icon { font-size: 48rpx; color: #999; }
-.add-text { font-size: 22rpx; color: #999; }
-.form-textarea { background: #f5f5f5; padding: 16rpx 20rpx; border-radius: 8rpx; font-size: 28rpx; width: 100%; height: 140rpx; }
 .action-bar { position: fixed; bottom: 0; left: 0; right: 0; display: flex; background: #fff; padding: 20rpx 30rpx; padding-bottom: calc(20rpx + env(safe-area-inset-bottom)); box-shadow: 0 -2rpx 10rpx rgba(0,0,0,0.05); gap: 20rpx; }
 .action-btn { flex: 1; text-align: center; padding: 20rpx 0; border-radius: 12rpx; }
 .reject-btn { background: #fff5f5; border: 2rpx solid #f56c6c; }

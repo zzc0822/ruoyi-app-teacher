@@ -1,7 +1,11 @@
 import request from '@/utils/request'
 
 /**
- * 外宿申请API（移动端）
+ * 外宿申请API（移动端-辅导员/书记）
+ *
+ * 小程序端一律通过 /api/offcampus/** 访问：该层按角色判定收口视野（管理员全部、
+ * 书记/院长本学院、辅导员带班、学生本人），无需 stumanage:offcampus:* 菜单权限。
+ * /stumanage/** 是 PC 管理端接口面，不给移动端用。
  */
 
 // 获取外宿申请列表
@@ -21,7 +25,7 @@ export function getOffcampus(id) {
   })
 }
 
-// 新增外宿申请
+// 辅导员代学生提交申请（初始状态：待现场核实）
 export function addOffcampus(data) {
   return request({
     url: '/api/offcampus',
@@ -70,5 +74,14 @@ export function getOffcampusAttendance(xh, query) {
     url: '/api/offcampus/attendance/' + xh,
     method: 'get',
     params: query
+  })
+}
+
+// 外宿期限候选：整学年 + 各学期（取自校历）
+export function getOffcampusPeriods(academicYear) {
+  return request({
+    url: '/api/offcampus/periods',
+    method: 'get',
+    params: { academicYear: academicYear }
   })
 }

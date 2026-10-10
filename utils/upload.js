@@ -68,3 +68,26 @@ const upload = config => {
 }
 
 export default upload
+
+/**
+ * 通用图片上传，返回可直接给 <image> 显示的完整 URL
+ * 后端 url 由请求头拼出，经 Nginx 反代时可能是内网地址，故本地存储一律用相对路径自己拼
+ */
+export function uploadFile(filePath) {
+  return upload({
+    url: '/common/upload',
+    filePath: filePath,
+    name: 'file'
+  }).then(res => {
+    const path = res.fileName || res.url || ''
+    return path.indexOf('http') === 0 ? path : baseUrl + path
+  })
+}
+
+/**
+ * 入库前把完整 URL 收敛回相对路径，与后台管理端及历史数据保持一致
+ */
+export function stripBaseUrl(url) {
+  if (!url) return url
+  return url.indexOf(baseUrl) === 0 ? url.slice(baseUrl.length) : url
+}

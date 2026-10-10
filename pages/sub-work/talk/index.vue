@@ -141,8 +141,10 @@
           </view>
           <view class="item-meta">
             <text :class="['item-category', 'cat-' + (item.talkCategory || 'daily')]">{{ formatTalkCategory(item.talkCategory) }}</text>
+            <text :class="['item-role', 'role-' + (item.recorderRole || 'counselor')]">{{ (item.recorderRole === 'headteacher' ? '班主任' : '辅导员') }}{{ item.writable === false ? '·' + (item.talkName || '') : '' }}</text>
             <text class="item-info">{{ item.studentCount || 0 }}人</text>
             <text class="item-info" v-if="item.talkTime">{{ formatTime(item.talkTime) }}</text>
+            <text class="item-info" v-if="item.shareCount > 0">共享{{ item.shareCount }}人</text>
           </view>
           <view class="item-detail" v-if="item.talkPlace">
             <text class="item-place">📍 {{ item.talkPlace }}</text>
@@ -155,6 +157,8 @@
               截止：{{ formatDeadline(item.deadline) }}
             </text>
             <text class="item-attach" v-if="item.attachmentCount > 0">📎 {{ item.attachmentCount }}</text>
+            <text class="item-attach" v-if="item.shareCount > 0">👥 共享{{ item.shareCount }}</text>
+            <text class="item-recorder" v-if="item.writable === false">由 {{ item.talkName || '他人' }} 记录</text>
           </view>
           <!-- 附件缩略图 -->
           <view class="item-attach-list" v-if="item.attachmentList && item.attachmentList.length > 0" @click.stop>
@@ -610,6 +614,14 @@ export default {
   &.cat-disciplinary { color: #e43d33; background: #ffebee; }
 }
 
+.item-role {
+  font-size: 22rpx;
+  padding: 2rpx 12rpx;
+  border-radius: 6rpx;
+  &.role-counselor { color: #2979ff; background: #e8f0ff; }
+  &.role-headteacher { color: #f3a044; background: #fef3e2; }
+}
+
 .item-info {
   font-size: 24rpx;
   color: #999;
@@ -644,6 +656,12 @@ export default {
 .item-attach {
   font-size: 22rpx;
   color: #999;
+}
+
+.item-recorder {
+  font-size: 22rpx;
+  color: #bbb;
+  margin-left: auto;
 }
 
 .item-attach-list {

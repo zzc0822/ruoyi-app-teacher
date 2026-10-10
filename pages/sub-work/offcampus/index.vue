@@ -107,13 +107,17 @@
             <text class="label">学年</text>
             <text class="value">{{ item.academicYear }}</text>
           </view>
+          <view class="info-row" v-if="item.startDate">
+            <text class="label">外宿期限</text>
+            <text class="value">{{ item.startDate }} 至 {{ item.endDate }}</text>
+          </view>
           <view class="info-row">
             <text class="label">外宿地址</text>
             <text class="value text-ellipsis">{{ item.address }}</text>
           </view>
           <view class="info-row">
             <text class="label">申请时间</text>
-            <text class="value">{{ item.createTime }}</text>
+            <text class="value">{{ item.applyTime || item.createTime }}</text>
           </view>
         </view>
         <view class="card-action" v-if="item.verifyStatus === 'pending' || canApprove(item)">
@@ -140,6 +144,7 @@
 import { listOffcampus } from '@/api/affair/offcampus'
 import { getModuleOverview, getModuleStatsByCounselor } from '@/api/student/moduleStats'
 import { isSecretary } from '@/utils/role'
+import { getDicts } from '@/api/system/dict/data'
 
 export default {
   data() {
@@ -155,7 +160,14 @@ export default {
       isSecretaryRole: false,
       showStatsOverview: true,
       counselorStats: [],
-      personalStats: { total: 0, pendingVerify: 0, secretaryApproved: 0, rejected: 0 }
+      personalStats: { total: 0, pendingVerify: 0, secretaryApproved: 0, rejected: 0 },
+      // 字典 fd_offcampus_housing_type 拉取前的兜底选项
+      housingTypeOptions: [
+        { label: '自有住房', value: 'own_house' },
+        { label: '租房', value: 'rent_house' },
+        { label: '投靠亲属', value: 'relative' },
+        { label: '其他', value: 'other' }
+      ]
     }
   },
   computed: {
@@ -180,6 +192,7 @@ export default {
   },
   onLoad() {
     this.checkRole()
+    this.loadHousingTypes()
   },
   onShow() {
     this.loadList()
@@ -253,8 +266,15 @@ export default {
       return status
     },
     getHousingTypeText(type) {
-      const map = { own_house: '自有住房', rent_house: '租房' }
-      return map[type] || type
+      if (!type) return '-'
+      const hit = this.housingTypeOptions.find(o => o.value === type)
+      return hit ? hit.label : type
+    },
+    loadHousingTypes() {
+      return getDicts('fd_offcampus_housing_type').then(res => {
+        const options = (res.data || []).map(d => ({ label: d.dictLabel, value: d.dictValue }))
+        if (options.length) this.housingTypeOptions = options
+      }).catch(() => {})
     },
     canApprove(item) {
       return item.verifyStatus === 'verified' &&

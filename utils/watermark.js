@@ -55,7 +55,7 @@ export async function prepareCapture(config, fallbackAddress) {
       address = fallbackAddress || ''
     }
     if (!address) {
-      return { ready: false, message: '未确定水印地址，请填写上课地点后重试', captureInfo: null }
+      return { ready: false, message: '未确定水印地址，请重新定位或补充地点信息后重试', captureInfo: null }
     }
   }
   const time = parseTime(new Date(), '{y}-{m}-{d} {h}:{i}:{s} 星期{a}')
@@ -67,9 +67,10 @@ export async function prepareCapture(config, fallbackAddress) {
  * @param {string} filePath 原图临时路径
  * @param {object} config 水印配置 { enabled, showScene, showTime, showLocation, showAddress, sceneName, customText }
  * @param {object|null} captureInfo 拍照前确认的取证信息 { latitude, longitude, altitude, accuracy, address, time }
+ * @param {object} [scope] 自定义组件实例；canvas 声明在组件内时必传，小程序才找得到该组件作用域下的 canvas
  * @returns Promise<string> 水印后的图片临时路径
  */
-export function addWatermark(filePath, config, captureInfo) {
+export function addWatermark(filePath, config, captureInfo, scope) {
   return new Promise((resolve, reject) => {
     // 水印未启用，直接返回原图
     if (!config || config.enabled !== '1') {
@@ -103,13 +104,13 @@ export function addWatermark(filePath, config, captureInfo) {
           quality: 0.85,
           success: () => {
             // 先确保canvas尺寸正确，再绘制
-            _doDrawWatermark(canvasId, drawW, drawH, filePath, imgInfo, config, captureInfo, resolve, reject)
+            _doDrawWatermark(canvasId, drawW, drawH, filePath, imgInfo, config, captureInfo, resolve, reject, scope)
           },
           fail: (err) => {
             // canvas可能未就绪，直接尝试绘制
-            _doDrawWatermark(canvasId, drawW, drawH, filePath, imgInfo, config, captureInfo, resolve, reject)
+            _doDrawWatermark(canvasId, drawW, drawH, filePath, imgInfo, config, captureInfo, resolve, reject, scope)
           }
-        })
+        }, scope)
       },
       fail: () => {
         resolve(filePath)
@@ -118,8 +119,9 @@ export function addWatermark(filePath, config, captureInfo) {
   })
 }
 
-function _doDrawWatermark(canvasId, drawW, drawH, filePath, imgInfo, config, captureInfo, resolve, reject) {
-  const ctx = uni.createCanvasContext(canvasId)
+function _doDrawWatermark(canvasId, drawW, drawH, filePath, imgInfo, config, captureInfo, resolve, reject, scope) {
+  // canvas 在自定义组件内时必须带上组件实例，页面内则不能带，否则小程序找不到画布
+  const ctx = scope ? uni.createCanvasContext(canvasId, scope) : uni.createCanvasContext(canvasId)
 
   // 绘制原图
   ctx.drawImage(filePath, 0, 0, drawW, drawH)
@@ -174,7 +176,7 @@ function _doDrawWatermark(canvasId, drawW, drawH, filePath, imgInfo, config, cap
   if (lines.length === 0) {
     // 没有需要绘制的内容，导出原图
     ctx.draw(false, () => {
-      _exportCanvas(canvasId, drawW, drawH, resolve, filePath)
+      _exportCanvas(canvasId, drawW, drawH, resolve, filePath, scope)
     })
     return
   }
@@ -203,12 +205,12 @@ function _doDrawWatermark(canvasId, drawW, drawH, filePath, imgInfo, config, cap
   })
 
   ctx.draw(false, () => {
-    _exportCanvas(canvasId, drawW, drawH, resolve, filePath)
+    _exportCanvas(canvasId, drawW, drawH, resolve, filePath, scope)
   })
 }
 
-function _exportCanvas(canvasId, drawW, drawH, resolve, fallbackPath) {
-  uni.canvasToTempFilePath({
+function _exportCanvas(canvasId, drawW, drawH, resolve, fallbackPath, scope) {
+  const options = {
     canvasId: canvasId,
     x: 0,
     y: 0,
@@ -224,5 +226,11 @@ function _exportCanvas(canvasId, drawW, drawH, resolve, fallbackPath) {
     fail: () => {
       resolve(fallbackPath)
     }
-  })
+  }
+  // 传第二个参数即按自定义组件作用域找 canvas；页面里的 canvas 必须不传，否则小程序找不到
+  if (scope) {
+    uni.canvasToTempFilePath(options, scope)
+  } else {
+    uni.canvasToTempFilePath(options)
+  }
 }

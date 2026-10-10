@@ -30,6 +30,15 @@ export function listWorklog(query) {
   })
 }
 
+// 登记表单上下文：本班生效的手册章节 + 班会应到人数（不传 bjid 则取本人第一个现任班级）
+export function getWorklogContext(bjid) {
+  return request({
+    url: '/api/headteacher/worklog/context',
+    method: 'get',
+    params: bjid ? { bjid } : {}
+  })
+}
+
 // 获取工作记录详情
 export function getWorklog(id) {
   return request({
@@ -72,12 +81,28 @@ export function getMyWorkload() {
   })
 }
 
+// 可申请学院列表（本院优先，附空岗班级数）
+export function getCollegeOptions() {
+  return request({
+    url: '/api/headteacher/apply/collegeOptions',
+    method: 'get'
+  })
+}
+
 // 提交班主任申请
 export function submitApply(data) {
   return request({
     url: '/api/headteacher/apply',
     method: 'post',
     data: data
+  })
+}
+
+// 提交前资格自检：{ok, reasons[], teacher:{...}, rule:{...}}
+export function getApplyQualification() {
+  return request({
+    url: '/api/headteacher/apply/qualification',
+    method: 'get'
   })
 }
 

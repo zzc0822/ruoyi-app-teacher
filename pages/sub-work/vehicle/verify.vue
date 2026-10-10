@@ -25,53 +25,30 @@
       </view>
     </view>
 
-    <!-- 佐证材料展示 -->
+    <!-- 佐证材料：车辆/驾驶证/行驶证/身份证与其他材料合并成一组 -->
     <view class="info-card">
       <view class="card-title">佐证材料</view>
-      <view class="photo-grid">
-        <view class="photo-item" v-if="detail.vehiclePhoto">
-          <image :src="detail.vehiclePhoto" class="photo-img" mode="aspectFill" @click="previewImage(detail.vehiclePhoto)" />
-          <text class="photo-label">车辆照片</text>
-        </view>
-        <view class="photo-item" v-if="detail.drivingLicense">
-          <image :src="detail.drivingLicense" class="photo-img" mode="aspectFill" @click="previewImage(detail.drivingLicense)" />
-          <text class="photo-label">驾驶证</text>
-        </view>
-        <view class="photo-item" v-if="detail.vehicleLicense">
-          <image :src="detail.vehicleLicense" class="photo-img" mode="aspectFill" @click="previewImage(detail.vehicleLicense)" />
-          <text class="photo-label">行驶证</text>
-        </view>
-        <view class="photo-item" v-if="detail.idCardPhoto">
-          <image :src="detail.idCardPhoto" class="photo-img" mode="aspectFill" @click="previewImage(detail.idCardPhoto)" />
-          <text class="photo-label">身份证</text>
-        </view>
+      <view class="photo-grid" v-if="materialUrls.length">
+        <image
+          v-for="(url, idx) in materialUrls"
+          :key="'m' + idx"
+          :src="url"
+          class="photo-img"
+          mode="aspectFill"
+          @click="previewMaterial(idx)"
+        />
       </view>
+      <text class="empty-tip" v-else>暂无佐证材料</text>
     </view>
 
-    <!-- 现场核实 -->
-    <view class="verify-card">
-      <view class="card-title">现场核实</view>
-      <view class="tip-text">请到现场核实车辆实际情况，拍摄3-5张核实照片</view>
-
-      <view class="form-item">
-        <text class="form-label">现场照片（3-5张）<text class="required">*</text></text>
-        <view class="photo-upload-grid">
-          <view class="upload-item" v-for="(photo, idx) in verifyPhotoList" :key="idx">
-            <image :src="photo" class="upload-preview" mode="aspectFill" />
-            <view class="remove-btn" @click="removePhoto(idx)">×</view>
-          </view>
-          <view class="upload-item add-item" v-if="verifyPhotoList.length < 5" @click="chooseVerifyPhoto">
-            <text class="add-icon">+</text>
-            <text class="add-text">拍照</text>
-          </view>
-        </view>
-      </view>
-
-      <view class="form-item">
-        <text class="form-label">核实备注</text>
-        <textarea class="form-textarea" v-model="verifyRemark" placeholder="请填写核实情况（选填）" maxlength="200" />
-      </view>
-    </view>
+    <!-- 现场核实（与外宿核实共用取证面板） -->
+    <verify-capture
+      ref="capture"
+      scene-code="vehicle"
+      :photos.sync="verifyPhotoList"
+      :remark.sync="verifyRemark"
+      tip="请到现场核实车辆实际停放情况，拍摄3-5张核实照片"
+    />
 
     <!-- 操作按钮 -->
     <view class="action-bar">
@@ -87,15 +64,29 @@
 
 <script>
 import { getVehicle, verifyVehicle } from '@/api/affair/vehicle'
-import { uploadFile } from '@/utils/upload'
+import { mergePhotoFields } from '@/utils/image'
+import verifyCapture from '@/components/verify-capture/index.vue'
 
 export default {
+  components: { verifyCapture },
   data() {
     return {
       id: null,
       detail: {},
       verifyPhotoList: [],
       verifyRemark: ''
+    }
+  },
+  computed: {
+    materialUrls() {
+      const d = this.detail
+      return mergePhotoFields(
+        d.vehiclePhoto,
+        d.drivingLicense,
+        d.vehicleLicense,
+        d.idCardPhoto,
+        d.extraMaterials
+      )
     }
   },
   onLoad(options) {
@@ -113,37 +104,15 @@ export default {
         uni.showToast({ title: '加载失败', icon: 'none' })
       }
     },
-    chooseVerifyPhoto() {
-      if (this.verifyPhotoList.length >= 5) {
-        return uni.showToast({ title: '最多5张', icon: 'none' })
-      }
-      uni.chooseImage({
-        count: 1,
-        sizeType: ['compressed'],
-        sourceType: ['camera'],
-        success: (res) => {
-          const tempPath = res.tempFilePaths[0]
-          uploadFile(tempPath).then(url => {
-            this.verifyPhotoList.push(url)
-          }).catch(() => {
-            uni.showToast({ title: '上传失败', icon: 'none' })
-          })
-        }
-      })
+    previewMaterial(idx) {
+      uni.previewImage({ current: idx, urls: this.materialUrls })
     },
-    removePhoto(idx) {
-      this.verifyPhotoList.splice(idx, 1)
+    getVehicleTypeText(type) {
+      const map = { motorcycle: '摩托车', electric_bike: '电动车', bicycle: '自行车', car: '汽车' }
+      return map[type] || type
     },
-    previewImage(url) {
-      uni.previewImage({ urls: [url] })
-    },
-    async doVerify(status) {
-      if (status === 'verified' && this.verifyPhotoList.length < 3) {
-        return uni.showToast({ title: '请至少拍摄3张现场核实照片', icon: 'none' })
-      }
-      if (status === 'verified' && this.verifyPhotoList.length > 5) {
-        return uni.showToast({ title: '核实照片最多5张', icon: 'none' })
-      }
+    doVerify(status) {
+      if (status === 'verified' && !this.$refs.capture.ensurePhotoCount()) return
 
       const actionText = status === 'verified' ? '通过' : '驳回'
       uni.showModal({
@@ -168,10 +137,6 @@ export default {
           }
         }
       })
-    },
-    getVehicleTypeText(type) {
-      const map = { motorcycle: '摩托车', electric_bike: '电动车', bicycle: '自行车', car: '汽车' }
-      return map[type] || type
     }
   }
 }
@@ -183,7 +148,7 @@ export default {
   background: #f5f6f8;
   padding-bottom: 140rpx;
 }
-.info-card, .verify-card {
+.info-card {
   background: #fff;
   margin: 20rpx;
   border-radius: 12rpx;
@@ -205,6 +170,7 @@ export default {
   font-size: 26rpx;
   color: #999;
   width: 140rpx;
+  flex-shrink: 0;
 }
 .info-value {
   font-size: 26rpx;
@@ -216,92 +182,14 @@ export default {
   flex-wrap: wrap;
   gap: 16rpx;
 }
-.photo-item {
-  width: 160rpx;
-  text-align: center;
-}
 .photo-img {
   width: 160rpx;
   height: 160rpx;
   border-radius: 8rpx;
 }
-.photo-label {
-  font-size: 22rpx;
-  color: #999;
-  margin-top: 6rpx;
-}
-.tip-text {
+.empty-tip {
   font-size: 24rpx;
-  color: #ff9800;
-  background: #fff3e0;
-  padding: 16rpx;
-  border-radius: 8rpx;
-  margin-bottom: 20rpx;
-}
-.form-item {
-  margin-bottom: 20rpx;
-}
-.form-label {
-  font-size: 26rpx;
-  color: #666;
-  margin-bottom: 12rpx;
-  display: block;
-}
-.required {
-  color: #f56c6c;
-}
-.photo-upload-grid {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 16rpx;
-}
-.upload-item {
-  width: 160rpx;
-  height: 160rpx;
-  position: relative;
-}
-.upload-preview {
-  width: 100%;
-  height: 100%;
-  border-radius: 8rpx;
-}
-.remove-btn {
-  position: absolute;
-  top: -10rpx;
-  right: -10rpx;
-  width: 36rpx;
-  height: 36rpx;
-  background: #f56c6c;
-  color: #fff;
-  border-radius: 50%;
-  text-align: center;
-  line-height: 36rpx;
-  font-size: 24rpx;
-}
-.add-item {
-  background: #f5f5f5;
-  border: 2rpx dashed #ddd;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  border-radius: 8rpx;
-}
-.add-icon {
-  font-size: 48rpx;
-  color: #999;
-}
-.add-text {
-  font-size: 22rpx;
-  color: #999;
-}
-.form-textarea {
-  background: #f5f5f5;
-  padding: 16rpx 20rpx;
-  border-radius: 8rpx;
-  font-size: 28rpx;
-  width: 100%;
-  height: 140rpx;
+  color: #bbb;
 }
 .action-bar {
   position: fixed;

@@ -604,7 +604,7 @@
             </view>
             <view class="dp-cell">
               <text class="dp-label">宿舍</text>
-              <text class="dp-value">{{ (detailStu.ssh || '') + (detailStu.sssh ? ' ' + detailStu.sssh : '') || '-' }}</text>
+              <text class="dp-value">{{ detailStu.sssh || '-' }}</text>
             </view>
             <view class="dp-cell">
               <text class="dp-label">民族</text>

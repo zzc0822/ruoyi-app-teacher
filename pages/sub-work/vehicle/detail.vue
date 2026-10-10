@@ -50,45 +50,61 @@
         <text class="info-label">核实备注</text>
         <text class="info-value">{{ detail.verifyRemark }}</text>
       </view>
-      <view class="verify-photos" v-if="detail.verifyPhotos">
+      <view class="verify-photos" v-if="verifyUrls.length">
         <text class="form-label">现场核实照片</text>
         <view class="photo-grid">
-          <image v-for="(url, idx) in parseVerifyPhotos()" :key="idx" :src="url" class="photo-img" mode="aspectFill" @click="previewImage(url)" />
+          <image
+            v-for="(url, idx) in verifyUrls"
+            :key="'v' + idx"
+            :src="url"
+            class="photo-img"
+            mode="aspectFill"
+            @click="previewList(verifyUrls, idx)"
+          />
         </view>
       </view>
     </view>
 
     <view class="info-card">
       <view class="card-title">佐证材料</view>
-      <view class="photo-grid">
-        <view class="photo-item" v-if="detail.vehiclePhoto">
-          <image :src="detail.vehiclePhoto" class="photo-img" mode="aspectFill" @click="previewImage(detail.vehiclePhoto)" />
-          <text class="photo-label">车辆照片</text>
-        </view>
-        <view class="photo-item" v-if="detail.drivingLicense">
-          <image :src="detail.drivingLicense" class="photo-img" mode="aspectFill" @click="previewImage(detail.drivingLicense)" />
-          <text class="photo-label">驾驶证</text>
-        </view>
-        <view class="photo-item" v-if="detail.vehicleLicense">
-          <image :src="detail.vehicleLicense" class="photo-img" mode="aspectFill" @click="previewImage(detail.vehicleLicense)" />
-          <text class="photo-label">行驶证</text>
-        </view>
-        <view class="photo-item" v-if="detail.idCardPhoto">
-          <image :src="detail.idCardPhoto" class="photo-img" mode="aspectFill" @click="previewImage(detail.idCardPhoto)" />
-          <text class="photo-label">身份证</text>
-        </view>
+      <view class="photo-grid" v-if="materialUrls.length">
+        <image
+          v-for="(url, idx) in materialUrls"
+          :key="'m' + idx"
+          :src="url"
+          class="photo-img"
+          mode="aspectFill"
+          @click="previewList(materialUrls, idx)"
+        />
       </view>
+      <text class="empty-tip" v-else>暂无佐证材料</text>
     </view>
   </view>
 </template>
 
 <script>
 import { getVehicle } from '@/api/affair/vehicle'
+import { mergePhotoFields } from '@/utils/image'
 
 export default {
   data() {
     return {
       detail: {}
+    }
+  },
+  computed: {
+    materialUrls() {
+      const d = this.detail
+      return mergePhotoFields(
+        d.vehiclePhoto,
+        d.drivingLicense,
+        d.vehicleLicense,
+        d.idCardPhoto,
+        d.extraMaterials
+      )
+    },
+    verifyUrls() {
+      return mergePhotoFields(this.detail.verifyPhotos)
     }
   },
   onLoad(options) {
@@ -113,16 +129,8 @@ export default {
       const map = { motorcycle: '摩托车', electric_bike: '电动车', bicycle: '自行车', car: '汽车' }
       return map[type] || type
     },
-    parseVerifyPhotos() {
-      if (!this.detail.verifyPhotos) return []
-      try {
-        return JSON.parse(this.detail.verifyPhotos)
-      } catch (e) {
-        return []
-      }
-    },
-    previewImage(url) {
-      uni.previewImage({ urls: [url] })
+    previewList(urls, idx) {
+      uni.previewImage({ current: idx, urls })
     }
   }
 }
@@ -188,18 +196,13 @@ export default {
   flex-wrap: wrap;
   gap: 16rpx;
 }
-.photo-item {
-  width: 160rpx;
-  text-align: center;
-}
 .photo-img {
   width: 160rpx;
   height: 160rpx;
   border-radius: 8rpx;
 }
-.photo-label {
-  font-size: 22rpx;
-  color: #999;
-  margin-top: 6rpx;
+.empty-tip {
+  font-size: 24rpx;
+  color: #bbb;
 }
 </style>

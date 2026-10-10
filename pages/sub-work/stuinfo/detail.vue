@@ -120,10 +120,6 @@
           <text class="info-value">{{ stu.sg ? stu.sg + ' cm' : '-' }}</text>
         </view>
         <view class="info-row">
-          <text class="info-label">宿舍楼</text>
-          <text class="info-value">{{ stu.ssh || '-' }}</text>
-        </view>
-        <view class="info-row">
           <text class="info-label">宿舍号</text>
           <text class="info-value">{{ stu.sssh || '-' }}</text>
         </view>
