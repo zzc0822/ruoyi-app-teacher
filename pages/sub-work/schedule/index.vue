@@ -11,6 +11,14 @@
       <text>{{ semesterName }}{{ totalWeeks ? ' · 共' + totalWeeks + '周' : '' }}</text>
     </view>
 
+    <!-- 无课查看入口（书记/辅导员可见） -->
+    <view v-if="canViewFreeSlots" class="free-entry-row">
+      <view class="free-entry-btn" @click="goFreeSlots">
+        <text class="free-entry-icon">◌</text>
+        <text class="free-entry-text">无课查看</text>
+      </view>
+    </view>
+
     <!-- 表头 -->
     <view class="header-row">
       <view class="col-section header-cell">
@@ -20,10 +28,16 @@
         v-for="day in dayList"
         :key="day"
         class="col-day header-cell"
-        :class="{ 'today-col': isToday(day) }"
+        :class="{
+          'today-col': isToday(day),
+          'holiday-col': getDayRule(day) && !getDayRule(day).isTeachingDay,
+          'makeup-col': getDayRule(day) && getDayRule(day).isMakeup
+        }"
       >
         <text class="header-text">{{ weekLabels[day - 1] }}</text>
         <text class="header-date">{{ getDayDate(day) }}</text>
+        <text v-if="getDayRule(day) && !getDayRule(day).isTeachingDay" class="header-tag holiday">休</text>
+        <text v-else-if="getDayRule(day) && getDayRule(day).isMakeup" class="header-tag makeup">调课</text>
       </view>
     </view>
 
@@ -46,7 +60,11 @@
         v-for="day in dayList"
         :key="day"
         class="col-day"
-        :class="{ 'today-col': isToday(day) }"
+        :class="{
+          'today-col': isToday(day),
+          'holiday-col': getDayRule(day) && !getDayRule(day).isTeachingDay,
+          'makeup-col': getDayRule(day) && getDayRule(day).isMakeup
+        }"
       >
         <view
           v-for="item in getDayCells(day)"
@@ -126,10 +144,12 @@
 </template>
 
 <script>
-import { getMySchedule, getActiveSchedule } from '@/api/work/schedule'
+import { getMySchedule, getActiveSchedule, getMonthCalendar } from '@/api/work/schedule'
 import { getLeaveStudents } from '@/api/work/classcheck'
 import { getCheckStatus } from '@/api/work/rollcall'
 import { getClassShortName } from '@/utils/common'
+import { isSecretary, isCounselor, isHeadteacher, isAdmin } from '@/utils/role'
+import { resolveCalendarRule } from '@/utils/academicCalendar'
 
 // 后端作息时间未配置时的兜底时间表
 const FALLBACK_TIMES = [
@@ -165,6 +185,8 @@ export default {
       maxSections: 12,
       // 后端作息时间表: [{ lessonNo, startTime, endTime }, ...]
       sectionTimes: [],
+      // 书记/辅导员/班主任可见「无课查看」入口
+      canViewFreeSlots: false,
       coursePopup: {
         visible: false,
         _course: null,
@@ -179,7 +201,8 @@ export default {
         totalStudents: 0,
         leaveCount: 0,
         leaveNames: ''
-      }
+      },
+      calendarRuleMap: {}
     }
   },
   computed: {
@@ -194,10 +217,35 @@ export default {
   onLoad() {
     const now = new Date()
     this.todayStr = this.formatDateStr(now)
+    this.checkFreeEntryRole()
     this.loadScheduleTimes()
     this.loadSchedule()
+    this.loadCalendarRules()
   },
   methods: {
+    // 判断是否显示「无课查看」入口
+    checkFreeEntryRole() {
+      const store = this.$store
+      let roles = []
+
+      if (store && store.state && store.state.user && store.state.user.roles) {
+        roles = store.state.user.roles
+      }
+
+      if (!roles || (Array.isArray(roles) && roles.length === 0)) {
+        try {
+          roles = uni.getStorageSync('user_roles') || []
+        } catch (e) {
+          roles = []
+        }
+      }
+
+      this.canViewFreeSlots = isSecretary(roles) || isCounselor(roles) || isHeadteacher(roles) || isAdmin(roles)
+    },
+    // 跳转到无课查看页
+    goFreeSlots() {
+      uni.navigateTo({ url: '/pages/sub-work/schedule/free' })
+    },
     // 班级简称（模板中调用）
     getClassShortName(name) {
       return getClassShortName(name)
@@ -283,9 +331,48 @@ export default {
       }
       return FALLBACK_TIMES[idx] || null
     },
+    async loadCalendarRules() {
+      const dates = this.dayList.map(day => this.getWeekdayDateStr(day))
+      const months = [...new Set(dates.map(date => date.substring(0, 7)))]
+      try {
+        const results = await Promise.all(months.map(month => getMonthCalendar(month)))
+        const map = {}
+        results.forEach(res => {
+          (res.data || []).forEach(item => {
+            if (!item.calDate) return
+            const key = String(item.calDate).substring(0, 10)
+            map[key] = resolveCalendarRule(item)
+          })
+        })
+        this.calendarRuleMap = map
+      } catch (e) {
+        this.calendarRuleMap = {}
+      }
+    },
+    getDayRule(day) {
+      return this.calendarRuleMap[this.getWeekdayDateStr(day)] || null
+    },
+    buildEmptyDayCells() {
+      const cells = []
+      for (let section = 1; section <= this.maxSections; section++) {
+        cells.push({ key: 'empty_' + section, course: null, height: this.CELL_HEIGHT })
+      }
+      return cells
+    },
     getDayCells(day) {
+      const dayRule = this.getDayRule(day)
+      if (dayRule && !dayRule.isTeachingDay) {
+        return this.buildEmptyDayCells()
+      }
+      const effectiveWeekday = dayRule && dayRule.effectiveWeekday ? dayRule.effectiveWeekday : day
       let courses = this.myScheduleList
-        .filter(c => Number(c.weekday) === day && Number(c.startSection) >= 1)
+        .filter(c =>
+          Number(c.weekday) === effectiveWeekday &&
+          Number(c.startSection) >= 1 &&
+          (!this.currentWeek ||
+            (Number(c.startWeek || 1) <= this.currentWeek &&
+             Number(c.endWeek || 999) >= this.currentWeek))
+        )
         .sort((a, b) => Number(a.startSection) - Number(b.startSection))
       // 合并合班课：同一课程、同一节次合并为一个块
       const merged = []
@@ -508,6 +595,7 @@ export default {
           this.currentWeek = this.totalWeeks
           this.isHoliday = false
         }
+        this.loadCalendarRules()
         return
       }
       this.currentWeek--
@@ -515,6 +603,7 @@ export default {
         this.currentWeek = 0
         this.isHoliday = true
       }
+      this.loadCalendarRules()
     },
     nextWeek() {
       this.displayWeekOffset++
@@ -522,6 +611,7 @@ export default {
         // 假期中往后切：尝试进入第1教学周
         this.currentWeek = 1
         this.isHoliday = false
+        this.loadCalendarRules()
         return
       }
       this.currentWeek++
@@ -529,6 +619,7 @@ export default {
         this.isHoliday = true
         this.currentWeek = 0
       }
+      this.loadCalendarRules()
     }
   }
 }
@@ -575,6 +666,38 @@ export default {
   color: #999;
 }
 
+/* 无课查看入口 */
+.free-entry-row {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  padding: 10rpx 20rpx;
+  background: #fff;
+  border-bottom: 1rpx solid #f0f0f0;
+}
+
+.free-entry-btn {
+  display: flex;
+  align-items: center;
+  padding: 8rpx 22rpx;
+  border-radius: 30rpx;
+  background: #eef4ff;
+  border: 1rpx solid #cfe0ff;
+
+  .free-entry-icon {
+    font-size: 24rpx;
+    color: #2979ff;
+    margin-right: 8rpx;
+    line-height: 1;
+  }
+
+  .free-entry-text {
+    font-size: 24rpx;
+    color: #2979ff;
+    font-weight: 600;
+  }
+}
+
 /* 表头行 */
 .header-row {
   display: flex;
@@ -603,6 +726,24 @@ export default {
   margin-top: 2rpx;
 }
 
+.header-tag {
+  margin-top: 4rpx;
+  padding: 2rpx 8rpx;
+  border-radius: 999rpx;
+  font-size: 16rpx;
+  line-height: 1.6;
+
+  &.holiday {
+    background: #fff7ed;
+    color: #d97706;
+  }
+
+  &.makeup {
+    background: #eff6ff;
+    color: #2563eb;
+  }
+}
+
 /* 主体行 */
 .body-row {
   display: flex;
@@ -626,6 +767,14 @@ export default {
 
 .today-col {
   background: #eef4ff;
+}
+
+.holiday-col {
+  background: #fff7ed;
+}
+
+.makeup-col {
+  background: #f4f8ff;
 }
 
 /* 节次单元格 */

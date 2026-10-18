@@ -50,11 +50,11 @@
             <uni-forms-item label="行政职务" name="xzdw">
               <uni-easyinput v-model="teacher.xzdwName" disabled placeholder="行政职务" />
             </uni-forms-item>
-            <uni-forms-item label="所属学院" name="xyname">
-              <uni-easyinput v-model="teacher.xyname" disabled placeholder="所属学院" />
+            <uni-forms-item label="所属学院" name="collegeName">
+              <uni-easyinput v-model="teacher.collegeName" disabled placeholder="所属学院" />
             </uni-forms-item>
-            <uni-forms-item label="所属专业" name="zyname">
-              <uni-easyinput v-model="teacher.zyname" disabled placeholder="所属专业" />
+            <uni-forms-item label="所属专业" name="majorName">
+              <uni-easyinput v-model="teacher.majorName" disabled placeholder="所属专业" />
             </uni-forms-item>
             <uni-forms-item label="研究方向" name="yjfx">
               <uni-easyinput v-model="teacher.yjfx" placeholder="请输入研究方向" />
@@ -63,8 +63,8 @@
 
           <!-- Tab 3: 联系方式 -->
           <view v-show="currentTab === 2" class="tab-content">
-            <uni-forms-item label="联系电话" name="lxdh">
-              <uni-easyinput v-model="teacher.lxdh" type="number" maxlength="11" placeholder="请输入联系电话" />
+            <uni-forms-item label="联系电话" name="phone">
+              <uni-easyinput v-model="teacher.phone" type="number" maxlength="11" placeholder="请输入联系电话" />
             </uni-forms-item>
             <uni-forms-item label="电子邮箱" name="dzyx">
               <uni-easyinput v-model="teacher.dzyx" type="text" placeholder="请输入电子邮箱" />
@@ -85,8 +85,8 @@
             <uni-forms-item label="离职时间" name="lzsjStr">
               <uni-easyinput v-model="teacher.lzsjStr" disabled placeholder="离职时间" />
             </uni-forms-item>
-            <uni-forms-item label="状态" name="zt">
-              <uni-data-select v-model="teacher.zt" :localdata="dict.zt" />
+            <uni-forms-item label="状态" name="status">
+              <uni-data-select v-model="teacher.status" :localdata="dict.zt" disabled />
             </uni-forms-item>
             <uni-forms-item label="教师简介" name="jsjj">
               <uni-easyinput v-model="teacher.jsjj" type="textarea" placeholder="请输入教师简介" :maxlength="500" autoHeight />
@@ -133,10 +133,10 @@ export default {
         zyjszc: '',
         xzdw: '',
         xzdwName: '',  // 行政职务中文名称
-        xyname: '',
-        zyname: '',
+        collegeName: '',
+        majorName: '',
         yjfx: '',
-        lxdh: '',
+        phone: '',
         dzyx: '',
         bzdz: '',
         txdz: '',
@@ -144,7 +144,7 @@ export default {
         rzsJStr: '',
         lzsj: '',
         lzsjStr: '',
-        zt: '',
+        status: '',
         jsjj: '',
         jwmm: ''
       },
@@ -292,14 +292,12 @@ export default {
               xw: this.teacher.xw,      // 学位
               zyjszc: this.teacher.zyjszc,  // 专业技术职务
               // xzdw 不提交（只读）
-              xyname: this.teacher.xyname,  // 所属学院
-              zyname: this.teacher.zyname,  // 所属专业
+              // 所属学院/专业/状态由后端按 xydm/zydm 关联带出，且不属自助可改项，故不提交
               yjfx: this.teacher.yjfx,      // 研究方向
-              lxdh: this.teacher.lxdh,      // 联系电话
+              phone: this.teacher.phone,      // 联系电话
               dzyx: this.teacher.dzyx,      // 电子邮箱
               bzdz: this.teacher.bzdz,      // 办公地址
               txdz: this.teacher.txdz,      // 通讯地址
-              zt: this.teacher.zt,          // 状态
               jsjj: this.teacher.jsjj,      // 教师简介
               jwmm: this.teacher.jwmm       // 教务系统密码
             }

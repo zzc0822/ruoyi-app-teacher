@@ -11,6 +11,14 @@
       </view>
     </view>
 
+    <view class="offline-banner" v-if="offlineSummary.total > 0" @click="syncOfflineQueue">
+      <view class="offline-copy">
+        <text class="offline-title">{{ offlineSummary.failed ? '有事项同步失败' : '有事项等待同步' }}</text>
+        <text class="offline-sub">待同步 {{ offlineSummary.pending }} 条 · 失败 {{ offlineSummary.failed }} 条</text>
+      </view>
+      <text class="offline-action">{{ syncOfflineLoading ? '同步中...' : '立即同步' }}</text>
+    </view>
+
     <!-- 数据汇总卡片(所有角色都显示) -->
     <view class="summary-cards-grid">
       <view class="summary-card-item">
@@ -31,6 +39,92 @@
       <view class="summary-card-item">
         <text class="stats-num blue">{{ summaryData.activityCount }}</text>
         <text class="stats-label">活动总数</text>
+      </view>
+    </view>
+
+    <!-- 今日课程与本周考勤（教师） -->
+    <view class="teacher-week-section" v-if="showTeaching">
+      <view class="teacher-tabs">
+        <view class="teacher-tab" :class="{ active: teacherTab === 'courses' }" @click="switchTeacherTab('courses')">
+          今日课程
+        </view>
+        <view class="teacher-tab" :class="{ active: teacherTab === 'calendar' }" @click="switchTeacherTab('calendar')">
+          校历
+        </view>
+      </view>
+
+      <view v-show="teacherTab === 'courses'" class="teacher-tab-panel">
+        <view class="tw-head">
+          <view class="tw-head-copy">
+            <text class="tw-sub">{{ currentWeek ? '第 ' + currentWeek + ' 周' : '本周' }} · {{ todayCourses.length }} 节</text>
+            <text v-if="todayScheduleNote" class="tw-note">{{ todayScheduleNote }}</text>
+          </view>
+          <text class="tw-link" @click="goSchedule">完整课表 ›</text>
+        </view>
+
+        <view v-if="todayCourses.length > 0" class="today-course-list">
+          <view v-for="course in todayCourses" :key="course.key" class="today-course-item">
+            <view class="tc-time">
+              <text class="tc-section">{{ course.startSection }}-{{ course.endSection }}节</text>
+              <text class="tc-clock">{{ course.timeText }}</text>
+            </view>
+            <view class="tc-main">
+              <text class="tc-name">{{ course.courseName }}</text>
+              <text class="tc-meta">{{ course.className }} · {{ course.classroom || '教室待定' }}</text>
+            </view>
+            <view class="tc-action" :class="{ 'is-done': course.hasChecked }" @click="goRollCall(course)">
+              {{ course.hasChecked ? '已点名' : '点名' }}
+            </view>
+          </view>
+        </view>
+        <view v-else class="tw-empty">
+          <text>{{ scheduleLoading ? '课表加载中...' : (todayCalendarRule && !todayCalendarRule.isTeachingDay ? (todayCalendarRule.holidayName ? todayCalendarRule.holidayName + ' · 停课' : '今日停课') : '今日暂无课程') }}</text>
+        </view>
+      </view>
+
+      <view v-show="teacherTab === 'calendar'" class="calendar-panel">
+        <view class="cal-head">
+          <text class="cal-arrow" @click="changeCalendarMonth(-1)">‹</text>
+          <text class="cal-month">{{ calendarMonthLabel }}</text>
+          <text class="cal-arrow" @click="changeCalendarMonth(1)">›</text>
+        </view>
+        <view class="cal-weekdays">
+          <text v-for="label in ['一', '二', '三', '四', '五', '六', '日']" :key="label">{{ label }}</text>
+        </view>
+        <view class="cal-grid">
+          <view
+            v-for="(cell, index) in calendarCells"
+            :key="index"
+            class="cal-cell"
+            :class="{ 'is-empty': !cell.day, 'is-today': cell.isToday, 'is-holiday': cell.isHoliday }"
+          >
+            <template v-if="cell.day">
+              <text class="cal-day">{{ cell.day }}</text>
+              <text v-if="cell.isHoliday" class="cal-flag">休</text>
+              <text v-else-if="cell.isMakeup" class="cal-flag makeup">调</text>
+              <text v-else-if="cell.weekday === 1 && cell.weekNumber" class="cal-week-no">第{{ cell.weekNumber }}周</text>
+              <text v-if="cell.holidayName" class="cal-holiday-name">{{ cell.holidayName }}</text>
+            </template>
+          </view>
+        </view>
+        <view class="cal-legend">
+          <text class="cal-legend-item"><text class="cal-dot today"></text>今天</text>
+          <text class="cal-legend-item"><text class="cal-dot holiday"></text>节假日</text>
+        </view>
+        <view v-if="calendarLoading" class="tw-empty"><text>校历加载中...</text></view>
+      </view>
+
+      <view class="week-attendance">
+        <view class="wa-head">
+          <text class="wa-title">本周考勤</text>
+          <text class="wa-link" @click="goAttendanceSummary">学期汇总 ›</text>
+        </view>
+        <view class="wa-stats">
+          <view class="wa-item"><text class="wa-num">{{ weekAttendance.sessions }}</text><text class="wa-label">点名</text></view>
+          <view class="wa-item"><text class="wa-num green">{{ weekAttendance.present }}</text><text class="wa-label">出勤</text></view>
+          <view class="wa-item"><text class="wa-num orange">{{ weekAttendance.leave }}</text><text class="wa-label">请假</text></view>
+          <view class="wa-item"><text class="wa-num red">{{ weekAttendance.absent }}</text><text class="wa-label">旷课</text></view>
+        </view>
       </view>
     </view>
 
@@ -200,6 +294,10 @@ import { listActivity } from '@/api/work/activity'
 import { roleMixin } from '@/utils/roleSystem'
 import { getMyMiniConfig } from '@/api/system/miniConfig'
 import { getMyClasses } from '@/api/affair/headteacher'
+import { getMySchedule, getActiveSchedule, getMonthCalendar } from '@/api/work/schedule'
+import { getTeacherReport, getCheckStatus } from '@/api/work/rollcall'
+import { resolveCalendarRule } from '@/utils/academicCalendar'
+import { flushOfflineQueue, getOfflineSummary, retryAllOfflineItems } from '@/utils/offlineQueue'
 
 // 全量功能定义
 const ALL_FUNCS = [
@@ -211,7 +309,7 @@ const ALL_FUNCS = [
   { key: 'party', name: '党务管理', icon: 'star-filled', color: 'red', url: '/pages/sub-work/party/index' },
   { key: 'vehicle', name: '车辆登记', icon: 'car', color: 'cyan', url: '/pages/sub-work/vehicle/index' },
   { key: 'offcampus', name: '外宿管理', icon: 'home', color: 'purple', url: '/pages/sub-work/offcampus/index' },
-  { key: 'dormcheck', name: '宿舍查寝', icon: 'home', color: 'cyan', url: '/pages/sub-work/dormcheck/index' }
+  { key: 'dormcheck', name: '宿舍管理', icon: 'home', color: 'cyan', url: '/pages/sub-work/dormcheck/index' }
 ]
 
 // 默认常用功能 key
@@ -248,18 +346,53 @@ export default {
         talkCount: '--',
         activityCount: '--'
       },
+      todayCourses: [],
+      currentWeek: 0,
+      scheduleLoading: false,
+      sectionTimes: [],
+      todayStr: '',
+      teacherTab: 'courses',
+      calendarMonth: '',
+      calendarCells: [],
+      calendarLoading: false,
+      todayCalendarRule: null,
+      weekAttendance: {
+        sessions: 0,
+        present: 0,
+        leave: 0,
+        absent: 0
+      },
       pendingList: [],
       todoList: [],
       // 学工金句
       workQuote: {
         text: '',
         author: ''
-      }
+      },
+      offlineSummary: { total: 0, pending: 0, failed: 0, items: [] },
+      syncOfflineLoading: false
     }
   },
   computed: {
     // ===== 配置驱动的模块可见性（通过 PC 后台"小程序配置"页面控制） =====
     showTeaching() { return this.miniConfig.teaching && this.miniConfig.teaching.enabled },
+    calendarMonthLabel() {
+      if (!this.calendarMonth) return ''
+      const [year, month] = this.calendarMonth.split('-')
+      return `${year}年${Number(month)}月`
+    },
+    todayScheduleNote() {
+      const rule = this.todayCalendarRule
+      if (!rule) return ''
+      if (!rule.isTeachingDay) {
+        return rule.holidayName ? `${rule.holidayName} · 停课` : '今日停课'
+      }
+      if (rule.isMakeup) {
+        const names = ['一', '二', '三', '四', '五', '六', '日']
+        return `调课 · 按周${names[rule.effectiveWeekday - 1] || ''}课表`
+      }
+      return ''
+    },
     showStudent() { return this.miniConfig.student && this.miniConfig.student.enabled },
     showParty() { return this.miniConfig.party && this.miniConfig.party.enabled },
     showHeadteacher() { return this.miniConfig.headteacher && this.miniConfig.headteacher.enabled },
@@ -314,16 +447,45 @@ export default {
     
     // 初始化时随机选择一条金句
     this.refreshQuote()
-    
+    this.refreshOfflineSummary()
+    uni.$on('offlineQueueChanged', this.refreshOfflineSummary)
   },
   onShow() {
+    this.refreshOfflineSummary()
+    flushOfflineQueue()
     this.loadUnread()
     // 始终加载汇总数据
     this.loadSummaryData()
+    // 教师课表与本周考勤
+    this.loadTeacherHomeData()
+    this.loadWeekAttendance()
     // 加载待办事项
     this.loadTodoList()
   },
+  beforeDestroy() {
+    uni.$off('offlineQueueChanged', this.refreshOfflineSummary)
+  },
   methods: {
+    refreshOfflineSummary() {
+      this.offlineSummary = getOfflineSummary()
+    },
+    syncOfflineQueue() {
+      if (this.syncOfflineLoading) return
+      this.syncOfflineLoading = true
+      if (this.offlineSummary.failed > 0) {
+        retryAllOfflineItems()
+      }
+      flushOfflineQueue().then(result => {
+        this.refreshOfflineSummary()
+        if (result.synced > 0) {
+          uni.showToast({ title: '已同步 ' + result.synced + ' 条', icon: 'success' })
+        } else if (result.failed > 0) {
+          uni.showToast({ title: '仍有同步失败事项', icon: 'none' })
+        }
+      }).finally(() => {
+        this.syncOfflineLoading = false
+      })
+    },
     // 检查党务子功能是否启用
     isPartyFuncEnabled(funcKey) {
       const funcs = (this.miniConfig.party && this.miniConfig.party.funcs) || {}
@@ -416,6 +578,210 @@ export default {
           timestamp: Date.now()
         })
       })
+    },
+    formatDateStr(date) {
+      const y = date.getFullYear()
+      const m = String(date.getMonth() + 1).padStart(2, '0')
+      const d = String(date.getDate()).padStart(2, '0')
+      return `${y}-${m}-${d}`
+    },
+    getCourseTimeText(course) {
+      const start = Number(course.startSection)
+      const end = Number(course.endSection)
+      const startItem = this.sectionTimes[start - 1]
+      const endItem = this.sectionTimes[end - 1]
+      if (startItem && endItem && startItem.start && endItem.end) {
+        return `${startItem.start}-${endItem.end}`
+      }
+      return `第${start}-${end}节`
+    },
+    async loadTeacherHomeData() {
+      this.scheduleLoading = true
+      const now = new Date()
+      this.todayStr = this.formatDateStr(now)
+      if (!this.calendarMonth) {
+        this.calendarMonth = this.todayStr.slice(0, 7)
+      }
+      const weekday = now.getDay() === 0 ? 7 : now.getDay()
+      try {
+        const [scheduleRes, timesRes, calendarRes] = await Promise.all([
+          getMySchedule(),
+          getActiveSchedule(this.todayStr).catch(() => null),
+          getMonthCalendar(this.todayStr.slice(0, 7)).catch(() => null)
+        ])
+        const data = (scheduleRes && scheduleRes.data) || {}
+        this.currentWeek = Number(data.currentWeek || 0)
+        const calendarList = (calendarRes && calendarRes.data) || []
+        const todayEntry = calendarList.find(item =>
+          String(item.calDate || '').substring(0, 10) === this.todayStr
+        )
+        const todayRule = resolveCalendarRule(todayEntry)
+        this.todayCalendarRule = todayRule
+        const isTeachingDay = todayRule ? todayRule.isTeachingDay : weekday <= 5
+        const effectiveWeekday = todayRule && todayRule.effectiveWeekday
+          ? todayRule.effectiveWeekday
+          : weekday
+        const scheme = timesRes && timesRes.data
+        if (scheme && scheme.detailList && scheme.detailList.length) {
+          this.sectionTimes = scheme.detailList
+            .slice()
+            .sort((a, b) => Number(a.lessonNo) - Number(b.lessonNo))
+            .map(item => ({ start: item.startTime, end: item.endTime }))
+        }
+        const raw = isTeachingDay
+          ? (data.scheduleList || []).filter(item =>
+              Number(item.weekday) === effectiveWeekday &&
+              Number(item.startSection) >= 1 &&
+              (!this.currentWeek ||
+                (Number(item.startWeek || 1) <= this.currentWeek &&
+                 Number(item.endWeek || 999) >= this.currentWeek))
+            )
+          : []
+        const groups = {}
+        raw.forEach(item => {
+          const key = [item.courseName, item.startSection, item.endSection, item.classroom || ''].join('|')
+          if (!groups[key]) {
+            groups[key] = {
+              ...item,
+              key,
+              bjdmList: item.bjdm ? [item.bjdm] : [],
+              classNameList: item.className ? [item.className] : []
+            }
+          } else {
+            if (item.bjdm && !groups[key].bjdmList.includes(item.bjdm)) {
+              groups[key].bjdmList.push(item.bjdm)
+            }
+            if (item.className && !groups[key].classNameList.includes(item.className)) {
+              groups[key].classNameList.push(item.className)
+            }
+          }
+        })
+        const courses = Object.values(groups).map(item => ({
+          ...item,
+          className: item.classNameList.length > 1 ? item.classNameList.join('、') : (item.className || ''),
+          timeText: this.getCourseTimeText(item),
+          hasChecked: false
+        })).sort((a, b) => Number(a.startSection) - Number(b.startSection))
+        await Promise.all(courses.map(async course => {
+          if (!course.bjdm) return
+          try {
+            const res = await getCheckStatus(course.bjdm, this.todayStr, Number(course.startSection))
+            course.hasChecked = !!(res && res.data && res.data.id)
+          } catch (e) {}
+        }))
+        this.todayCourses = courses
+      } catch (e) {
+        this.todayCourses = []
+      }
+      this.scheduleLoading = false
+    },
+    async loadWeekAttendance() {
+      const now = new Date()
+      const weekday = now.getDay() === 0 ? 7 : now.getDay()
+      const monday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - (weekday - 1))
+      const sunday = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + 6)
+      try {
+        const res = await getTeacherReport({
+          startDate: this.formatDateStr(monday),
+          endDate: this.formatDateStr(sunday),
+          pageNum: 1,
+          pageSize: 1000
+        })
+        const rows = res.rows || []
+        this.weekAttendance = {
+          sessions: rows.length,
+          present: rows.reduce((sum, row) => sum + Number(row.presentCount || 0), 0),
+          leave: rows.reduce((sum, row) => sum + Number(row.leaveCount || 0), 0),
+          absent: rows.reduce((sum, row) => sum + Number(row.absentCount || 0), 0)
+        }
+      } catch (e) {
+        this.weekAttendance = { sessions: 0, present: 0, leave: 0, absent: 0 }
+      }
+    },
+    goSchedule() {
+      uni.navigateTo({ url: '/pages/sub-work/schedule/index' })
+    },
+    goAttendanceSummary() {
+      uni.navigateTo({ url: '/pages/sub-work/attendance-summary/index' })
+    },
+    goRollCall(course) {
+      const params = {
+        bjdm: course.bjdm || '',
+        className: course.className || '',
+        courseName: course.courseName || '',
+        classroom: course.classroom || '',
+        checkDate: this.todayStr || this.formatDateStr(new Date()),
+        startSection: course.startSection || '',
+        endSection: course.endSection || '',
+        weekday: course.weekday || ''
+      }
+      if (course.bjdmList && course.bjdmList.length > 1) {
+        params.bjdmList = JSON.stringify(course.bjdmList)
+        params.classNames = course.className || ''
+      }
+      const query = Object.keys(params)
+        .map(key => key + '=' + encodeURIComponent(params[key]))
+        .join('&')
+      uni.navigateTo({ url: '/pages/sub-work/rollcall/index?' + query })
+    },
+    switchTeacherTab(tab) {
+      this.teacherTab = tab
+      if (tab === 'calendar' && this.calendarCells.length === 0) {
+        this.loadCalendar()
+      }
+    },
+    async loadCalendar() {
+      if (!this.calendarMonth) {
+        this.calendarMonth = this.formatDateStr(new Date()).slice(0, 7)
+      }
+      this.calendarLoading = true
+      try {
+        const res = await getMonthCalendar(this.calendarMonth)
+        const list = res.data || []
+        const map = {}
+        list.forEach(item => {
+          if (item.calDate) {
+            map[String(item.calDate).substring(0, 10)] = item
+          }
+        })
+        const [year, month] = this.calendarMonth.split('-').map(Number)
+        const firstDay = new Date(year, month - 1, 1)
+        const daysInMonth = new Date(year, month, 0).getDate()
+        const firstWeekday = firstDay.getDay() === 0 ? 7 : firstDay.getDay()
+        const today = this.formatDateStr(new Date())
+        const cells = []
+        for (let i = 1; i < firstWeekday; i++) {
+          cells.push({})
+        }
+        for (let day = 1; day <= daysInMonth; day++) {
+          const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+          const info = map[dateStr] || {}
+          const rule = resolveCalendarRule(info)
+          const weekday = Number(info.weekday) || ((firstWeekday + day - 2) % 7 + 1)
+          cells.push({
+            day,
+            date: dateStr,
+            weekday,
+            weekNumber: Number(info.weekNumber) || 0,
+            isHoliday: Number(info.isHoliday) === 1,
+            isMakeup: rule ? rule.isMakeup : false,
+            holidayName: info.holidayName || '',
+            isToday: dateStr === today
+          })
+        }
+        this.calendarCells = cells
+      } catch (e) {
+        this.calendarCells = []
+      }
+      this.calendarLoading = false
+    },
+    changeCalendarMonth(offset) {
+      const base = this.calendarMonth || this.formatDateStr(new Date()).slice(0, 7)
+      const [year, month] = base.split('-').map(Number)
+      const target = new Date(year, month - 1 + offset, 1)
+      this.calendarMonth = `${target.getFullYear()}-${String(target.getMonth() + 1).padStart(2, '0')}`
+      this.calendarCells = []
+      this.loadCalendar()
     },
     // 随机选择一条金句（从后端获取）
     refreshQuote() {
@@ -642,6 +1008,38 @@ page {
 }
 
 /* 顶部金句区 */
+.offline-banner {
+  margin: 16rpx 24rpx 0;
+  padding: 20rpx 24rpx;
+  border-radius: 12rpx;
+  background: #fff7e6;
+  border: 1rpx solid #ffd591;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.offline-copy {
+  display: flex;
+  flex-direction: column;
+}
+.offline-title {
+  font-size: 26rpx;
+  color: #ad6800;
+  font-weight: 600;
+}
+.offline-sub {
+  margin-top: 4rpx;
+  font-size: 22rpx;
+  color: #ad6800;
+}
+.offline-action {
+  font-size: 24rpx;
+  color: #ffffff;
+  background: #d46b08;
+  padding: 10rpx 20rpx;
+  border-radius: 8rpx;
+}
+
 .greeting-section {
   background: linear-gradient(135deg, #2979ff 0%, #1a5cd8 50%, #0d47a1 100%);
   padding: 96rpx 40rpx 60rpx;
@@ -729,6 +1127,354 @@ page {
   padding: 0;
   position: relative;
   z-index: 10;
+}
+
+.teacher-week-section {
+  margin: 0 24rpx 24rpx;
+  background: #fff;
+  border-radius: 20rpx;
+  box-shadow: 0 8rpx 24rpx rgba(15, 23, 42, 0.06);
+  overflow: hidden;
+}
+
+.teacher-tabs {
+  display: flex;
+  gap: 24rpx;
+  padding: 16rpx 24rpx 0;
+}
+
+.teacher-tab {
+  position: relative;
+  padding: 10rpx 0 14rpx;
+  color: #64748b;
+  font-size: 26rpx;
+
+  &.active {
+    color: #1f2937;
+    font-weight: 600;
+
+    &::after {
+      position: absolute;
+      bottom: 0;
+      left: 50%;
+      width: 36rpx;
+      height: 4rpx;
+      border-radius: 2rpx;
+      background: #2979ff;
+      content: '';
+      transform: translateX(-50%);
+    }
+  }
+}
+
+.tw-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8rpx 24rpx 16rpx;
+}
+
+.tw-title-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 6rpx;
+}
+
+.tw-head-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 4rpx;
+}
+
+.tw-note {
+  color: #f59e0b;
+  font-size: 20rpx;
+}
+
+.tw-title {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.tw-sub {
+  font-size: 22rpx;
+  color: #94a3b8;
+}
+
+.tw-link {
+  font-size: 24rpx;
+  color: #2979ff;
+}
+
+.today-course-list {
+  padding: 0 24rpx;
+}
+
+.today-course-item {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  padding: 18rpx 0;
+  border-top: 1rpx solid #f1f5f9;
+}
+
+.tc-time {
+  flex: 0 0 110rpx;
+  width: 110rpx;
+  display: flex;
+  flex-direction: column;
+}
+
+.tc-section {
+  font-size: 24rpx;
+  font-weight: 600;
+  color: #2979ff;
+}
+
+.tc-clock {
+  margin-top: 4rpx;
+  font-size: 20rpx;
+  color: #94a3b8;
+}
+
+.tc-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.tc-name {
+  overflow: hidden;
+  color: #1f2937;
+  font-size: 28rpx;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tc-meta {
+  margin-top: 4rpx;
+  overflow: hidden;
+  color: #64748b;
+  font-size: 22rpx;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tc-action {
+  flex: 0 0 auto;
+  padding: 10rpx 20rpx;
+  border-radius: 999rpx;
+  background: #2979ff;
+  color: #fff;
+  font-size: 22rpx;
+
+  &.is-done {
+    background: #e8f5e9;
+    color: #2e7d32;
+  }
+}
+
+.tw-empty {
+  padding: 20rpx 24rpx 8rpx;
+  color: #94a3b8;
+  font-size: 24rpx;
+}
+
+.calendar-panel {
+  padding: 6rpx 16rpx 16rpx;
+}
+
+.cal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8rpx 8rpx 12rpx;
+}
+
+.cal-arrow {
+  width: 56rpx;
+  color: #2979ff;
+  font-size: 40rpx;
+  line-height: 1;
+  text-align: center;
+}
+
+.cal-month {
+  color: #1f2937;
+  font-size: 28rpx;
+  font-weight: 600;
+}
+
+.cal-weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  padding: 0 2rpx;
+
+  text {
+    padding: 6rpx 0;
+    color: #94a3b8;
+    font-size: 20rpx;
+    text-align: center;
+  }
+}
+
+.cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4rpx;
+}
+
+.cal-cell {
+  position: relative;
+  min-height: 78rpx;
+  padding: 6rpx;
+  border-radius: 8rpx;
+  background: #f8fafc;
+
+  &.is-empty {
+    background: transparent;
+  }
+
+  &.is-today {
+    border: 1rpx solid #2979ff;
+    background: #eff6ff;
+  }
+
+  &.is-holiday {
+    background: #fff7ed;
+  }
+}
+
+.cal-day {
+  display: block;
+  color: #334155;
+  font-size: 22rpx;
+  font-weight: 600;
+}
+
+.cal-cell.is-today .cal-day {
+  color: #2563eb;
+}
+
+.cal-flag {
+  position: absolute;
+  top: 4rpx;
+  right: 6rpx;
+  color: #f59e0b;
+  font-size: 16rpx;
+
+  &.makeup {
+    color: #2563eb;
+  }
+}
+
+.cal-week-no {
+  display: block;
+  margin-top: 2rpx;
+  color: #94a3b8;
+  font-size: 15rpx;
+}
+
+.cal-holiday-name {
+  display: block;
+  margin-top: 2rpx;
+  overflow: hidden;
+  color: #d97706;
+  font-size: 15rpx;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cal-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16rpx;
+  padding: 12rpx 4rpx 0;
+  color: #94a3b8;
+  font-size: 18rpx;
+}
+
+.cal-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6rpx;
+}
+
+.cal-dot {
+  display: inline-block;
+  width: 12rpx;
+  height: 12rpx;
+  border-radius: 50%;
+
+  &.today {
+    background: #2979ff;
+  }
+
+  &.holiday {
+    background: #f59e0b;
+  }
+}
+
+.week-attendance {
+  margin-top: 8rpx;
+  padding: 18rpx 24rpx 24rpx;
+  background: #f8fafc;
+}
+
+.wa-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.wa-title {
+  color: #334155;
+  font-size: 26rpx;
+  font-weight: 600;
+}
+
+.wa-link {
+  color: #64748b;
+  font-size: 22rpx;
+}
+
+.wa-stats {
+  display: flex;
+  margin-top: 16rpx;
+}
+
+.wa-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.wa-num {
+  color: #1f2937;
+  font-size: 32rpx;
+  font-weight: 700;
+
+  &.green {
+    color: #16a34a;
+  }
+
+  &.orange {
+    color: #f59e0b;
+  }
+
+  &.red {
+    color: #ef4444;
+  }
+}
+
+.wa-label {
+  margin-top: 4rpx;
+  color: #94a3b8;
+  font-size: 20rpx;
 }
 
 .summary-card-item {

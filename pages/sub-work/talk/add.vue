@@ -1,8 +1,23 @@
 <template>
   <view class="page-wrap">
-    <!-- 只读提示：班主任看不到辅导员未共享的谈话，能看到共享的但不能改 -->
+    <!-- 只读提示：看得到但不是自己记的，或已结束的谈话 -->
     <view class="readonly-banner" v-if="readOnly">
-      <text class="readonly-text">该谈话由「{{ talkName || '他人' }}」记录，仅可查看</text>
+      <text class="readonly-text">{{ readonlyText }}</text>
+    </view>
+
+    <!-- 高危上报闭环：有 stumanage:talk:report 权限的学院书记才给处置入口，谈话人只看上报状态 -->
+    <view class="report-card" v-if="riskStudents.length > 0">
+      <view class="rc-head">
+        <text class="rc-title">{{ rcTitle }}</text>
+        <text class="rc-names">{{ riskNames }}</text>
+      </view>
+      <block v-if="canHandleReport">
+        <textarea class="rc-textarea" v-model="handleRemark" placeholder="处置说明，例：已转介校心理中心并约谈家长，明日复访宿舍" />
+        <button class="rc-btn" @click="submitReportHandle" :loading="handling" :disabled="handling">接手处置并闭环</button>
+      </block>
+      <view class="rc-handled" v-if="handledText">
+        <text class="rc-handled-text">{{ handledText }}</text>
+      </view>
     </view>
     <!-- 基本信息 -->
     <view class="form-section">
@@ -46,8 +61,8 @@
         <input class="form-input" v-model="form.talkPlace" :disabled="readOnly" placeholder="请输入谈话地点" />
         <view class="loc-btn" v-if="!readOnly" @click="pickLocation"><text class="loc-icon">📍</text></view>
       </view>
-      <!-- 截止时间（有谈话对象时显示） -->
-      <view class="form-item" v-if="hasViolationStudent">
+      <!-- 截止时间（违纪谈话必须有，后端同一口径校验） -->
+      <view class="form-item" v-if="hasViolationStudent || form.talkCategory === 'disciplinary'">
         <text class="form-label">截止时间</text>
         <picker mode="date" :value="deadlineDate" :disabled="readOnly" @change="onDeadlineDateChange">
           <view class="picker-value">{{ deadlineDate }}</view>
@@ -121,6 +136,60 @@
           </view>
         </view>
       </view>
+
+      <!-- 八必谈标注：标了重点关注/高危的学生必须有情形与跟进计划，否则台账不成立 -->
+      <view class="annot-list" v-if="form.studentList.length > 0">
+        <view class="annot-head">
+          <text class="annot-title">八必谈标注</text>
+          <text class="annot-hint">非「常规」的学生必须选情形并填跟进计划</text>
+        </view>
+        <view class="annot-row" v-for="(stu, ai) in form.studentList" :key="'an' + ai">
+          <view class="annot-main" @tap="toggleAnnot(stu)">
+            <text class="annot-name">{{ stu.studentName || stu.xh }}</text>
+            <text class="annot-tag tag-scene" v-if="stu.requiredScene">{{ sceneLabel(stu.requiredScene) }}</text>
+            <text class="annot-tag tag-focus" v-if="stu.careLevel === '1'">重点关注</text>
+            <text class="annot-tag tag-risk" v-if="stu.careLevel === '2'">高危</text>
+            <text class="annot-none" v-if="!stu.requiredScene && stu.careLevel !== '1' && stu.careLevel !== '2'">未标注</text>
+            <text class="annot-state" v-if="stu.reportStatus === '1'">已上报待学院处理</text>
+            <text class="annot-state done" v-else-if="stu.reportStatus === '2'">学院已接手</text>
+            <text class="annot-arrow" v-if="!readOnly">{{ openXh === stu.xh ? '▾' : '▸' }}</text>
+          </view>
+          <view class="annot-body" v-if="!readOnly && openXh === stu.xh">
+            <view class="profile-line" v-if="stu._profile">
+              <text class="pf-item">累计谈话 {{ stu._profile.count }} 次</text>
+              <text class="pf-item" v-if="stu._profile.lastDate">最近 {{ stu._profile.lastDate }}</text>
+              <text class="pf-item" v-if="stu._profile.lastScene">{{ stu._profile.lastScene }}</text>
+            </view>
+            <text class="field-label">必谈情形</text>
+            <view class="chip-group">
+              <view v-for="sc in scenes" :key="sc.value"
+                    :class="['chip', stu.requiredScene === sc.value ? 'chip-active' : '']"
+                    @tap="setScene(stu, sc.value)">
+                <text>{{ sc.label }}</text>
+              </view>
+            </view>
+            <text class="field-label">关注等级</text>
+            <view class="chip-group">
+              <view v-for="c in careLevels" :key="c.value"
+                    :class="['chip', (stu.careLevel || '0') === c.value ? 'chip-active' : '', 'chip-care-' + c.value]"
+                    @tap="setCare(stu, c.value)">
+                <text>{{ c.label }}</text>
+              </view>
+            </view>
+            <block v-if="isFocusStudent(stu)">
+              <text class="field-label">后续跟进计划</text>
+              <textarea class="plan-textarea" v-model="stu.followUpPlan" placeholder="例：本周约谈家长，两周后复访宿舍，心理中心转介已预约" />
+            </block>
+            <block v-if="isRiskStudent(stu)">
+              <text class="field-label">下次跟进时间</text>
+              <picker mode="date" :value="stu.nextFollowDate" @change="onFollowChange(stu, $event)">
+                <view class="picker-value">{{ stu.nextFollowDate || '选择日期' }}</view>
+              </picker>
+              <text class="risk-hint">提交后即时上报学院总支书记，书记接手才算闭环</text>
+            </block>
+          </view>
+        </view>
+      </view>
     </view>
 
     <!-- 谈话内容 -->
@@ -136,11 +205,8 @@
         </view>
       </view>
       <textarea class="content-textarea" v-if="!readOnly" v-model="form.newContent" :placeholder="historyContent.length > 0 ? '请输入追加的谈话内容...' : '请输入谈话内容...'" />
-      <view class="ended-check" v-if="!readOnly">
-        <view :class="['check-box', form.isEnded === '1' ? 'checked' : '']" @click="toggleEnded">
-          <text v-if="form.isEnded === '1'" style="color:#fff;font-size:20rpx;">✓</text>
-        </view>
-        <text style="font-size:26rpx;color:#666;margin-left:12rpx;">该谈话已结束</text>
+      <view class="ended-tip" v-if="editId && !readOnly">
+        <text class="ended-tip-text">内容记全后点底部「结束本次谈话」闭环；标了重点关注/高危的学生要先填跟进计划才能结束</text>
       </view>
       <view class="history-empty" v-if="readOnly && historyContent.length === 0">
         <text>暂无谈话内容</text>
@@ -182,9 +248,12 @@
 
     <!-- 底部按钮 -->
     <view class="bottom-bar" v-if="!readOnly || canShare">
-      <button class="submit-btn" v-if="!readOnly" @click="submitForm" :loading="submitting" :disabled="submitting">
-        {{ editId ? '确认修改' : '提交谈话' }}
-      </button>
+      <view class="btn-row" v-if="!readOnly">
+        <button class="submit-btn" @click="submitForm" :loading="submitting" :disabled="submitting || ending">
+          {{ editId ? '确认修改' : '提交谈话' }}
+        </button>
+        <button class="end-btn" v-if="canEnd" @click="handleEnd" :loading="ending" :disabled="ending || submitting">结束谈话</button>
+      </view>
       <button class="share-btn" v-if="canShare" @click="openShare">共享给班主任</button>
     </view>
 
@@ -229,31 +298,29 @@
 </template>
 
 <script>
-import { addTalk, updateTalk, getTalk, getTalkByCheck, getMyStudents, getViolationStudents, getTalkAttachments, getDeadlineConfig, getShareCandidates, getTalkShares, shareTalk, revokeTalkShare } from '@/api/work/talk'
+import { addTalk, updateTalk, getTalk, getTalkByCheck, getMyStudents, getViolationStudents, getTalkAttachments, getDeadlineConfig, getShareCandidates, getTalkShares, shareTalk, revokeTalkShare, endTalk, handleRiskReport, getStudentTalkProfile } from '@/api/work/talk'
 import { getClassCheck } from '@/api/work/classcheck'
 import upload from '@/utils/upload'
-import config from '@/config'
-import { chooseLocation } from '@/utils/common'
+import { enqueueRequest, isNetworkFailure, makeClientRequestId } from '@/utils/offlineQueue'
+import { chooseLocation, attachmentUrl } from '@/utils/common'
+import { checkPermi } from '@/utils/permission'
 import { getWatermarkConfig } from '@/api/work/watermark'
 import { addWatermark, prepareCapture } from '@/utils/watermark'
-import { isCounselor, isHeadteacher } from '@/utils/role'
-
-const TALK_TYPES = [
-  { value: 'ideological', label: '思想动态' },
-  { value: 'psychological', label: '心理健康' },
-  { value: 'academic', label: '学业指导' },
-  { value: 'career', label: '就业指导' },
-  { value: 'life', label: '生活关怀' },
-  { value: 'discipline', label: '纪律教育' },
-  { value: 'other', label: '其他' },
-]
+import { isCounselor, isHeadteacher, isAdmin } from '@/utils/role'
+import { getTalkDicts } from '@/utils/talkDict'
 
 export default {
   data() {
     return {
-      talkTypes: TALK_TYPES,
+      talkTypes: [],
+      scenes: [],
+      careLevels: [],
       editId: null,
       submitting: false,
+      clientRequestId: '',
+      ending: false,
+      // 展开标注的学生学号：一次只摊开一人，避免长表单滚到找不到提交
+      openXh: '',
       form: {
         talkCategory: 'daily',
         talkTypeList: [],
@@ -268,6 +335,11 @@ export default {
       recorderRole: '',
       talkName: '',
       shareCount: 0,
+      endedRecord: false,
+      adminUser: false,
+      // 学院处置高危上报
+      handleRemark: '',
+      handling: false,
       // 共享面板
       sharing: false,
       shareCandidates: [],
@@ -292,8 +364,10 @@ export default {
     }
   },
   onLoad(options) {
+    this.loadDicts()
     this.initDateTime()
     this.loginRoles = this.currentRoles()
+    this.adminUser = isAdmin(this.loginRoles)
     this.form.recorderRole = this.defaultRecorderRole()
     this.loadDeadlineConfig()
     // 加载水印配置
@@ -315,9 +389,49 @@ export default {
     hasViolationStudent() {
       return this.form.studentList.some(s => s.violationType != null)
     },
-    // 只读：看得到但不是自己记录的谈话
+    // 只读：看得到但不是自己记录的谈话；已结束的谈话除管理员外也不能再改（与后端同一口径）
     readOnly() {
-      return !!this.editId && this.writable === false
+      if (!this.editId) return false
+      if (this.writable === false) return true
+      return this.endedRecord && !this.adminUser
+    },
+    readonlyText() {
+      if (this.endedRecord && !this.adminUser) {
+        return '本次谈话已结束，台账已闭环，仅可查看'
+      }
+      return '该谈话由「' + (this.talkName || '他人') + '」记录，仅可查看'
+    },
+    // 结束走 /api/talk/end 独立路由：服务端校验内容与跟进后就闭环待办，不再让「勾一下已结束」绕过门槛
+    canEnd() {
+      return !!this.editId && !this.readOnly && !this.endedRecord
+    },
+    riskStudents() {
+      return this.form.studentList.filter(s => s.careLevel === '2')
+    },
+    pendingReportCount() {
+      return this.riskStudents.filter(s => s.reportStatus !== '2').length
+    },
+    riskNames() {
+      return this.riskStudents.map(s => s.studentName || s.xh).join('、')
+    },
+    canHandleReport() {
+      // 新建还没落库时无从处置，等台账保存后从列表进详情再接手
+      return !!this.editId && this.pendingReportCount > 0 && checkPermi(['stumanage:talk:report'])
+    },
+    rcTitle() {
+      if (this.pendingReportCount > 0) {
+        return this.canHandleReport
+          ? this.pendingReportCount + ' 名高危学生待学院处置'
+          : this.pendingReportCount + ' 名高危学生已上报，等待学院处置'
+      }
+      return '高危上报已由学院接手处置'
+    },
+    handledText() {
+      const done = this.riskStudents.filter(s => s.reportStatus === '2')
+      return done.slice(0, 2).map(s => {
+        const time = s.handleTime ? this.formatDateTime(s.handleTime) : ''
+        return (s.handleBy || '学院') + (time ? ' ' + time : '') + '：' + (s.handleRemark || '已接手处置')
+      }).join('\n')
     },
     // 共享入口：只有辅导员自己记录的谈话可以共享给班主任
     canShare() {
@@ -405,6 +519,7 @@ export default {
         this.form.talkTypeList = data.talkType ? data.talkType.split(',') : []
         this.form.talkPlace = data.talkPlace || ''
         this.form.isEnded = data.isEnded || '0'
+        this.endedRecord = data.isEnded === '1' || data.talkStatus === 'completed'
         this.form.newContent = ''
         
         // 加载学生列表
@@ -412,6 +527,11 @@ export default {
           xh: s.xh, studentName: s.studentName, bjdm: s.bjdm || '',
           violationType: s.violationType || null, checkDetailId: s.checkDetailId || null,
           checkId: s.checkId || null, studentRemark: s.studentRemark || '',
+          requiredScene: s.requiredScene || '', careLevel: s.careLevel || '0',
+          followUpPlan: s.followUpPlan || '', nextFollowDate: s.nextFollowDate || '',
+          // 上报状态与学院处置留痕由服务端写入，只回显不提交
+          reportStatus: s.reportStatus || '0',
+          handleBy: s.handleBy || '', handleTime: s.handleTime || '', handleRemark: s.handleRemark || '',
         }))
         
         this.historyContent = data.contentList || []
@@ -436,9 +556,10 @@ export default {
         const list = res.data || []
         this.attachList = list.map(att => {
           const isImage = att.mediaType === 'image'
+          const fullUrl = attachmentUrl(att.filePath)
           return {
-            url: isImage ? (att.thumbnailBase64 || '') : '',
-            thumbUrl: isImage ? (att.thumbnailBase64 || '') : '',
+            url: isImage ? fullUrl : '',
+            thumbUrl: isImage ? fullUrl : '',
             fileName: att.fileName || '',
             mediaType: att.mediaType || 'image',
             attachment: {
@@ -463,9 +584,56 @@ export default {
         this.form.talkTypeList.push(val)
       }
     },
-    toggleEnded() {
-      if (this.readOnly) return
-      this.form.isEnded = this.form.isEnded === '1' ? '0' : '1'
+    loadDicts() {
+      getTalkDicts().then(d => {
+        this.talkTypes = d.talk_type
+        this.scenes = d.talk_required_scene
+        this.careLevels = d.talk_care_level
+      })
+    },
+    sceneLabel(val) {
+      const hit = this.scenes.filter(s => s.value === val)[0]
+      return hit ? hit.label : val
+    },
+    toggleAnnot(stu) {
+      if (this.readOnly || !stu) return
+      this.openXh = this.openXh === stu.xh ? '' : stu.xh
+      if (this.openXh === stu.xh) this.loadStudentProfile(stu)
+    },
+    // 展开某个学生才拉他的一人一档，避免进页面就按人数并发一堆请求
+    loadStudentProfile(stu) {
+      if (!stu.xh || stu._profile) return
+      getStudentTalkProfile(stu.xh).then(res => {
+        const d = res.data || {}
+        const last = (d.sessions || [])[0] || {}
+        this.$set(stu, '_profile', {
+          count: d.sessionCount || 0,
+          lastDate: String(last.talkTime || '').substring(0, 10),
+          lastScene: last.requiredSceneLabel || '',
+        })
+      }).catch(() => {})
+    },
+    setScene(stu, val) {
+      if (!stu) return
+      stu.requiredScene = stu.requiredScene === val ? '' : val
+    },
+    setCare(stu, val) {
+      if (!stu) return
+      stu.careLevel = val
+      // 降回常规就把跟进字段清掉，否则台账上会留下「常规学生却有跟进计划」的脏形状
+      if (val === '0') {
+        stu.followUpPlan = ''
+        stu.nextFollowDate = ''
+      }
+    },
+    isFocusStudent(stu) {
+      return !!stu && stu.careLevel && stu.careLevel !== '0'
+    },
+    isRiskStudent(stu) {
+      return !!stu && stu.careLevel === '2'
+    },
+    onFollowChange(stu, e) {
+      if (stu) stu.nextFollowDate = e.detail.value
     },
     pickLocation() {
       chooseLocation().then(res => {
@@ -541,7 +709,9 @@ export default {
       this.form.studentList.push({
         xh: stu.xh, studentName: stu.studentName, bjdm: stu.bjdm || '',
         violationType: null, checkDetailId: null, checkId: null, studentRemark: '',
+        requiredScene: '', careLevel: '0', followUpPlan: '', nextFollowDate: '', reportStatus: '0',
       })
+      this.openXh = stu.xh
       this.searchResult = []
       this.stuKeyword = ''
     },
@@ -559,6 +729,9 @@ export default {
         xh: stu.xh, studentName: stu.studentName || '', bjdm: stu.bjdm || '',
         violationType: stu.absentType, checkDetailId: detailId,
         checkId: checkId, studentRemark: '',
+        // 八必谈情形预置为「违纪处分」，关注等级仍由谈话人自己判断
+        requiredScene: 'disciplinary', careLevel: '0',
+        followUpPlan: '', nextFollowDate: '', reportStatus: '0',
       })
       // 添加违纪学生后自动设置为违纪谈话，并选中纪律教育标签
       this.form.talkCategory = 'disciplinary'
@@ -788,7 +961,7 @@ export default {
     },
     openFile(item) {
       if (!item.attachment || !item.attachment.filePath) return
-      const url = config.baseUrl + item.attachment.filePath
+      const url = attachmentUrl(item.attachment.filePath)
       uni.showLoading({ title: '打开中...' })
       uni.downloadFile({
         url: url,
@@ -873,23 +1046,45 @@ export default {
         }
       })
     },
-    // 提交
-    submitForm() {
-      if (this.form.studentList.length === 0) {
-        uni.showToast({ title: '请至少添加一个谈话对象', icon: 'none' })
-        return
+    // 校验口径与后端 validateForSave 一致，前端先拦一遍，提示直接点名学生
+    validateForm() {
+      const tip = title => {
+        uni.showToast({ title, icon: 'none', duration: 2500 })
+        return false
       }
-      if (this.form.talkTypeList.length === 0) {
-        uni.showToast({ title: '请选择谈话类型', icon: 'none' })
-        return
+      if (!this.form.talkPlace) return tip('请填写谈话地点')
+      if (this.form.talkTypeList.length === 0) return tip('请至少选择一项谈话类型')
+      if (this.form.talkCategory === 'disciplinary' && !this.deadlineDate) return tip('违纪谈心谈话必须设置完成截止时间')
+      if (this.form.studentList.length === 0) return tip('请至少选择一名谈心谈话对象')
+      for (const s of this.form.studentList) {
+        if (!s.xh) return tip('谈话对象缺少学号，请重新选择学生')
+        const who = s.studentName || s.xh
+        if (!this.isFocusStudent(s)) continue
+        if (!s.requiredScene) {
+          this.openXh = s.xh
+          return tip('「' + who + '」请指明属于哪一类必谈情形')
+        }
+        if (!s.followUpPlan) {
+          this.openXh = s.xh
+          return tip('「' + who + '」是' + (this.isRiskStudent(s) ? '高危' : '重点关注') + '学生，请填写后续跟进计划')
+        }
+        if (this.isRiskStudent(s) && !s.nextFollowDate) {
+          this.openXh = s.xh
+          return tip('「' + who + '」是高危学生，请填写下次跟进时间')
+        }
       }
-      this.submitting = true
+      return true
+    },
+    saveRecord() {
+      const data = this.buildRecordPayload()
+      return this.editId ? updateTalk(data) : addTalk(data)
+    },
+    buildRecordPayload() {
       const talkTimeStr = this.talkDate + ' ' + this.talkTime + ':00'
       const deadlineStr = this.form.talkCategory === 'disciplinary' ? (this.deadlineDate + ' ' + this.deadlineTime + ':00') : null
-      
-      // 构建提交数据
-      const data = {
+      return {
         id: this.editId || undefined,
+        clientRequestId: this.clientRequestId || undefined,
         recorderRole: this.editId ? undefined : this.form.recorderRole,
         talkCategory: this.form.talkCategory,
         talkType: this.form.talkTypeList.join(','),
@@ -897,12 +1092,14 @@ export default {
         talkPlace: this.form.talkPlace,
         deadline: deadlineStr,
         isEnded: this.form.isEnded,
-        // 设置谈话状态：新增时默认为pending（待谈话）
-        talkStatus: this.editId ? undefined : 'pending',
+        // 状态由服务端 applyStatusForSave 推导，客户端不再谎报 pending
         studentList: this.form.studentList.map(s => ({
           xh: s.xh, studentName: s.studentName, bjdm: s.bjdm || '',
           violationType: s.violationType || null, checkDetailId: s.checkDetailId || null,
           checkId: s.checkId || null, studentRemark: s.studentRemark || '',
+          requiredScene: s.requiredScene || '', careLevel: s.careLevel || '0',
+          followUpPlan: s.followUpPlan || '', nextFollowDate: s.nextFollowDate || null,
+          // reportStatus/处置留痕由服务端写入，提交不带，避免覆盖书记的闭环记录
         })),
         contentList: this.form.newContent ? [{
           content: this.form.newContent,
@@ -919,26 +1116,114 @@ export default {
           sortOrder: i + 1,
         })),
       }
-      
-      let request
-      if (this.editId) {
-        request = updateTalk(data)
-      } else {
-        request = addTalk(data)
+    },
+    emitRefresh() {
+      // 通知首页和谈话列表刷新
+      uni.$emit('refreshHomeData')
+      uni.$emit('refreshTalkList')
+    },
+    // 提交
+    submitForm() {
+      if (!this.validateForm()) return
+      this.submitting = true
+      if (!this.editId && !this.clientRequestId) {
+        this.clientRequestId = makeClientRequestId('TALK')
       }
-      request.then(res => {
+      const payload = this.buildRecordPayload()
+      const req = this.editId ? updateTalk(payload) : addTalk(payload)
+      req.then(() => {
         uni.showToast({ title: this.editId ? '修改成功' : '提交成功', icon: 'success' })
-        
-        // 通知首页和谈话列表刷新
-        uni.$emit('refreshHomeData')
-        uni.$emit('refreshTalkList')
-        
+        this.emitRefresh()
         setTimeout(() => { uni.navigateBack() }, 800)
-      }).catch(err => {
-        uni.showToast({ title: '提交失败: ' + (err.msg || err.message || '未知错误'), icon: 'none', duration: 3000 })
+      }).catch(async error => {
+        if (isNetworkFailure(error)) {
+          const result = await enqueueRequest({
+            businessType: this.editId ? 'talk_update' : 'talk_add',
+            title: '谈心谈话：' + this.form.talkPlace,
+            clientRequestId: this.clientRequestId,
+            request: {
+              url: '/api/talk',
+              method: this.editId ? 'put' : 'post',
+              data: payload
+            }
+          })
+          uni.showToast({
+            title: result.duplicate ? '已在待同步队列' : '网络较弱，已加入待同步',
+            icon: 'none'
+          })
+          this.emitRefresh()
+          setTimeout(() => { uni.navigateBack() }, 900)
+        }
       }).finally(() => {
         this.submitting = false
       })
+    },
+    // 结束本次谈话：先落库再走 /end 路由，服务端会把谈话待办一并闭环
+    handleEnd() {
+      if (!this.validateForm()) return
+      const talkId = this.editId
+      if (!talkId && !this.clientRequestId) {
+        this.clientRequestId = makeClientRequestId('TALK')
+      }
+      const payload = this.buildRecordPayload()
+      this.ending = true
+      const saveReq = this.editId ? updateTalk(payload) : addTalk(payload)
+      saveReq.then(() => endTalk(talkId)).then(() => {
+        uni.showToast({ title: '本次谈话已结束，台账已闭环', icon: 'success' })
+        this.endedRecord = true
+        this.form.isEnded = '1'
+        this.emitRefresh()
+        setTimeout(() => { uni.navigateBack() }, 1000)
+      }).catch(async error => {
+        if (isNetworkFailure(error)) {
+          await enqueueRequest({
+            businessType: this.editId ? 'talk_update' : 'talk_add',
+            title: '谈心谈话：' + this.form.talkPlace,
+            clientRequestId: this.clientRequestId,
+            request: {
+              url: '/api/talk',
+              method: this.editId ? 'put' : 'post',
+              data: payload
+            }
+          })
+          uni.showToast({ title: '已加入待同步，请同步后再结束谈话', icon: 'none' })
+        }
+        // 未结束的原因（没有内容/重点学生缺跟进计划）由后端给出，请求层已提示
+      }).finally(() => {
+        this.ending = false
+      })
+    },
+    // 学院书记接手处置高危上报：只写处置留痕，不动谈话内容
+    submitReportHandle() {
+      if (!this.handleRemark) {
+        uni.showToast({ title: '请填写处置说明', icon: 'none' })
+        return
+      }
+      this.handling = true
+      handleRiskReport(this.editId, this.handleRemark).then(() => {
+        uni.showToast({ title: '已记录处置情况', icon: 'success' })
+        this.handleRemark = ''
+        this.refreshReportState()
+        this.emitRefresh()
+      }).catch(() => {
+        // 失败原因由请求层提示
+      }).finally(() => {
+        this.handling = false
+      })
+    },
+    // 只回读明细的上报/处置状态，不整页重载，免得冲掉未保存的编辑
+    refreshReportState() {
+      getTalk(this.editId).then(res => {
+        const rows = (res.data && res.data.studentList) || []
+        this.form.studentList.forEach(s => {
+          const hit = rows.filter(x => x.xh === s.xh)[0]
+          if (!hit) return
+          s.reportStatus = hit.reportStatus || '0'
+          s.handleBy = hit.handleBy || ''
+          s.handleTime = hit.handleTime || ''
+          s.handleRemark = hit.handleRemark || ''
+        })
+      }).catch(() => {})
     },
   }
 }
@@ -1353,6 +1638,163 @@ export default {
   color: #999;
 }
 
+/* 八必谈标注 */
+.annot-list {
+  margin-top: 8rpx;
+  border: 1rpx solid #eef0f3;
+  border-radius: 12rpx;
+  overflow: hidden;
+}
+
+.annot-head {
+  display: flex;
+  align-items: baseline;
+  gap: 12rpx;
+  padding: 14rpx 20rpx;
+  background: #f7f8fa;
+}
+
+.annot-title {
+  font-size: 24rpx;
+  font-weight: bold;
+  color: #333;
+}
+
+.annot-hint {
+  flex: 1;
+  font-size: 20rpx;
+  color: #999;
+}
+
+.annot-row {
+  border-top: 1rpx solid #f0f0f0;
+}
+
+.annot-main {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8rpx;
+  padding: 16rpx 20rpx;
+}
+
+.annot-main:active {
+  background: #f8f8f8;
+}
+
+.annot-name {
+  font-size: 26rpx;
+  color: #333;
+  font-weight: 500;
+}
+
+.annot-tag {
+  font-size: 20rpx;
+  padding: 2rpx 10rpx;
+  border-radius: 6rpx;
+}
+
+.tag-scene { color: #00838f; background: #e0f7fa; }
+.tag-focus { color: #e07e1c; background: #fef3e2; }
+.tag-risk { color: #e43d33; background: #ffebee; }
+
+.annot-none {
+  font-size: 20rpx;
+  color: #bbb;
+}
+
+.annot-state {
+  font-size: 20rpx;
+  color: #f3a044;
+}
+
+.annot-state.done {
+  color: #18bc37;
+}
+
+.annot-arrow {
+  margin-left: auto;
+  font-size: 24rpx;
+  color: #ccc;
+}
+
+.annot-body {
+  padding: 4rpx 20rpx 20rpx;
+  background: #fbfcfd;
+}
+
+/* 一生一档：展开标注时回读该生的历史谈话概览 */
+.profile-line {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10rpx;
+  padding-top: 16rpx;
+}
+
+.pf-item {
+  font-size: 22rpx;
+  color: #8a94a6;
+  background: #eef1f6;
+  border-radius: 6rpx;
+  padding: 4rpx 12rpx;
+}
+
+.field-label {
+  display: block;
+  font-size: 22rpx;
+  color: #666;
+  margin: 14rpx 0 8rpx;
+}
+
+.chip-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10rpx;
+}
+
+.chip {
+  padding: 8rpx 20rpx;
+  border-radius: 24rpx;
+  background: #f0f0f0;
+  border: 1rpx solid transparent;
+  font-size: 22rpx;
+  color: #666;
+}
+
+.chip-active {
+  background: #2979ff;
+  border-color: #2979ff;
+  color: #fff;
+}
+
+.chip-care-1.chip-active {
+  background: #f3a044;
+  border-color: #f3a044;
+}
+
+.chip-care-2.chip-active {
+  background: #e43d33;
+  border-color: #e43d33;
+}
+
+.plan-textarea {
+  width: 100%;
+  min-height: 120rpx;
+  padding: 14rpx;
+  background: #fff;
+  border: 1rpx solid #e8e8e8;
+  border-radius: 8rpx;
+  font-size: 24rpx;
+  box-sizing: border-box;
+}
+
+.risk-hint {
+  display: block;
+  margin-top: 10rpx;
+  font-size: 20rpx;
+  color: #e43d33;
+}
+
 /* 历史记录 */
 .history-timeline {
   border-left: 4rpx solid #2979ff;
@@ -1407,25 +1849,14 @@ export default {
   box-sizing: border-box;
 }
 
-.ended-check {
-  display: flex;
-  align-items: center;
+.ended-tip {
   margin-top: 16rpx;
 }
 
-.check-box {
-  width: 36rpx;
-  height: 36rpx;
-  border: 2rpx solid #ccc;
-  border-radius: 6rpx;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.checked {
-  background: #2979ff;
-  border-color: #2979ff;
+.ended-tip-text {
+  font-size: 22rpx;
+  color: #999;
+  line-height: 1.5;
 }
 
 /* 佐证材料 */
@@ -1556,8 +1987,15 @@ export default {
   z-index: 10;
 }
 
+.btn-row {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+}
+
 .submit-btn {
-  width: 100%;
+  flex: 1;
+  min-width: 0;
   background: #2979ff;
   color: #fff;
   font-size: 30rpx;
@@ -1565,6 +2003,81 @@ export default {
   height: 80rpx;
   line-height: 80rpx;
   text-align: center;
+}
+
+.end-btn {
+  flex: 0 0 34%;
+  background: #18bc37;
+  color: #fff;
+  font-size: 28rpx;
+  border-radius: 12rpx;
+  height: 80rpx;
+  line-height: 80rpx;
+  text-align: center;
+}
+
+/* ===== 高危上报闭环 ===== */
+.report-card {
+  margin: 16rpx 24rpx 0;
+  padding: 24rpx;
+  background: #fff;
+  border-left: 6rpx solid #f56c6c;
+  border-radius: 12rpx;
+}
+
+.rc-head {
+  display: flex;
+  flex-direction: column;
+}
+
+.rc-title {
+  font-size: 28rpx;
+  font-weight: bold;
+  color: #f56c6c;
+}
+
+.rc-names {
+  margin-top: 8rpx;
+  font-size: 24rpx;
+  color: #666;
+  line-height: 1.5;
+  word-break: break-all;
+}
+
+.rc-textarea {
+  width: 100%;
+  min-height: 140rpx;
+  margin-top: 16rpx;
+  padding: 16rpx;
+  background: #f5f6f7;
+  border-radius: 8rpx;
+  font-size: 26rpx;
+  box-sizing: border-box;
+}
+
+.rc-btn {
+  margin-top: 16rpx;
+  background: #f56c6c;
+  color: #fff;
+  font-size: 28rpx;
+  border-radius: 12rpx;
+  height: 80rpx;
+  line-height: 80rpx;
+  text-align: center;
+}
+
+.rc-handled {
+  margin-top: 16rpx;
+  padding: 16rpx;
+  background: #f0f9eb;
+  border-radius: 8rpx;
+}
+
+.rc-handled-text {
+  font-size: 24rpx;
+  color: #529365;
+  line-height: 1.6;
+  white-space: pre-line;
 }
 
 /* ===== 只读与归属 ===== */

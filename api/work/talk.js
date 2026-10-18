@@ -129,3 +129,53 @@ export function revokeTalkShare(talkId, toTeacherId) {
     method: 'delete'
   })
 }
+
+// 结束谈话：走独立路由，服务端校验「已有谈话内容 + 重点/高危学生都有跟进计划」并闭环待办
+export function endTalk(id) {
+  return request({
+    url: '/api/talk/end/' + id,
+    method: 'put'
+  })
+}
+
+// 八必谈覆盖率：八类逐条返回，未开展的类别也给 0
+export function getSceneCoverage(query) {
+  return request({
+    url: '/api/talk/sceneCoverage',
+    method: 'get',
+    params: query
+  })
+}
+
+// 到期未跟进的重点/高危学生
+export function getDueFollowUp() {
+  return request({
+    url: '/api/talk/dueFollowUp',
+    method: 'get'
+  })
+}
+
+// 一人一档：某学生的全部谈话轮次与跟进状态
+export function getStudentTalkProfile(xh) {
+  return request({
+    url: '/api/talk/studentProfile/' + xh,
+    method: 'get'
+  })
+}
+
+// 谈话附件清单（此前 add.vue 引用了本函数但文件里从未导出，移动端详情的附件一直静默加载不出）
+export function getTalkAttachments(talkId) {
+  return request({
+    url: '/stumanage/talk/attachment/' + talkId,
+    method: 'get'
+  })
+}
+
+// 学院接手处置高危上报（权限 stumanage:talk:report 收口，走管理端路由）
+export function handleRiskReport(talkId, handleRemark) {
+  return request({
+    url: '/stumanage/talk/riskReport/handle',
+    method: 'put',
+    data: { talkId, handleRemark }
+  })
+}

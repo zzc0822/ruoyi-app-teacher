@@ -194,6 +194,7 @@
 import { getClassCheck, confirmClassCheck } from '@/api/work/classcheck'
 import { getClassStudents } from '@/api/work/classcheck'
 import { listLeave } from '@/api/work/leave'
+import { enqueueRequest, isNetworkFailure } from '@/utils/offlineQueue'
 
 export default {
   data() {
@@ -428,8 +429,25 @@ export default {
         setTimeout(() => {
           uni.navigateBack()
         }, 1500)
-      }).catch(err => {
-        uni.showToast({ title: '提交失败', icon: 'none' })
+      }).catch(async err => {
+        if (isNetworkFailure(err)) {
+          const result = await enqueueRequest({
+            businessType: 'classcheck_confirm',
+            title: '查课确认：' + (this.checkInfo.bjmc || this.checkInfo.bjdm),
+            request: {
+              url: '/api/classcheck/confirm',
+              method: 'put',
+              data
+            }
+          })
+          uni.showToast({
+            title: result.duplicate ? '已在待同步队列' : '网络较弱，已加入待同步',
+            icon: 'none'
+          })
+          setTimeout(() => uni.navigateBack(), 1200)
+        } else {
+          uni.showToast({ title: '提交失败', icon: 'none' })
+        }
       }).finally(() => {
         this.submitting = false
       })

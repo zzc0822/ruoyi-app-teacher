@@ -1,3 +1,5 @@
+import config from '@/config'
+
 /**
 * 显示消息提示框
 * @param content 提示的标题
@@ -160,4 +162,16 @@ export function getClassShortName(className) {
   }
   // 无法匹配则返回原名
   return className
+}
+
+/**
+ * 附件相对路径 → 可访问的完整URL
+ * 库里存的可能是 /upload/... 也可能是 /profile/upload/...（两端上传存法不同），
+ * 按前缀归一，避免拼出 baseUrl + /profile + /profile/... 这种双前缀404
+ */
+export function attachmentUrl(path) {
+  if (!path) return ''
+  if (path.indexOf('http') === 0) return path
+  const rel = path.indexOf('/profile') === 0 ? path.substring(8) : path
+  return config.baseUrl + '/profile' + rel
 }

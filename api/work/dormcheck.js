@@ -11,6 +11,8 @@ import request from '@/utils/request'
  *  night    = 晚寝点名（人在不在：在寝/未归/晚归/请假/外宿），表 fd_dorm_night_check
  *  check    = 内务卫生与安全记分（扣分项挂照片、违禁品、整改），表 dorm_check_*
  * 点名线不记违纪：现场发现违禁品等问题走 check/整改线登记。
+ * 点名时可以在每张床上顺手标内务（等级+问题项+照片），但那是**轻标记只留痕**，
+ * 不产生分数；问题项候选借用 check 线的 hygiene 标准，记分与整改仍归 check 线。
  */
 
 /* ==================== 宿舍索引与在住名单 ==================== */
@@ -75,6 +77,23 @@ export function getNightRoster(roomIds, checkDate) {
   })
 }
 
+// 获取后端随机下发的指定手势：15分钟内有效，一张点名单只能使用一次
+export function getNightGestureChallenge() {
+  return request({
+    url: '/api/teacher/dorm/night/gestureChallenge',
+    method: 'post'
+  })
+}
+
+// 按本次点名房间所属楼栋校验 GPS 是否在允许范围内
+export function verifyNightLocation(data) {
+  return request({
+    url: '/api/teacher/dorm/night/location/verify',
+    method: 'post',
+    data: data
+  })
+}
+
 // 新建点名单：detailList 每项 { roomId, roomNo, bedNo, xh, studentName, bjdm, checkStatus, leaveId }
 export function addNightCheck(data) {
   return request({
@@ -99,6 +118,15 @@ export function returnLateNightCheck(data) {
     url: '/api/teacher/dorm/night/returnLate',
     method: 'post',
     data: data
+  })
+}
+
+// 内务问题项候选：点名线标内务时借用的「内务卫生」启用标准（category=hygiene，只留痕不计分）
+export function listHouseworkItems() {
+  return request({
+    url: '/api/teacher/dorm/check/item/enabled',
+    method: 'get',
+    params: { category: 'hygiene' }
   })
 }
 

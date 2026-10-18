@@ -2,7 +2,7 @@
   <view class="rectify-page">
     <view class="line-bar">
       <view class="line-item" @click="goNight">
-        <text class="line-name">晚寝点名</text>
+        <text class="line-name">夜间考勤</text>
         <text class="line-desc">人在不在</text>
       </view>
       <view class="line-item active">

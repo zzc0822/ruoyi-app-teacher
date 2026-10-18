@@ -104,6 +104,7 @@ import { getOffcampus, verifyOffcampus, getOffcampusHistory, getOffcampusAttenda
 import { mergePhotoFields } from '@/utils/image'
 import { getDicts } from '@/api/system/dict/data'
 import verifyCapture from '@/components/verify-capture/index.vue'
+import { enqueueRequest, isNetworkFailure } from '@/utils/offlineQueue'
 
 export default {
   components: { verifyCapture },
@@ -230,7 +231,29 @@ export default {
               setTimeout(() => uni.navigateBack(), 1500)
             }
           } catch (e) {
-            uni.showToast({ title: '操作失败', icon: 'none' })
+            if (isNetworkFailure(e)) {
+              const result = await enqueueRequest({
+                businessType: 'offcampus_verify',
+                title: '外宿核实：' + (this.detail.studentName || this.detail.xh),
+                request: {
+                  url: '/api/offcampus/verify',
+                  method: 'put',
+                  data: {
+                    id: this.id,
+                    verifyStatus: status,
+                    verifyPhotos: JSON.stringify(this.verifyPhotoList),
+                    verifyRemark: this.verifyRemark
+                  }
+                }
+              })
+              uni.showToast({
+                title: result.duplicate ? '已在待同步队列' : '网络较弱，已加入待同步',
+                icon: 'none'
+              })
+              setTimeout(() => uni.navigateBack(), 1200)
+            } else {
+              uni.showToast({ title: '操作失败', icon: 'none' })
+            }
           }
         }
       })

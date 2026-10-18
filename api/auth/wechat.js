@@ -28,16 +28,6 @@ export function unbindWx() {
   })
 }
 
-// 学生绑定登录
-export function studentBindLogin(code, studentNo) {
-  return request({
-    url: '/api/auth/studentBindLogin',
-    headers: { isToken: false },
-    method: 'post',
-    data: { code, studentNo }
-  })
-}
-
 // 手机号快捷登录
 export function phoneLogin(phoneCode, loginCode) {
   return request({

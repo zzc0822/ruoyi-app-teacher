@@ -213,7 +213,11 @@ export default {
     },
     canApprove() {
       if (this.detail.verifyStatus !== 'verified') return false
-      return this.detail.status === 'counselor_approved' || this.detail.status === 'secretary_approved'
+      const roles = this.$store.getters.roles || []
+      if (roles.includes('admin')) return true
+      if (this.detail.status === 'counselor_approved') return roles.includes('secretary')
+      if (this.detail.status === 'secretary_approved') return roles.includes('student_affairs')
+      return false
     },
     getStatusClass() {
       if (this.detail.status === 'rejected') return 'rejected'
@@ -275,10 +279,7 @@ export default {
         success: async (modalRes) => {
           if (!modalRes.confirm) return
           try {
-            const data = { id: this.detail.id }
-            if (action === 'rejected') {
-              data.status = 'rejected'
-            }
+            const data = { id: this.detail.id, status: action }
             // 根据当前状态决定传哪个意见字段
             if (this.detail.status === 'counselor_approved') {
               data.secretaryOpinion = this.approvalOpinion

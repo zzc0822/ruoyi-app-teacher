@@ -40,6 +40,15 @@ export function updateClassCheck(data) {
   })
 }
 
+// 确认抽查结果
+export function confirmClassCheck(data) {
+  return request({
+    url: '/api/classcheck/confirm',
+    method: 'put',
+    data: data
+  })
+}
+
 // 获取班级学生列表
 export function getClassStudents(bjdm) {
   return request({

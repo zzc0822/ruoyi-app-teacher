@@ -21,13 +21,50 @@
           </view>
           <view class="stats-item">
             <text class="stats-num green">{{ stats.completed || 0 }}</text>
-            <text class="stats-label">已完成</text>
+            <text class="stats-label">已结束</text>
           </view>
         </view>
       </view>
       <view class="add-btn-col" @click="goAdd">
         <uni-icons type="plusempty" size="28" color="#fff"></uni-icons>
         <text class="add-btn-label">新增</text>
+      </view>
+    </view>
+
+    <!-- 八必谈覆盖率：图例即筛选器，点类别只看该类 -->
+    <view class="scene-card" v-if="sceneCoverage.length > 0">
+      <scroll-view scroll-x class="scene-scroll" :show-scrollbar="false">
+        <view class="scene-row">
+          <view v-for="sc in sceneCoverage" :key="sc.requiredScene"
+                :class="['scene-item', filterScene === sc.requiredScene ? 'scene-active' : '']"
+                @click="toggleSceneFilter(sc.requiredScene)">
+            <view class="scene-head">
+              <text class="scene-name">{{ sc.sceneLabel }}</text>
+              <text class="scene-risk" v-if="Number(sc.unreported) > 0">{{ sc.unreported }} 未闭环</text>
+            </view>
+            <view class="scene-body">
+              <text class="scene-num">{{ sc.covered || 0 }}</text>
+              <text class="scene-unit">人</text>
+            </view>
+          </view>
+        </view>
+      </scroll-view>
+      <text class="scene-tip" v-if="filterScene">只看「{{ sceneLabelOf(filterScene) }}」的台账，再点一次取消</text>
+      <text class="scene-tip" v-else>已谈人数按本人所记台账统计 · 八类都要覆盖</text>
+    </view>
+
+    <!-- 到期未跟进：重点/高危学生的下次跟进时间已到 -->
+    <view class="due-card" v-if="dueList.length > 0">
+      <view class="due-head">
+        <text class="due-title">{{ dueList.length }} 名学生到期未跟进</text>
+        <text class="due-toggle" v-if="dueList.length > 3" @click="showAllDue = !showAllDue">{{ showAllDue ? '收起' : '展开全部' }}</text>
+      </view>
+      <view class="due-item" v-for="(d, di) in visibleDueList" :key="d.xh + '-' + d.talkId" @click="goTalk(d.talkId)">
+        <text class="due-name">{{ d.studentName || d.xh }}</text>
+        <text class="due-scene" v-if="d.requiredScene">{{ sceneLabelOf(d.requiredScene) }}</text>
+        <text class="due-care" v-if="d.careLevel === '2'">高危</text>
+        <text class="due-date">{{ formatFollowDate(d.nextFollowDate) }} 到期</text>
+        <text class="due-go">去跟进 ›</text>
       </view>
     </view>
 
@@ -69,7 +106,7 @@
             <view class="counselor-stat-badges">
               <text class="stat-badge blue">{{ item.total || 0 }}条</text>
               <text class="stat-badge orange" v-if="item.pending">{{ item.pending }}待谈</text>
-              <text class="stat-badge green" v-if="item.completed">{{ item.completed }}完成</text>
+              <text class="stat-badge green" v-if="item.completed">{{ item.completed }}结束</text>
             </view>
           </view>
           <view class="counselor-stat-bar">
@@ -97,7 +134,7 @@
           </view>
           <view class="personal-stat-item">
             <text class="ps-num green">{{ personalStats.completed || 0 }}</text>
-            <text class="ps-label">已完成</text>
+            <text class="ps-label">已结束</text>
           </view>
         </view>
         <view class="completion-bar" v-if="(personalStats.total || 0) > 0">
@@ -113,17 +150,31 @@
 
     <!-- 筛选栏 -->
     <view class="filter-bar">
-      <view :class="['filter-btn', filterStatus === '' ? 'filter-active' : '']" @click="setFilter('')">
-        <text>全部</text>
+      <view class="filter-row">
+        <view :class="['filter-btn', filterStatus === '' ? 'filter-active' : '']" @click="setFilter('')">
+          <text>全部</text>
+        </view>
+        <view :class="['filter-btn', filterStatus === 'pending' ? 'filter-active' : '']" @click="setFilter('pending')">
+          <text>待谈话</text>
+        </view>
+        <view :class="['filter-btn', filterStatus === 'ongoing' ? 'filter-active' : '']" @click="setFilter('ongoing')">
+          <text>进行中</text>
+        </view>
+        <view :class="['filter-btn', filterStatus === 'completed' ? 'filter-active' : '']" @click="setFilter('completed')">
+          <text>已结束</text>
+        </view>
       </view>
-      <view :class="['filter-btn', filterStatus === 'pending' ? 'filter-active' : '']" @click="setFilter('pending')">
-        <text>待谈话</text>
-      </view>
-      <view :class="['filter-btn', filterStatus === 'ongoing' ? 'filter-active' : '']" @click="setFilter('ongoing')">
-        <text>进行中</text>
-      </view>
-      <view :class="['filter-btn', filterStatus === 'completed' ? 'filter-active' : '']" @click="setFilter('completed')">
-        <text>已完成</text>
+      <view class="filter-row">
+        <text class="filter-row-label">闭环</text>
+        <view :class="['filter-btn', closureFilter === '1' ? 'filter-active' : '']" @click="setClosureFilter('1')">
+          <text>重点关注</text>
+        </view>
+        <view :class="['filter-btn', closureFilter === '2' ? 'filter-active' : '']" @click="setClosureFilter('2')">
+          <text>高危</text>
+        </view>
+        <view :class="['filter-btn', closureFilter === 'overdue' ? 'filter-active' : '']" @click="setClosureFilter('overdue')">
+          <text>已超期</text>
+        </view>
       </view>
     </view>
 
@@ -152,6 +203,12 @@
           <view class="item-detail" v-if="item.talkType">
             <text class="item-types">📋 {{ formatTalkTypes(item.talkType) }}</text>
           </view>
+          <!-- 八必谈标注：情形 + 最高关注等级 + 高危未闭环 -->
+          <view class="item-annot" v-if="annotOf(item).scenes.length || annotOf(item).care || annotOf(item).pending">
+            <text class="annot-scene" v-for="(sc, si) in annotOf(item).scenes" :key="si">{{ sc }}</text>
+            <text :class="['annot-care', 'care-' + annotOf(item).care]" v-if="annotOf(item).care">{{ careLabelOf(annotOf(item).care) }}</text>
+            <text class="annot-pending" v-if="annotOf(item).pending">{{ annotOf(item).pending }} 高危未闭环</text>
+          </view>
           <view class="item-bottom">
             <text class="item-deadline" v-if="item.deadline && item.talkStatus !== 'completed'">
               截止：{{ formatDeadline(item.deadline) }}
@@ -163,7 +220,7 @@
           <!-- 附件缩略图 -->
           <view class="item-attach-list" v-if="item.attachmentList && item.attachmentList.length > 0" @click.stop>
             <view class="attach-thumb-wrap" v-for="(att, ai) in item.attachmentList.filter(a => a.mediaType === 'image').slice(0, 3)" :key="ai" @click="previewPhoto(item.attachmentList, ai)">
-              <image :src="baseUrl + '/profile' + att.filePath" mode="aspectFill" class="attach-thumb"></image>
+              <image :src="attachmentUrl(att.filePath)" mode="aspectFill" class="attach-thumb"></image>
             </view>
             <view class="attach-file-tag" v-if="item.attachmentList.some(a => a.mediaType !== 'image')">
               <text>{{ item.attachmentList.filter(a => a.mediaType !== 'image').length }}个文件</text>
@@ -177,9 +234,11 @@
 </template>
 
 <script>
-import { listTalk, getPendingTalks } from '@/api/work/talk'
+import { listTalk, getPendingTalks, getSceneCoverage, getDueFollowUp } from '@/api/work/talk'
 import { getModuleOverview, getModuleStatsByCounselor } from '@/api/student/moduleStats'
 import { isSecretary } from '@/utils/role'
+import { attachmentUrl, parseTime } from '@/utils/common'
+import { getTalkDicts, dictLabel } from '@/utils/talkDict'
 import config from '@/config'
 
 export default {
@@ -193,6 +252,12 @@ export default {
       pendingList: [],
       showPending: true,
       filterStatus: '',
+      filterScene: '',
+      closureFilter: '',
+      sceneCoverage: [],
+      dueList: [],
+      showAllDue: false,
+      dicts: { talk_type: [], talk_required_scene: [], talk_care_level: [] },
       stats: { total: 0, pending: 0, ongoing: 0, completed: 0 },
       isSecretaryRole: false,
       showStatsOverview: true,
@@ -205,10 +270,14 @@ export default {
       const total = this.personalStats.total || 0
       const completed = this.personalStats.completed || 0
       return total > 0 ? Math.round((completed / total) * 100) : 0
+    },
+    visibleDueList() {
+      return this.showAllDue ? this.dueList : this.dueList.slice(0, 3)
     }
   },
   onLoad() {
     this.checkRole()
+    this.loadDicts()
     this.getList()
     this.getPending()
   },
@@ -228,6 +297,16 @@ export default {
     uni.$off('refreshTalkList', this.refreshList)
   },
   methods: {
+    attachmentUrl,
+    loadDicts() {
+      getTalkDicts().then(d => { this.dicts = d })
+    },
+    sceneLabelOf(val) {
+      return dictLabel(this.dicts, 'talk_required_scene', val)
+    },
+    careLabelOf(val) {
+      return dictLabel(this.dicts, 'talk_care_level', val)
+    },
     checkRole() {
       let roles = []
       try { roles = uni.getStorageSync('user_roles') || [] } catch (e) {}
@@ -271,6 +350,16 @@ export default {
       if (this.filterStatus) {
         params.talkStatus = this.filterStatus
       }
+      if (this.filterScene) {
+        params.requiredScene = this.filterScene
+      }
+      const extra = {}
+      if (this.closureFilter === 'overdue') {
+        extra.overdueOnly = '1'
+      } else if (this.closureFilter) {
+        params.careLevel = this.closureFilter
+      }
+      params.params = extra
       listTalk(params).then(res => {
         const rows = res.rows || []
         if (this.queryParam.pageNum === 1) {
@@ -283,6 +372,29 @@ export default {
         // 获取统计数据（从后端）
         this.loadStats()
       }).catch(() => { this.loadStatus = 'more' })
+      this.loadOverview()
+    },
+    // 覆盖率与到期提醒独立取，列表分页/筛选不影响「哪一类还没谈」
+    loadOverview() {
+      getSceneCoverage().then(res => {
+        this.sceneCoverage = res.data || []
+      }).catch(() => {})
+      getDueFollowUp().then(res => {
+        this.dueList = res.data || []
+      }).catch(() => {})
+    },
+    annotOf(item) {
+      const scenes = (item.sceneSummary || '').split(',').filter(Boolean).map(v => this.sceneLabelOf(v))
+      const list = item.studentList || []
+      let pending = Number(item.riskPendingCount || 0)
+      if (!pending && list.length) {
+        pending = list.filter(s => s.careLevel === '2' && s.reportStatus !== '2').length
+      }
+      const care = item.careLevelTop && item.careLevelTop !== '0' ? item.careLevelTop : ''
+      return { scenes, care, pending }
+    },
+    formatFollowDate(value) {
+      return value ? parseTime(value, '{m}-{d}') : ''
     },
     loadStats() {
       if (this.personalStats && this.personalStats.total) {
@@ -311,18 +423,32 @@ export default {
       this.queryParam.pageNum = 1
       this.getList()
     },
+    toggleSceneFilter(scene) {
+      this.filterScene = this.filterScene === scene ? '' : scene
+      this.queryParam.pageNum = 1
+      this.getList()
+    },
+    setClosureFilter(val) {
+      this.closureFilter = this.closureFilter === val ? '' : val
+      this.queryParam.pageNum = 1
+      this.getList()
+    },
     goAdd() {
       uni.navigateTo({ url: '/pages/sub-work/talk/add' })
     },
     goDetail(item) {
       uni.navigateTo({ url: '/pages/sub-work/talk/add?id=' + item.id })
     },
+    goTalk(talkId) {
+      if (!talkId) return
+      uni.navigateTo({ url: '/pages/sub-work/talk/add?id=' + talkId })
+    },
     formatTalkCategory(val) {
       const map = { daily: '日常谈心', disciplinary: '违纪谈话' }
       return map[val] || val || '日常谈心'
     },
     formatStatus(val) {
-      const map = { pending: '待谈话', ongoing: '进行中', completed: '已完成' }
+      const map = { pending: '待谈话', ongoing: '进行中', completed: '已结束' }
       return map[val] || '待谈话'
     },
     formatUrgency(val) {
@@ -331,8 +457,7 @@ export default {
     },
     formatTalkTypes(val) {
       if (!val) return ''
-      const map = { ideological: '思想动态', psychological: '心理健康', academic: '学业指导', career: '就业指导', life: '生活关怀', discipline: '纪律教育', other: '其他' }
-      return val.split(',').map(v => map[v] || v).join('、')
+      return val.split(',').map(v => dictLabel(this.dicts, 'talk_type', v)).join('、')
     },
     formatTime(val) {
       if (!val) return ''
@@ -346,8 +471,8 @@ export default {
     },
     previewPhoto(attachmentList, index) {
       const imageList = attachmentList.filter(a => a.mediaType === 'image')
-      const urls = imageList.map(a => this.baseUrl + '/profile' + a.filePath)
-      const currentUrl = imageList[index] ? (this.baseUrl + '/profile' + imageList[index].filePath) : urls[0]
+      const urls = imageList.map(a => attachmentUrl(a.filePath))
+      const currentUrl = imageList[index] ? attachmentUrl(imageList[index].filePath) : urls[0]
       uni.previewImage({
         current: currentUrl,
         urls: urls
@@ -432,6 +557,155 @@ export default {
   font-size: 22rpx;
   color: #fff;
   font-weight: 500;
+}
+
+/* ===== 八必谈覆盖率 ===== */
+.scene-card {
+  margin: 16rpx 20rpx 0;
+  background: #fff;
+  border-radius: 16rpx;
+  padding: 16rpx 0 12rpx;
+}
+
+.scene-scroll {
+  white-space: nowrap;
+}
+
+.scene-row {
+  display: inline-flex;
+  padding: 0 20rpx;
+  gap: 12rpx;
+}
+
+.scene-item {
+  width: 168rpx;
+  flex-shrink: 0;
+  padding: 12rpx 16rpx;
+  background: #f7f8fa;
+  border: 1rpx solid #eee;
+  border-radius: 12rpx;
+}
+
+.scene-active {
+  background: #eaf3ff;
+  border-color: #2979ff;
+}
+
+.scene-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8rpx;
+}
+
+.scene-name {
+  font-size: 22rpx;
+  color: #666;
+  white-space: nowrap;
+}
+
+.scene-risk {
+  font-size: 18rpx;
+  color: #e43d33;
+  background: #ffebee;
+  border-radius: 4rpx;
+  padding: 0 6rpx;
+  white-space: nowrap;
+}
+
+.scene-body {
+  display: flex;
+  align-items: baseline;
+  gap: 4rpx;
+  margin-top: 6rpx;
+}
+
+.scene-num {
+  font-size: 34rpx;
+  font-weight: bold;
+  color: #333;
+}
+
+.scene-unit {
+  font-size: 20rpx;
+  color: #999;
+}
+
+.scene-tip {
+  display: block;
+  padding: 10rpx 20rpx 0;
+  font-size: 20rpx;
+  color: #bbb;
+}
+
+/* ===== 到期未跟进 ===== */
+.due-card {
+  margin: 16rpx 20rpx 0;
+  background: #fff8f8;
+  border: 1rpx solid #fde2e2;
+  border-radius: 16rpx;
+  padding: 16rpx 20rpx;
+}
+
+.due-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.due-title {
+  font-size: 26rpx;
+  font-weight: bold;
+  color: #e43d33;
+}
+
+.due-toggle {
+  font-size: 22rpx;
+  color: #2979ff;
+}
+
+.due-item {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  padding: 12rpx 0 0;
+  border-bottom: 1rpx solid #fbeaea;
+}
+
+.due-item:last-child {
+  border-bottom: none;
+}
+
+.due-name {
+  font-size: 26rpx;
+  color: #333;
+  font-weight: 500;
+}
+
+.due-scene,
+.due-care {
+  font-size: 20rpx;
+  padding: 2rpx 8rpx;
+  border-radius: 4rpx;
+  background: #f0f0f0;
+  color: #666;
+}
+
+.due-care {
+  background: #ffebee;
+  color: #e43d33;
+}
+
+.due-date {
+  font-size: 22rpx;
+  color: #e07e1c;
+  margin-left: auto;
+}
+
+.due-go {
+  font-size: 22rpx;
+  color: #2979ff;
+  flex-shrink: 0;
 }
 
 /* ===== 待谈话 ===== */
@@ -527,9 +801,26 @@ export default {
 
 /* ===== 筛选栏 ===== */
 .filter-bar {
-  display: flex;
-  gap: 16rpx;
   padding: 20rpx 20rpx 10rpx;
+}
+
+.filter-row {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  flex-wrap: wrap;
+}
+
+.filter-row + .filter-row {
+  margin-top: 12rpx;
+  padding-top: 12rpx;
+  border-top: 1rpx solid #eee;
+}
+
+.filter-row-label {
+  font-size: 22rpx;
+  color: #bbb;
+  flex-shrink: 0;
 }
 
 .filter-btn {
@@ -639,6 +930,36 @@ export default {
 .item-types {
   font-size: 24rpx;
   color: #666;
+}
+
+.item-annot {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8rpx;
+  margin-bottom: 8rpx;
+}
+
+.annot-scene {
+  font-size: 20rpx;
+  color: #00838f;
+  background: #e0f7fa;
+  padding: 2rpx 10rpx;
+  border-radius: 6rpx;
+}
+
+.annot-care {
+  font-size: 20rpx;
+  padding: 2rpx 10rpx;
+  border-radius: 6rpx;
+}
+
+.annot-care.care-1 { color: #e07e1c; background: #fef3e2; }
+.annot-care.care-2 { color: #e43d33; background: #ffebee; }
+
+.annot-pending {
+  font-size: 20rpx;
+  color: #e43d33;
 }
 
 .item-bottom {

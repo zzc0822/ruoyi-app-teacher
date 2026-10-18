@@ -18,9 +18,40 @@
         <view class="stat-item"><text class="stat-num blue">{{ detail.leaveCount || 0 }}</text><text class="stat-label">请假</text></view>
         <view class="stat-item"><text class="stat-num gray">{{ detail.offcampusCount || 0 }}</text><text class="stat-label">外宿</text></view>
       </view>
-      <view class="stat-sub" v-if="detail.violationCount">
-        <text class="sub-chip purple">违纪 {{ detail.violationCount }}（存量记录，现由「整改复核」跟踪）</text>
+      <view class="stat-sub" v-if="detail.violationCount || detail.houseworkCount">
+        <text class="sub-chip purple" v-if="detail.violationCount">违纪 {{ detail.violationCount }}（存量记录，现由「整改复核」跟踪）</text>
+        <text class="sub-chip teal" v-if="detail.houseworkCount">内务问题 {{ detail.houseworkCount }}（现场轻标记，不计分）</text>
       </view>
+    </view>
+
+    <view class="evidence-card" v-if="detail.attendanceMode">
+      <view class="evidence-head">
+        <text class="evidence-title">夜间考勤凭证</text>
+        <text class="verify-pill" :class="detail.verifyStatus || 'not_required'">{{ verifyStatusText(detail.verifyStatus) }}</text>
+      </view>
+      <view class="evidence-row">
+        <text class="evidence-label">考勤方式</text>
+        <text class="evidence-value">{{ attendanceModeText(detail.attendanceMode) }}</text>
+      </view>
+      <view class="evidence-row" v-if="detail.checkLatitude != null">
+        <text class="evidence-label">现场定位</text>
+        <text class="evidence-value">
+          {{ detail.locationVerified === '1' ? '楼栋范围校验通过' : '未通过' }}
+          <text v-if="detail.checkDistance != null"> · 距楼栋 {{ detail.checkDistance }}m</text>
+        </text>
+      </view>
+      <view class="evidence-row" v-if="detail.checkAddress">
+        <text class="evidence-label">定位地址</text>
+        <text class="evidence-value">{{ detail.checkAddress }}</text>
+      </view>
+      <view class="evidence-row" v-if="detail.gestureLabel">
+        <text class="evidence-label">指定手势</text>
+        <text class="evidence-value">{{ detail.gestureLabel }}</text>
+      </view>
+      <view class="gesture-photo-wrap" v-if="detail.gesturePhoto">
+        <image class="gesture-photo" :src="fullUrl(detail.gesturePhoto)" mode="aspectFill" @click="previewGesture" />
+      </view>
+      <view class="evidence-message" v-if="detail.verifyMessage">{{ detail.verifyMessage }}</view>
     </view>
 
     <view class="room-group" v-for="g in roomGroups" :key="g.roomNo">
@@ -40,6 +71,14 @@
           <text class="return-tag" v-if="row.returnTime">归寝 {{ fmtHHmm(row.returnTime) }}</text>
           <text class="violation-tag" v-if="row.violationType">原记违纪·{{ row.violationType }}</text>
           <text class="row-op" v-if="canReturnLate(row)" @click="openReturnLate(row)">补归</text>
+        </view>
+        <view class="hw-line" v-if="hasHousework(row)">
+          <text class="hw-tag" :class="'hw-' + (row.houseworkLevel || 'none')">{{ houseworkText(row.houseworkLevel) }}</text>
+          <text class="hw-text" v-if="houseworkItemText(row)">{{ houseworkItemText(row) }}</text>
+          <text class="hw-text" v-if="row.remark">{{ row.remark }}</text>
+        </view>
+        <view class="hw-photos" v-if="houseworkPhotos(row).length">
+          <image class="hw-thumb" v-for="(ph, pi) in houseworkPhotos(row)" :key="pi" :src="ph" mode="aspectFill" @click="previewHousework(row, pi)" />
         </view>
       </view>
     </view>
@@ -82,6 +121,7 @@
 
 <script>
 import { getNightCheck, returnLateNightCheck } from '@/api/work/dormcheck'
+import config from '@/config'
 
 function pad(n) { return String(n).padStart(2, '0') }
 function ymd(date) {
@@ -146,8 +186,55 @@ export default {
       const map = { present: '在寝', absent: '未归', late: '晚归', leave: '请假', offcampus: '外宿', violation: '违纪' }
       return map[value] || value
     },
+    attendanceModeText(value) {
+      const map = {
+        onsite: '现场逐床点名',
+        location: '楼栋定位点名',
+        gesture: '指定手势照片',
+        location_gesture: '楼栋定位 + 指定手势照片'
+      }
+      return map[value] || value || '-'
+    },
+    verifyStatusText(value) {
+      const map = { not_required: '无需核验', pending: '待核验', verified: '已核验', failed: '核验失败' }
+      return map[value] || '待核验'
+    },
+    fullUrl(path) {
+      if (!path) return ''
+      if (path.indexOf('http') === 0) return path
+      return config.baseUrl + (path.indexOf('/profile') === 0 ? path : '/profile' + path)
+    },
+    previewGesture() {
+      if (!this.detail.gesturePhoto) return
+      uni.previewImage({ current: 0, urls: [this.fullUrl(this.detail.gesturePhoto)] })
+    },
     unmarkedOf(g) {
       return g.rows.filter(row => !row.checkStatus).length
+    },
+    /** 内务是现场轻标记：只留痕不计分，回显时等级/问题项/备注任一有值即显示 */
+    hasHousework(row) {
+      return !!(row.houseworkLevel || row.houseworkItems || row.remark)
+    },
+    houseworkText(value) {
+      if (!value) return '已标内务'
+      const map = { tidy: '内务整洁', normal: '内务一般', messy: '内务凌乱' }
+      return map[value] || value
+    },
+    houseworkItemText(row) {
+      if (!row.houseworkItems) return ''
+      return row.houseworkItems.split(',').filter(x => x).join('、')
+    },
+    houseworkPhotos(row) {
+      if (!row.houseworkPhotos) return []
+      return row.houseworkPhotos.split(',').filter(x => x).map(x => this.houseworkFullUrl(x))
+    },
+    /** 相对路径 → 可显示地址；已是绝对地址（历史数据）原样返回。模板只能调组件方法，故不做成模块级函数 */
+    houseworkFullUrl(path) {
+      if (path.indexOf('http') === 0) return path
+      return config.baseUrl + (path.indexOf('/profile') === 0 ? path : '/profile' + path)
+    },
+    previewHousework(row, idx) {
+      uni.previewImage({ current: idx, urls: this.houseworkPhotos(row) })
     },
     /** 与后端补归窗口一致：已提交 + 未归 + 昨天或当天 */
     canReturnLate(row) {
@@ -218,6 +305,39 @@ export default {
   padding: 24rpx;
   margin-bottom: 20rpx;
 }
+.evidence-card {
+  background: #fff;
+  border-radius: 12rpx;
+  padding: 22rpx;
+  margin-bottom: 20rpx;
+}
+.evidence-head { display: flex; align-items: center; margin-bottom: 14rpx; }
+.evidence-title { font-size: 28rpx; font-weight: 600; color: #333; }
+.verify-pill {
+  margin-left: auto;
+  font-size: 20rpx;
+  padding: 4rpx 12rpx;
+  border-radius: 16rpx;
+  background: #f4f4f5;
+  color: #909399;
+}
+.verify-pill.verified { background: #e8f5e9; color: #4caf50; }
+.verify-pill.pending { background: #fdf6ec; color: #e6a23c; }
+.verify-pill.failed { background: #ffebee; color: #f44336; }
+.evidence-row { display: flex; gap: 16rpx; padding: 8rpx 0; font-size: 23rpx; line-height: 34rpx; }
+.evidence-label { flex: 0 0 120rpx; color: #999; }
+.evidence-value { flex: 1; color: #444; }
+.gesture-photo-wrap { margin-top: 10rpx; }
+.gesture-photo { width: 180rpx; height: 180rpx; border-radius: 10rpx; background: #eee; }
+.evidence-message {
+  margin-top: 12rpx;
+  padding: 12rpx 14rpx;
+  border-radius: 8rpx;
+  background: #f7f8fa;
+  font-size: 21rpx;
+  line-height: 32rpx;
+  color: #777;
+}
 .head-row { display: flex; align-items: center; gap: 12rpx; }
 .head-date { font-size: 32rpx; font-weight: 600; color: #333; }
 .head-time { font-size: 24rpx; color: #999; }
@@ -247,8 +367,9 @@ export default {
 .stat-num.gray { color: #607d8b; }
 .stat-label { font-size: 20rpx; color: #999; margin-top: 4rpx; }
 .stat-sub { margin-top: 14rpx; }
-.sub-chip { font-size: 22rpx; }
+.sub-chip { display: block; font-size: 22rpx; line-height: 34rpx; }
 .sub-chip.purple { color: #9c27b0; }
+.sub-chip.teal { color: #00897b; }
 .room-group {
   background: #fff;
   border-radius: 12rpx;
@@ -290,6 +411,20 @@ export default {
   background: #f7f8fa;
   color: #666;
 }
+.hw-line { display: flex; flex-wrap: wrap; align-items: baseline; gap: 10rpx; margin-top: 8rpx; }
+.hw-tag {
+  font-size: 22rpx;
+  padding: 4rpx 14rpx;
+  border-radius: 8rpx;
+  background: #f7f8fa;
+  color: #999;
+}
+.hw-tag.hw-tidy { background: #e0f2f1; color: #00897b; }
+.hw-tag.hw-normal { background: #fff8e1; color: #f9a825; }
+.hw-tag.hw-messy { background: #ffebee; color: #e53935; }
+.hw-text { font-size: 22rpx; color: #666; line-height: 34rpx; }
+.hw-photos { display: flex; flex-wrap: wrap; gap: 10rpx; margin-top: 10rpx; }
+.hw-thumb { width: 96rpx; height: 96rpx; border-radius: 8rpx; background: #f7f8fa; }
 .row-op {
   margin-left: auto;
   font-size: 22rpx;

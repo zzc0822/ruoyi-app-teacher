@@ -239,12 +239,12 @@
     }, {
       "path": "dormcheck/night",
       "style": {
-        "navigationBarTitleText": "晚寝点名"
+        "navigationBarTitleText": "夜间考勤"
       }
     }, {
       "path": "dormcheck/detail",
       "style": {
-        "navigationBarTitleText": "晚寝点名详情"
+        "navigationBarTitleText": "夜间考勤详情"
       }
     }, {
       "path": "dormcheck/rectify",
@@ -275,6 +275,11 @@
       "path": "schedule/index",
       "style": {
         "navigationBarTitleText": "我的课表"
+      }
+    }, {
+      "path": "schedule/free",
+      "style": {
+        "navigationBarTitleText": "无课查看"
       }
     }, {
       "path": "counselorSchedule/index",
@@ -356,6 +361,11 @@
       "path": "class-awareness/detail",
       "style": {
         "navigationBarTitleText": "答题详情"
+      }
+    }, {
+      "path": "class-awareness/competition",
+      "style": {
+        "navigationBarTitleText": "班情熟知赛事"
       }
     }, {
       "path": "case-analysis/index",

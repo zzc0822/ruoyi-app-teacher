@@ -24,6 +24,18 @@ export function getWeekInfo(date) {
 }
 
 /**
+ * 获取指定月份的校历数据（首页日历）
+ * @param {string} yearMonth - yyyy-MM
+ */
+export function getMonthCalendar(yearMonth) {
+  return request({
+    url: '/integration/calendar/monthCalendar',
+    method: 'get',
+    params: { yearMonth }
+  })
+}
+
+/**
  * 获取当天的所有班级课表（书记专用）
  * @param {number} weekday - 星期几（1-7）
  * @param {string} semester - 学期（如 2025-2026-1）
@@ -70,5 +82,18 @@ export function getActiveSchedule(checkDate) {
     url: '/stumanage/schedule/active',
     method: 'get',
     params: { checkDate }
+  })
+}
+
+/**
+ * 查询指定日期 + 节次区间内无课的班级/教师
+ * 书记：本学院班级+教师；管理员：全校；辅导员/班主任：仅本人带班班级（不含教师）
+ * @param {Object} query - { date: 'yyyy-MM-dd', startSection, endSection }
+ */
+export function getFreeSlots(query) {
+  return request({
+    url: '/api/classschedule/freeSlots',
+    method: 'get',
+    params: query
   })
 }

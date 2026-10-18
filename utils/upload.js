@@ -44,11 +44,15 @@ const upload = config => {
             })
             reject('无效的会话，或者会话已过期，请重新登录。')
           } else if (code === 500) {
-            toast(msg)
-            reject('500')
+            if (!config.silent) toast(msg)
+            reject(config.silent
+              ? { name: 'BusinessError', business: true, code, message: msg }
+              : '500')
           } else if (code !== 200) {
-            toast(msg)
-            reject(code)
+            if (!config.silent) toast(msg)
+            reject(config.silent
+              ? { name: 'BusinessError', business: true, code, message: msg }
+              : code)
           }
         },
         fail: (error) => {
@@ -60,8 +64,10 @@ const upload = config => {
           } else if (message.includes('Request failed with status code')) {
             message = '系统接口' + message.substr(message.length - 3) + '异常'
           }
-          toast(message)
-          reject(error)
+          if (!config.silent) toast(message)
+          reject(config.silent
+            ? { name: 'NetworkError', network: true, message, cause: error }
+            : error)
         }
       })
   })
@@ -81,6 +87,20 @@ export function uploadFile(filePath) {
   }).then(res => {
     const path = res.fileName || res.url || ''
     return path.indexOf('http') === 0 ? path : baseUrl + path
+  })
+}
+
+/**
+ * 指定上传接口，供离线队列重放附件时复用。
+ */
+export function uploadFileTo(url, filePath, formData, options = {}) {
+  return upload({
+    url,
+    filePath,
+    name: options.name || 'file',
+    formData,
+    silent: !!options.silent,
+    timeout: options.timeout || 20000
   })
 }
 

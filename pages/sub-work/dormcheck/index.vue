@@ -3,7 +3,7 @@
     <!-- 两条业务线入口：口径不同，分开登记 -->
     <view class="line-bar">
       <view class="line-item active">
-        <text class="line-name">晚寝点名</text>
+        <text class="line-name">夜间考勤</text>
         <text class="line-desc">人在不在</text>
       </view>
       <view class="line-item" @click="goRectify">
@@ -63,6 +63,11 @@
             <text class="count-chip gray" v-if="item.offcampusCount">外宿 {{ item.offcampusCount }}</text>
             <text class="count-chip purple" v-if="item.violationCount">违纪 {{ item.violationCount }}</text>
           </view>
+          <view class="info-row" v-if="item.attendanceMode">
+            <text class="label">考勤凭证</text>
+            <text class="value">{{ attendanceModeText(item.attendanceMode) }}</text>
+            <text class="verify-mini" :class="item.verifyStatus || 'not_required'">{{ verifyStatusText(item.verifyStatus) }}</text>
+          </view>
           <view class="info-row" v-if="item.teacherName">
             <text class="label">点名教师</text>
             <text class="value">{{ item.teacherName }}</text>
@@ -77,7 +82,7 @@
       </view>
 
       <view class="empty-tip" v-if="checkList.length === 0 && !loading">
-        <text>暂无晚寝点名记录</text>
+        <text>暂无夜间考勤记录</text>
       </view>
       <view class="loading-tip" v-if="loading">
         <text>加载中...</text>
@@ -85,7 +90,7 @@
     </scroll-view>
 
     <view class="add-btn" @click="goAdd">
-      <text class="add-btn-text">+ 现场点名</text>
+      <text class="add-btn-text">+ 发起考勤</text>
     </view>
   </view>
 </template>
@@ -184,6 +189,19 @@ export default {
       if (item.expectedCount) return item.expectedCount
       return (item.presentCount || 0) + (item.absentCount || 0) + (item.lateCount || 0) +
         (item.leaveCount || 0) + (item.offcampusCount || 0) + (item.violationCount || 0)
+    },
+    attendanceModeText(value) {
+      const map = {
+        onsite: '现场逐床',
+        location: '楼栋定位',
+        gesture: '手势照片',
+        location_gesture: '定位 + 手势'
+      }
+      return map[value] || value
+    },
+    verifyStatusText(value) {
+      const map = { not_required: '无需核验', pending: '待核验', verified: '已核验', failed: '核验失败' }
+      return map[value] || '待核验'
     },
     scopeText(item) {
       const building = item.buildingName || '未记楼栋'
@@ -328,6 +346,17 @@ export default {
 }
 .label { font-size: 24rpx; color: #999; flex-shrink: 0; }
 .value { font-size: 24rpx; color: #333; text-align: right; }
+.verify-mini {
+  margin-left: auto;
+  font-size: 19rpx;
+  padding: 2rpx 10rpx;
+  border-radius: 12rpx;
+  background: #f4f4f5;
+  color: #909399;
+}
+.verify-mini.verified { background: #e8f5e9; color: #4caf50; }
+.verify-mini.pending { background: #fdf6ec; color: #e6a23c; }
+.verify-mini.failed { background: #ffebee; color: #f44336; }
 .count-row { display: flex; flex-wrap: wrap; gap: 10rpx; margin: 8rpx 0; }
 .count-chip {
   font-size: 22rpx;

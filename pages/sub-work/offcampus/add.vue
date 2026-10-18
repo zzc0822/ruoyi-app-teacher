@@ -91,7 +91,7 @@
       </view>
       <view class="form-item">
         <text class="form-label">外宿地址 <text class="required">*</text></text>
-        <input class="form-input" v-model="form.address" placeholder="请输入外宿地址" />
+        <region-picker v-model="form.address" default-province="广东省" />
       </view>
       <view class="form-item">
         <text class="form-label">外宿理由 <text class="required">*</text></text>
@@ -150,12 +150,13 @@ import { addOffcampus, getOffcampusHistory, getOffcampusAttendance, getOffcampus
 import { listVehicle } from '@/api/affair/vehicle'
 import { uploadFile, stripBaseUrl } from '@/utils/upload'
 import studentPicker from '@/components/student-picker/index.vue'
+import regionPicker from '@/components/region-picker/region-picker.vue'
 import { getWatermarkConfig } from '@/api/work/watermark'
 import { getDicts } from '@/api/system/dict/data'
 import { getLocation, addWatermark } from '@/utils/watermark'
 
 export default {
-  components: { studentPicker },
+  components: { studentPicker, regionPicker },
   computed: {
     selectedVehicleLabel() {
       const v = this.vehicleOptions.find(v => v.value === this.form.vehicleId)

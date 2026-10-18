@@ -32,8 +32,11 @@ const request = config => {
       }).then(response => {
         let [error, res] = response
         if (error) {
-          toast('后端接口连接异常')
-          reject('后端接口连接异常')
+          const message = '后端接口连接异常'
+          if (!config.silent) toast(message)
+          reject(config.silent
+            ? { name: 'NetworkError', network: true, message }
+            : message)
           return
         }
         const code = res.data.code || 200
@@ -89,14 +92,18 @@ const request = config => {
           reject('无效的会话，或者会话已过期，请重新登录。')
           // #endif
         } else if (code === 500) {
-          toast(msg)
-          reject(msg)  // 返回后端的具体错误消息，而不是'500'
+          if (!config.silent) toast(msg)
+          reject(config.silent
+            ? { name: 'BusinessError', business: true, code, message: msg }
+            : msg)  // 返回后端的具体错误消息，而不是'500'
         } else if (code !== 200) {
           // 20001: 微信未绑定账号，静默拒绝，不弹提示
-          if (code !== 20001) {
+          if (code !== 20001 && !config.silent) {
             toast(msg)
           }
-          reject(code)
+          reject(config.silent
+            ? { name: 'BusinessError', business: true, code, message: msg }
+            : code)
         }
         resolve(res.data)
       })
@@ -109,8 +116,10 @@ const request = config => {
         } else if (message.includes('Request failed with status code')) {
           message = '系统接口' + message.slice(-3) + '异常'
         }
-        toast(message)
-        reject(error)
+        if (!config.silent) toast(message)
+        reject(config.silent
+          ? { name: 'NetworkError', network: true, message, cause: error }
+          : error)
       })
   })
 }

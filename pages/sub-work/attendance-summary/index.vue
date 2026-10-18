@@ -31,6 +31,29 @@
       </button>
     </view>
 
+    <!-- 按周考勤 -->
+    <view class="section-header">
+      <text class="section-title">按周考勤</text>
+      <text class="section-desc">每周点名与请假/旷课人数</text>
+    </view>
+    <view class="week-stats-list" v-if="weeklyStats.length > 0">
+      <view v-for="week in weeklyStats" :key="week.weekStart" class="week-stat-row">
+        <view class="week-stat-label">
+          <text class="week-stat-no">{{ week.weekNo > 0 ? '第' + week.weekNo + '周' : '当周' }}</text>
+          <text class="week-stat-date">{{ week.weekStart }}</text>
+        </view>
+        <view class="week-stat-nums">
+          <text class="wsn blue">{{ week.sessions }} 次点名</text>
+          <text class="wsn green">{{ week.present }} 出勤</text>
+          <text class="wsn orange">{{ week.leave }} 请假</text>
+          <text class="wsn red">{{ week.absent }} 旷课</text>
+        </view>
+      </view>
+    </view>
+    <view v-else-if="!loading" class="week-stats-empty">
+      <text>暂无周考勤数据</text>
+    </view>
+
     <!-- 班级列表 -->
     <view class="section-header">
       <text class="section-title">各班级考勤明细</text>
@@ -83,11 +106,14 @@
 
 <script>
 import { getTeacherClasses, getTeacherReport } from '@/api/work/rollcall'
+import { getMySchedule } from '@/api/work/schedule'
 
 export default {
   data() {
     return {
       classList: [],
+      weeklyStats: [],
+      currentWeek: 0,
       summary: {
         totalClasses: 0,
         totalChecks: 0,
@@ -106,20 +132,65 @@ export default {
     })
   },
   methods: {
+    formatDateStr(date) {
+      const y = date.getFullYear()
+      const m = String(date.getMonth() + 1).padStart(2, '0')
+      const d = String(date.getDate()).padStart(2, '0')
+      return `${y}-${m}-${d}`
+    },
+    buildWeeklyStats(rows) {
+      const now = new Date()
+      const weekday = now.getDay() === 0 ? 7 : now.getDay()
+      const currentMonday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - (weekday - 1))
+      const semesterStart = this.currentWeek > 0
+        ? new Date(currentMonday.getFullYear(), currentMonday.getMonth(), currentMonday.getDate() - (this.currentWeek - 1) * 7)
+        : null
+      const bucket = {}
+      rows.forEach(row => {
+        if (!row.checkDate) return
+        const text = String(row.checkDate).substring(0, 10)
+        const parts = text.split('-').map(Number)
+        if (parts.length < 3 || !parts[0]) return
+        const date = new Date(parts[0], parts[1] - 1, parts[2])
+        const jsDay = date.getDay() === 0 ? 7 : date.getDay()
+        const monday = new Date(date.getFullYear(), date.getMonth(), date.getDate() - (jsDay - 1))
+        const key = this.formatDateStr(monday)
+        if (!bucket[key]) {
+          bucket[key] = {
+            weekStart: key,
+            weekNo: semesterStart ? Math.floor((monday - semesterStart) / 604800000) + 1 : 0,
+            sessions: 0,
+            present: 0,
+            leave: 0,
+            absent: 0
+          }
+        }
+        bucket[key].sessions++
+        bucket[key].present += Number(row.presentCount || 0)
+        bucket[key].leave += Number(row.leaveCount || 0)
+        bucket[key].absent += Number(row.absentCount || 0)
+      })
+      this.weeklyStats = Object.values(bucket).sort((a, b) => b.weekStart.localeCompare(a.weekStart))
+    },
     async loadData() {
       this.loading = true
       try {
-        const classesRes = await getTeacherClasses()
+        const [classesRes, reportRes, scheduleRes] = await Promise.all([
+          getTeacherClasses(),
+          getTeacherReport({ pageNum: 1, pageSize: 1000 }),
+          getMySchedule().catch(() => null)
+        ])
         const classes = classesRes.data || []
-        
+        const rows = reportRes.rows || []
+        const scheduleData = (scheduleRes && scheduleRes.data) || {}
+        this.currentWeek = Number(scheduleData.currentWeek || 0)
+        this.buildWeeklyStats(rows)
+
         if (classes.length === 0) {
           this.classList = []
           this.loading = false
           return
         }
-
-        const reportRes = await getTeacherReport({ pageNum: 1, pageSize: 1000 })
-        const rows = reportRes.rows || []
 
         const classMap = {}
         classes.forEach(cls => {
@@ -233,12 +304,86 @@ export default {
 }
 
 .section-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
   padding: 20rpx 32rpx 12rpx;
 }
 .section-title {
   font-size: 28rpx;
   font-weight: 600;
   color: #333;
+}
+.section-desc {
+  font-size: 20rpx;
+  color: #94a3b8;
+}
+
+.week-stats-list {
+  padding: 0 20rpx;
+}
+.week-stat-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16rpx;
+  margin-bottom: 12rpx;
+  padding: 18rpx 22rpx;
+  border-radius: 12rpx;
+  background: #fff;
+  box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.04);
+}
+.week-stat-label {
+  display: flex;
+  flex-direction: column;
+}
+.week-stat-no {
+  font-size: 26rpx;
+  font-weight: 600;
+  color: #334155;
+}
+.week-stat-date {
+  margin-top: 4rpx;
+  font-size: 20rpx;
+  color: #94a3b8;
+}
+.week-stat-nums {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10rpx;
+}
+.wsn {
+  padding: 4rpx 10rpx;
+  border-radius: 999rpx;
+  background: #f8fafc;
+  color: #64748b;
+  font-size: 20rpx;
+
+  &.blue {
+    background: #eff6ff;
+    color: #2563eb;
+  }
+
+  &.green {
+    background: #f0fdf4;
+    color: #16a34a;
+  }
+
+  &.orange {
+    background: #fffbeb;
+    color: #d97706;
+  }
+
+  &.red {
+    background: #fef2f2;
+    color: #dc2626;
+  }
+}
+.week-stats-empty {
+  padding: 12rpx 32rpx 20rpx;
+  color: #94a3b8;
+  font-size: 22rpx;
 }
 
 .class-list {

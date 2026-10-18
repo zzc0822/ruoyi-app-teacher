@@ -178,6 +178,7 @@ import config from '@/config'
 import { isSecretary } from '@/utils/role'
 import { getWatermarkConfig } from '@/api/work/watermark'
 import { addWatermark, prepareCapture } from '@/utils/watermark'
+import { enqueueRequest, isNetworkFailure, makeClientRequestId } from '@/utils/offlineQueue'
 
 // 课节时间映射表（兜底默认值）
 const FALLBACK_TIMES = [
@@ -220,6 +221,7 @@ export default {
       editId: null,
       _explicitEdit: false, // 是否从列表点进来的编辑（区别于自动查重进入的编辑）
       submitting: false,
+      clientRequestId: '',
       photoList: [],  // [{url, thumbUrl, label, attachment: {filePath,fileName,fileSize,fileType,mediaType,exifData,sortOrder}}]
       photoLabels: ['教室前方', '教室后方', '补充照片', '补充照片'],
       // 书记角色筛选
@@ -862,6 +864,9 @@ export default {
       const userId = store.state.user.id || store.state.user.userId || ''
       const userName = store.state.user.name || store.state.user.nickName || ''
       
+      if (!existingId && !this.editId && !this.clientRequestId) {
+        this.clientRequestId = makeClientRequestId('CLASSCHECK')
+      }
       const data = {
         ...this.form,
         totalStudents: totalStudents,
@@ -878,26 +883,30 @@ export default {
         needCounselorConfirm: this.isSecretaryRole ? '1' : '0',
         attachmentList: this.photoList.map((p, i) => ({
           businessType: 'classcheck',
-          fileName: p.attachment.fileName,
-          filePath: p.attachment.filePath,
-          fileSize: p.attachment.fileSize,
-          fileType: p.attachment.fileType,
-          mediaType: p.attachment.mediaType || 'image',
-          exifData: p.attachment.exifData || '',
+          fileName: (p.attachment || {}).fileName || '',
+          filePath: (p.attachment || {}).filePath || '',
+          fileSize: (p.attachment || {}).fileSize || 0,
+          fileType: (p.attachment || {}).fileType || '',
+          mediaType: (p.attachment || {}).mediaType || 'image',
+          exifData: (p.attachment || {}).exifData || '',
           sortOrder: i + 1
-        }))
+        })),
+        clientRequestId: this.clientRequestId || undefined
       }
-      let request
+      let apiRequest
+      let method = 'post'
       if (existingId) {
         data.id = existingId
-        request = updateClassCheck(data)
+        method = 'put'
+        apiRequest = updateClassCheck(data)
       } else if (this.editId) {
         data.id = this.editId
-        request = updateClassCheck(data)
+        method = 'put'
+        apiRequest = updateClassCheck(data)
       } else {
-        request = addClassCheck(data)
+        apiRequest = addClassCheck(data)
       }
-      request.then(() => {
+      apiRequest.then(() => {
         const key = 'checkDraft_' + this.form.bjdm + '_' + this.form.checkDate + '_' + this.form.lessonNo
         uni.removeStorageSync(key)
         this.$modal.msgSuccess(existingId ? '修改成功' : '记录成功')
@@ -906,8 +915,33 @@ export default {
         uni.$emit('refreshHomeData')
         
         setTimeout(() => { uni.navigateBack() }, 800)
-      }).catch(() => {
-        this.$modal.msgError('提交失败')
+      }).catch(async error => {
+        if (isNetworkFailure(error)) {
+          const uploads = this.photoList.map((p, i) => p.pendingLocalPath ? {
+            localPath: p.pendingLocalPath,
+            uploadUrl: '/api/attachment/upload',
+            field: 'file',
+            formData: { businessType: 'classcheck', bjdm: this.form.bjdm || '' },
+            pathPrefix: 'attachmentList[' + i + ']'
+          } : null).filter(Boolean)
+          const result = await enqueueRequest({
+            businessType: method === 'put' ? 'classcheck_update' : 'classcheck_add',
+            title: '查课记录：' + (this.selectedClassName || this.form.bjdm),
+            clientRequestId: this.clientRequestId,
+            request: {
+              url: '/api/classcheck',
+              method,
+              data
+            },
+            uploads
+          })
+          const key = 'checkDraft_' + this.form.bjdm + '_' + this.form.checkDate + '_' + this.form.lessonNo
+          uni.removeStorageSync(key)
+          this.$modal.msgSuccess(result.duplicate ? '该记录已在待同步队列' : '网络较弱，已加入待同步队列')
+          setTimeout(() => uni.navigateBack(), 800)
+        } else {
+          this.$modal.msgError('提交失败')
+        }
       }).finally(() => {
         this.submitting = false
       })
@@ -1027,9 +1061,29 @@ export default {
             }
           })
         }
-      }).catch(() => {
+      }).catch(error => {
         uni.hideLoading()
-        this.$modal.msgError('照片上传失败')
+        if (isNetworkFailure(error)) {
+          const idx = this.photoList.length
+          const label = idx < this.photoLabels.length ? this.photoLabels[idx] : '补充照片'
+          this.photoList.push({
+            url: filePath,
+            thumbUrl: filePath,
+            label,
+            pendingLocalPath: filePath,
+            attachment: {
+              fileName: '',
+              filePath: '',
+              fileSize: 0,
+              fileType: '',
+              mediaType: 'image',
+              exifData: ''
+            }
+          })
+          uni.showToast({ title: '照片将在提交时同步', icon: 'none' })
+        } else {
+          this.$modal.msgError('照片上传失败')
+        }
       })
     },
     removePhoto(idx) {

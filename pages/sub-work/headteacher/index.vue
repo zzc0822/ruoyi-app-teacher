@@ -11,12 +11,13 @@
           </view>
           <text class="wl-label">{{ chapterLabel('meeting', '班会') }}</text>
         </view>
-        <view class="workload-item">
+        <!-- 谈话台账在「谈心谈话」里维护，点这一格直接过去 -->
+        <view class="workload-item" @click="goTalk">
           <view class="wl-circle" :class="talkPercent >= 100 ? 'done' : ''">
             <text class="wl-num">{{ workload.talkCompleted }}</text>
             <text class="wl-den">/{{ workload.talkRequired }}</text>
           </view>
-          <text class="wl-label">{{ chapterLabel('talk', '谈话') }}</text>
+          <text class="wl-label">{{ chapterLabel('talk', '谈心谈话') }}</text>
         </view>
         <view class="workload-item">
           <view class="wl-circle" :class="dormPercent >= 100 ? 'done' : ''">
@@ -61,6 +62,10 @@
         <view class="action-item" @click="goWorklogAdd">
           <uni-icons type="plusempty" size="28" color="#18bc37"></uni-icons>
           <text class="action-text">新增记录</text>
+        </view>
+        <view class="action-item" @click="goTalk">
+          <uni-icons type="chat-filled" size="28" color="#e43d33"></uni-icons>
+          <text class="action-text">谈心谈话</text>
         </view>
         <view class="action-item" @click="goApply">
           <uni-icons type="person" size="28" color="#f3a044"></uni-icons>
@@ -176,6 +181,11 @@ export default {
     goWorklogAdd() {
       uni.navigateTo({
         url: '/pages/sub-work/headteacher/worklog-add'
+      })
+    },
+    goTalk() {
+      uni.navigateTo({
+        url: '/pages/sub-work/talk/index'
       })
     },
     goApply() {

@@ -24,3 +24,23 @@ export function listRecords(query) {
 export function getRankList(compId) {
   return request({ url: '/counselor/class-awareness/rank/' + compId, method: 'get' })
 }
+
+// 班情熟知赛事：微信 openid 已绑定时自动识别辅导员
+export function getCompetitionSession(sessionCode) {
+  return request({ url: '/counselor/class-awareness/public/session/' + sessionCode, method: 'get', headers: { isToken: false } })
+}
+export function joinAutoSession(sessionCode) {
+  return request({ url: '/counselor/class-awareness/session/join-auto/' + sessionCode, method: 'post' })
+}
+export function getCompetitionPlayer(playerToken) {
+  return request({ url: '/counselor/class-awareness/public/player/' + playerToken, method: 'get', headers: { isToken: false } })
+}
+export function startCompetitionPlayer(playerToken) {
+  return request({ url: '/counselor/class-awareness/public/player/' + playerToken + '/start', method: 'post', headers: { isToken: false } })
+}
+export function updateCompetitionProgress(playerToken, data) {
+  return request({ url: '/counselor/class-awareness/public/player/' + playerToken + '/progress', method: 'put', params: data, headers: { isToken: false } })
+}
+export function submitCompetitionPlayer(playerToken, data) {
+  return request({ url: '/counselor/class-awareness/public/player/' + playerToken + '/submit', method: 'post', data, headers: { isToken: false } })
+}

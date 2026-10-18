@@ -608,11 +608,11 @@
             </view>
             <view class="dp-cell">
               <text class="dp-label">民族</text>
-              <text class="dp-value">{{ detailStu.nz || '-' }}</text>
+              <text class="dp-value">{{ nzText(detailStu.nz) }}</text>
             </view>
             <view class="dp-cell">
               <text class="dp-label">学籍状态</text>
-              <text class="dp-value">{{ detailStu.xjzt || '-' }}</text>
+              <text class="dp-value">{{ xjztText(detailStu.xjzt) }}</text>
             </view>
             <view class="dp-cell">
               <text class="dp-label">校区</text>
@@ -657,12 +657,16 @@ import { listStuinfo, getCollegeClassTreeByRole } from '@/api/student/stuinfo'
 import { getRoleViewConfig } from '@/utils/roleViewConfig'
 import { isSecretary } from '@/utils/role'
 import { getCollegeSummary, getStatsByMajor, getStatsByCounselor } from '@/api/student/stats'
+import { getDicts } from '@/api/system/dict/data'
 
 export default {
   data() {
     return {
       // 视图配置（从数据库加载）
       viewConfig: null,
+      // 字典选项（民族、学籍状态）
+      mzOptions: [],
+      xjztOptions: [],
       classList: [],
       activeBjdm: '',
       sidebarExpanded: true,
@@ -747,6 +751,7 @@ export default {
     }
   },
   async onLoad() {
+    this.loadStudentDicts()
     // 从数据库加载角色视图配置
     this.viewConfig = await getRoleViewConfig('stuinfo')
     
@@ -782,6 +787,26 @@ export default {
     }
   },
   methods: {
+    loadStudentDicts() {
+      getDicts('base_mz').then(res => {
+        const options = (res.data || []).map(d => ({ label: d.dictLabel, value: d.dictValue }))
+        if (options.length) this.mzOptions = options
+      }).catch(() => {})
+      getDicts('base_xj_status').then(res => {
+        const options = (res.data || []).map(d => ({ label: d.dictLabel, value: d.dictValue }))
+        if (options.length) this.xjztOptions = options
+      }).catch(() => {})
+    },
+    nzText(nz) {
+      if (!nz) return '-'
+      const hit = this.mzOptions.find(o => o.value === nz)
+      return hit ? hit.label : nz
+    },
+    xjztText(xjzt) {
+      if (!xjzt) return '-'
+      const hit = this.xjztOptions.find(o => o.value === xjzt)
+      return hit ? hit.label : xjzt
+    },
     // 截断文本，超过指定长度显示省略号
     truncateText(text, maxLength) {
       if (!text) return ''

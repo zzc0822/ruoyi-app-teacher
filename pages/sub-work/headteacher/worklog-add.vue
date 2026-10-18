@@ -71,16 +71,6 @@
           >{{ opt.label }}</view>
         </view>
 
-        <view v-else-if="f.kind === 'multiselect'" class="check-grid">
-          <view
-            class="check-item"
-            v-for="(opt, oi) in f.options"
-            :key="oi"
-            :class="{ active: troubleChecked(opt.value) }"
-            @click="toggleTrouble(opt.value)"
-          >{{ opt.label }}</view>
-        </view>
-
         <view v-else-if="f.kind === 'textarea'">
           <textarea
             class="form-textarea"
@@ -135,22 +125,6 @@ import { getMyClasses, getClassDetail, addWorklog, getWorklog, updateWorklog, ge
 import upload from '@/utils/upload'
 import config from '@/config'
 
-const CARE_OPTIONS = [
-  { value: '0', label: '否' },
-  { value: '1', label: '一般关注' },
-  { value: '2', label: '重点关注' }
-]
-const TROUBLE_OPTIONS = [
-  { value: 'relation', label: '人际关系' },
-  { value: 'study', label: '学习压力' },
-  { value: 'adapt', label: '新生适应' },
-  { value: 'emotion', label: '情绪问题' },
-  { value: 'love', label: '恋爱问题' },
-  { value: 'setback', label: '挫折应对' },
-  { value: 'career', label: '升学择业' },
-  { value: 'family', label: '家庭因素' },
-  { value: 'other', label: '其他' }
-]
 const PUNISH_OPTIONS = [
   { value: '1', label: '警告' },
   { value: '2', label: '严重警告' },
@@ -193,15 +167,6 @@ const CHAPTER_FIELDS = {
     { prop: 'participantCount', label: '参与人数', kind: 'number' },
     { prop: 'attended', label: '本人是否参加', kind: 'radio', options: YES_NO },
     { prop: 'workContent', label: '活动概况', kind: 'textarea' }
-  ],
-  talk: [
-    { prop: 'student', label: '谈话学生', kind: 'student', required: true },
-    { prop: 'workDate', label: '谈话日期', kind: 'date', required: true },
-    { prop: 'startTime', label: '开始时间', kind: 'time' },
-    { prop: 'endTime', label: '结束时间', kind: 'time' },
-    { prop: 'careLevel', label: '是否需要关注', kind: 'select', options: CARE_OPTIONS },
-    { prop: 'troubleType', label: '困扰类型', kind: 'multiselect', options: TROUBLE_OPTIONS },
-    { prop: 'workContent', label: '谈话内容', kind: 'textarea', placeholder: '谈话要点与后续跟进' }
   ],
   award: [
     { prop: 'workDate', label: '获奖时间', kind: 'date', required: true },
@@ -246,7 +211,6 @@ const CHAPTERS = [
   { value: 'meeting', label: '班会', tip: '每月至少召开1次班会' },
   { value: 'dorm', label: '宿舍走访', tip: '每月至少走访1次宿舍' },
   { value: 'activity', label: '班级活动', tip: '每学期至少开展2次班级活动' },
-  { value: 'talk', label: '学生谈话', tip: '每学期至少一次，覆盖学业/经济/人际/心理等困难学生' },
   { value: 'award', label: '获奖情况', tip: '集体或个人获奖，有事即记' },
   { value: 'summary', label: '学期总结', tip: '每学期一份；第一学期写学期总结，第二学期写学年总结' },
   { value: 'discipline', label: '学生违纪', tip: '违纪事实与处分期限，有事即记' },
@@ -263,7 +227,6 @@ export default {
       studentList: [],
       studentIndex: -1,
       studentLoading: false,
-      troubleTypes: [],
       chapters: [],
       evidenceList: [],
       evidenceLoaded: false,
@@ -280,8 +243,6 @@ export default {
         startTime: '',
         endTime: '',
         attended: '1',
-        careLevel: '0',
-        troubleType: '',
         awardScope: '0',
         awardOrg: '',
         punishLevel: '',
@@ -308,14 +269,15 @@ export default {
     },
     /** 章节目录来自班主任工作配置（学院覆盖学校），取不到才退回内置口径 */
     chapterTypes() {
-      if (this.chapters.length) {
-        return this.chapters.map(item => ({
+      const list = this.chapters.length
+        ? this.chapters.map(item => ({
           value: item.type,
           label: item.typeName || item.type,
           tip: item.frequency || ''
         }))
-      }
-      return CHAPTERS
+        : CHAPTERS
+      // 第四章谈话台账统一在「谈心谈话」登记，这里不再提供入口
+      return list.filter(item => item.value !== 'talk')
     },
     chapterMeta() {
       return this.chapterTypes.find(item => item.value === this.form.workType) || this.chapterTypes[0] || { label: '', tip: '' }
@@ -445,7 +407,6 @@ export default {
       getWorklog(id).then(res => {
         if (!res.data) return
         this.form = { ...this.form, ...res.data }
-        this.troubleTypes = (this.form.troubleType || '').split(',').filter(item => item)
         this.evidenceList = (res.data.attachmentList || []).map(att => ({
           filePath: att.filePath,
           fileName: att.fileName || '',
@@ -505,17 +466,6 @@ export default {
       if (stu) {
         this.$set(this.form, 'studentIds', stu.value)
         this.$set(this.form, 'studentNames', this.studentList[this.studentIndex].studentName)
-      }
-    },
-    troubleChecked(value) {
-      return this.troubleTypes.indexOf(value) > -1
-    },
-    toggleTrouble(value) {
-      const idx = this.troubleTypes.indexOf(value)
-      if (idx > -1) {
-        this.troubleTypes.splice(idx, 1)
-      } else {
-        this.troubleTypes.push(value)
       }
     },
     /** 需考勤的章节在正文前插入应到/实到/请假块，替换掉布局里原有的参加人数 */
@@ -626,7 +576,6 @@ export default {
       if (!this.validate()) return
       this.submitting = true
       const data = { ...this.form }
-      data.troubleType = this.troubleTypes.join(',')
       data.participantCount = this.toNumber(data.participantCount)
       data.leaveCount = this.toNumber(data.leaveCount)
       data.expectedCount = this.toNumber(data.expectedCount)
@@ -843,29 +792,6 @@ export default {
   &.active {
     background: #2979ff;
     color: #fff;
-  }
-}
-
-.check-grid {
-  display: flex;
-  flex-wrap: wrap;
-}
-
-.check-item {
-  width: 31%;
-  margin-right: 2%;
-  margin-bottom: 12rpx;
-  text-align: center;
-  padding: 12rpx 0;
-  background: #f5f6f8;
-  border-radius: 8rpx;
-  font-size: 24rpx;
-  color: #666;
-
-  &.active {
-    background: #e8f1ff;
-    color: #2979ff;
-    border: 1rpx solid #2979ff;
   }
 }
 

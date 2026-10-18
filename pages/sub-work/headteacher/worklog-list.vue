@@ -47,7 +47,7 @@ const TYPE_TEXT = {
   meeting: '班会',
   dorm: '宿舍走访',
   activity: '班级活动',
-  talk: '学生谈话',
+  talk: '谈心谈话',
   award: '获奖情况',
   summary: '学期总结',
   discipline: '学生违纪',
@@ -170,8 +170,26 @@ export default {
       })
     },
     goEdit(item) {
+      // 第四章台账已并入「谈心谈话」，历史谈话记录只留档，登记与修改都在那边做
+      if (item.workType === 'talk') {
+        this.goTalkList()
+        return
+      }
       uni.navigateTo({
         url: '/pages/sub-work/headteacher/worklog-add?id=' + item.id
+      })
+    },
+    goTalkList() {
+      uni.showModal({
+        title: '已统一到谈心谈话',
+        content: '谈话台账改在「谈心谈话」中登记与跟进，是否现在前往？',
+        confirmText: '前往',
+        cancelText: '知道了',
+        success: res => {
+          if (res.confirm) {
+            uni.navigateTo({ url: '/pages/sub-work/talk/index' })
+          }
+        }
       })
     }
   }

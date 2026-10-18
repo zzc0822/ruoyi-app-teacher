@@ -53,7 +53,7 @@
         </view>
         <view class="info-row">
           <text class="info-label">学籍状态</text>
-          <text class="info-value">{{ stu.xjzt || '-' }}</text>
+          <text class="info-value">{{ xjztText(stu.xjzt) }}</text>
         </view>
         <view class="info-row">
           <text class="info-label">学院</text>
@@ -109,7 +109,7 @@
         </view>
         <view class="info-row">
           <text class="info-label">民族</text>
-          <text class="info-value">{{ stu.nz || '-' }}</text>
+          <text class="info-value">{{ nzText(stu.nz) }}</text>
         </view>
         <view class="info-row">
           <text class="info-label">生源地</text>
@@ -170,6 +170,7 @@
 
 <script>
 import { getStuinfoDetail } from '@/api/student/stuinfo'
+import { getDicts } from '@/api/system/dict/data'
 
 export default {
   data() {
@@ -178,16 +179,39 @@ export default {
       stu: {},
       fullAccess: false,
       activeTab: 0,
-      tabs: ['基本信息', '家庭信息', '个人信息']
+      tabs: ['基本信息', '家庭信息', '个人信息'],
+      mzOptions: [],
+      xjztOptions: []
     }
   },
   onLoad(options) {
     this.xh = options.xh || ''
+    this.loadDicts()
     if (this.xh) {
       this.loadDetail()
     }
   },
   methods: {
+    loadDicts() {
+      getDicts('base_mz').then(res => {
+        const options = (res.data || []).map(d => ({ label: d.dictLabel, value: d.dictValue }))
+        if (options.length) this.mzOptions = options
+      }).catch(() => {})
+      getDicts('base_xj_status').then(res => {
+        const options = (res.data || []).map(d => ({ label: d.dictLabel, value: d.dictValue }))
+        if (options.length) this.xjztOptions = options
+      }).catch(() => {})
+    },
+    nzText(nz) {
+      if (!nz) return '-'
+      const hit = this.mzOptions.find(o => o.value === nz)
+      return hit ? hit.label : nz
+    },
+    xjztText(xjzt) {
+      if (!xjzt) return '-'
+      const hit = this.xjztOptions.find(o => o.value === xjzt)
+      return hit ? hit.label : xjzt
+    },
     loadDetail() {
       uni.showLoading({ title: '加载中' })
       getStuinfoDetail(this.xh).then(res => {

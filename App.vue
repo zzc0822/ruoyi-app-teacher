@@ -2,10 +2,15 @@
   import config from './config'
   import { getToken } from '@/utils/auth'
   import store from './store'
+  import { flushOfflineQueue, initOfflineQueue } from '@/utils/offlineQueue'
 
   export default {
     onLaunch: function() {
       this.initApp()
+      initOfflineQueue()
+    },
+    onShow: function() {
+      flushOfflineQueue()
     },
     methods: {
       // 初始化应用

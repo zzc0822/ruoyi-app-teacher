@@ -40,7 +40,7 @@ export function getClassSchedule(bjdm, date) {
  */
 export function getAdjustList(dateRange) {
   return request({
-    url: '/stumanage/schedule/adjust/list',
+    url: '/api/scheduleAdjust/list',
     method: 'get',
     params: {
       dateRange: dateRange

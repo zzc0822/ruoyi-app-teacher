@@ -1,7 +1,22 @@
 <template>
   <view class="page-container">
+    <!-- 教师侧信息全部按登录人档案回填，提交时后端再取一次，页面上只给看不给改 -->
+    <view class="info-card" v-if="me.teacherName">
+      <view class="info-head">
+        <text class="info-name">{{ me.teacherName }}</text>
+        <text class="info-tag">{{ me.jsxz || '性质未登记' }}</text>
+        <text class="info-tag" :class="me.sfzg === '1' ? 'ok' : 'bad'">{{ me.sfzg === '1' ? '在岗' : '不在岗' }}</text>
+      </view>
+      <view class="info-line" v-for="(f, fi) in meFields" :key="fi">
+        <text class="info-label">{{ f.label }}</text>
+        <text class="info-value" :class="{ dim: f.dim }">{{ f.value }}</text>
+      </view>
+      <text class="info-tip">以上信息取自登录教师档案，如需更正请到「教师档案」页修改</text>
+    </view>
+
     <view class="tips-card">
       <text class="tips-text">申请通过后由学院为您分配班级，资格有效期至 {{ qualifyTip }}</text>
+      <text class="tips-line" v-if="qual">{{ academicYearText }}已提交 {{ qual.yearCnt || 0 }} / {{ maxPerYearText }} 份{{ quotaFull ? '，已达上限' : '' }}</text>
     </view>
 
     <view class="tips-card" :class="qual && !qual.ok ? 'warn' : ''" v-if="qual">
@@ -173,10 +188,11 @@
             {{ item.expectNj ? item.expectNj + '级' : '年级不限' }} · 提交于 {{ formatDate(item.createTime) }}
           </text>
           <text class="apply-sub" v-if="item.status === '1'">
-            {{ item.assignedFlag > 0 ? '已带班：' + item.assignClassNames : '待学院分配班级' }}
+            {{ item.assignedFlag > 0 ? '已带班（' + item.assignClassNames + '）' : '待学院分配班级' }}
           </text>
+          <!-- 驳回行把审批人带在前面，教师不用点进详情也知道是谁给的意见 -->
           <text class="apply-sub danger" v-if="item.status === '2' && item.reviewRemark">
-            驳回意见：{{ item.reviewRemark }}
+            {{ (item.reviewName || item.reviewBy || '学院') }}：{{ item.reviewRemark }}
           </text>
         </view>
         <view class="apply-status" :class="statusClass(item.status)">{{ statusText(item.status) }}</view>
@@ -223,6 +239,40 @@ export default {
     }
   },
   computed: {
+    me() {
+      return (this.qual && this.qual.teacher) || {}
+    },
+    meFields() {
+      const m = this.me
+      const dash = v => (v === undefined || v === null || v === '' ? '未登记' : v)
+      const items = [
+        { label: '工号', value: dash(m.gh) },
+        { label: '所属学院', value: m.collegeName || m.xydm || '未登记' },
+        { label: '职称', value: dash(m.zcText || m.zc) },
+        { label: '学历', value: dash(m.xl) },
+        { label: '政治面貌', value: dash(m.zzmm) },
+        { label: '入职', value: dash(m.rzsj) },
+        { label: '从教', value: m.years === undefined || m.years === null ? '未知' : m.years + ' 年' }
+      ]
+      items.forEach(item => {
+        item.dim = item.value === '未登记' || item.value === '未知'
+      })
+      return items
+    },
+    maxPerYearText() {
+      const max = Number((this.qual || {}).maxPerYear)
+      return max > 0 ? max : '不限'
+    },
+    // 学年串由后端给（9月起算），前端不另算一套免得跨年时对不上
+    academicYearText() {
+      const y = (this.qual || {}).academicYear
+      return y ? y + ' 学年' : '本学年'
+    },
+    quotaFull() {
+      const qual = this.qual || {}
+      const max = Number(qual.maxPerYear)
+      return max > 0 && Number(qual.yearCnt || 0) >= max
+    },
     reasonLen() {
       return (this.form.applyReason || '').length
     },
@@ -330,6 +380,11 @@ export default {
     },
     submit() {
       if (!this.validate()) return
+      // 每学年份数上限是额度规则而非档案门槛，先在本地给结论，后端 insert 再兜一次
+      if (this.quotaFull) {
+        uni.showToast({ title: this.academicYearText + '已提交 ' + this.qual.yearCnt + ' 份，每人每学年最多 ' + this.maxPerYearText + ' 份', icon: 'none', duration: 3000 })
+        return
+      }
       // 门槛由配置决定，本人提交不能越过，先给结论再让后端兜底
       if (this.qual && !this.qual.ok) {
         const first = (this.qual.reasons && this.qual.reasons[0]) || '不符合申请门槛'
@@ -357,6 +412,7 @@ export default {
         this.form.applyReason = ''
         this.photoList = []
         this.loadApply()
+        this.loadQualification()
       }).catch(() => {}).finally(() => {
         this.submitting = false
       })
@@ -394,6 +450,79 @@ export default {
   &.warn {
     background: #fdf0ef;
   }
+}
+
+/* 基本信息卡：姓名与身份徽标同排，其余字段左标签右值，读得动也压得住高度 */
+.info-card {
+  background: #fff;
+  border-radius: 16rpx;
+  padding: 22rpx 24rpx;
+  margin-bottom: 20rpx;
+}
+
+.info-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 10rpx;
+}
+
+.info-name {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: #333;
+  margin-right: 14rpx;
+}
+
+.info-tag {
+  font-size: 20rpx;
+  color: #2979ff;
+  background: #ecf3ff;
+  border-radius: 6rpx;
+  padding: 4rpx 12rpx;
+  margin-right: 10rpx;
+
+  &.ok {
+    color: #18bc37;
+    background: #e9f8ee;
+  }
+
+  &.bad {
+    color: #e43d33;
+    background: #fdf0ef;
+  }
+}
+
+.info-line {
+  display: flex;
+  align-items: baseline;
+  margin-top: 8rpx;
+}
+
+.info-label {
+  width: 130rpx;
+  flex: none;
+  font-size: 24rpx;
+  color: #999;
+}
+
+.info-value {
+  flex: 1;
+  min-width: 0;
+  font-size: 24rpx;
+  color: #333;
+
+  &.dim {
+    color: #bbb;
+  }
+}
+
+.info-tip {
+  display: block;
+  margin-top: 14rpx;
+  font-size: 20rpx;
+  color: #bbb;
+  line-height: 30rpx;
 }
 
 .tips-text {

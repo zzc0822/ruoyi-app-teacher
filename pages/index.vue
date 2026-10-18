@@ -351,14 +351,13 @@ export default {
           url: '/pages/sub-work/leave/detail?id=' + item.businessId,
           fail: () => uni.navigateTo({ url: '/pages/sub-work/todo/index' })
         })
-      } else if (item.todoType === 'talk_disciplinary') {
+      } else if (['talk_disciplinary', 'talk_daily', 'talk_risk_report', 'talk_overdue', 'talk_follow_up'].includes(item.todoType)) {
+        // 这几类的 businessId 就是谈话记录ID，直接进台账：谈话、上报处置、超期与到期跟进都在同一条记录上闭环
         uni.navigateTo({
-          url: '/pages/sub-work/talk/add?todoId=' + item.id + '&businessId=' + item.businessId,
-          fail: (err) => {
-            uni.navigateTo({ url: '/pages/sub-work/todo/index' })
-          }
+          url: '/pages/sub-work/talk/add?id=' + item.businessId,
+          fail: () => uni.navigateTo({ url: '/pages/sub-work/todo/index' })
         })
-      } else if (item.todoType === 'talk' || item.todoType === 'talk_daily') {
+      } else if (item.todoType === 'talk') {
         uni.navigateTo({ url: '/pages/sub-work/talk/index' })
       } else if (['classcheck_talk', 'leave_talk', 'offcampus_talk', 'vehicle_talk', 'warning_talk'].includes(item.todoType)) {
         uni.navigateTo({
@@ -406,6 +405,9 @@ export default {
       const typeMap = {
         'talk_disciplinary': '违纪谈话',
         'talk_daily': '日常谈心',
+        'talk_risk_report': '高危谈心上报',
+        'talk_overdue': '谈话超期催办',
+        'talk_follow_up': '谈话到期跟进',
         'classcheck_confirm': '查课确认',
         'classcheck_talk': '查课谈话',
         'leave_talk': '请假逾期谈话',
@@ -815,6 +817,15 @@ export default {
   &.type-talk_daily {
     background: #e8f5ff;
     color: #2979ff;
+  }
+  &.type-talk_risk_report,
+  &.type-talk_overdue {
+    background: #ffe8e8;
+    color: #e43d33;
+  }
+  &.type-talk_follow_up {
+    background: #fff8e1;
+    color: #f3a044;
   }
   &.type-classcheck_confirm,
   &.type-classcheck_talk,

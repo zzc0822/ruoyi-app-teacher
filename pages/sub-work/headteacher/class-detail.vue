@@ -40,7 +40,7 @@
           {{ stu.genderName === '男' ? '♂' : stu.genderName === '女' ? '♀' : '' }}
         </text>
         <text class="stu-xh">{{ stu.xh }}</text>
-        <text class="stu-phone" v-if="stu.lxdh">{{ stu.lxdh }}</text>
+        <text class="stu-phone" v-if="stu.phone">{{ stu.phone }}</text>
       </view>
       <view class="empty" v-if="filteredStudents.length === 0">
         <text>暂无学生数据</text>

@@ -34,22 +34,6 @@ export function getStuinfo(xh) {
   })
 }
 
-// 根据用户ID获取学生信息
-export function getStuinfoByUserId(userId) {
-  return request({
-    url: '/api/mini/stuinfo/byUserId/' + userId,
-    method: 'get'
-  })
-}
-
-// 获取我的学生列表
-export function getMyStudents() {
-  return request({
-    url: '/api/mini/stuinfo/myStudents',
-    method: 'get'
-  })
-}
-
 // 搜索学生（根据角色自动过滤）
 export function searchStuinfo(keyword) {
   return request({
