@@ -185,7 +185,7 @@ export default {
     },
     goTalk() {
       uni.navigateTo({
-        url: '/pages/sub-work/talk/index'
+        url: '/pages/sub-work/talk/index?viewScope=headteacher'
       })
     },
     goApply() {

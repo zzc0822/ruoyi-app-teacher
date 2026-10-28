@@ -1,5 +1,7 @@
 import request from '@/utils/request'
 
+const HEADTEACHER_VIEW = { viewScope: 'headteacher' }
+
 /**
  * 班主任管理API（小程序端）
  * 使用ruoyi-api模块的公共接口
@@ -26,7 +28,7 @@ export function listWorklog(query) {
   return request({
     url: '/api/headteacher/worklog/list',
     method: 'get',
-    params: query
+    params: { ...(query || {}), ...HEADTEACHER_VIEW }
   })
 }
 
@@ -35,7 +37,7 @@ export function getWorklogContext(bjid) {
   return request({
     url: '/api/headteacher/worklog/context',
     method: 'get',
-    params: bjid ? { bjid } : {}
+    params: bjid ? { bjid, ...HEADTEACHER_VIEW } : { ...HEADTEACHER_VIEW }
   })
 }
 
@@ -43,7 +45,8 @@ export function getWorklogContext(bjid) {
 export function getWorklog(id) {
   return request({
     url: '/api/headteacher/worklog/' + id,
-    method: 'get'
+    method: 'get',
+    params: { ...HEADTEACHER_VIEW }
   })
 }
 
@@ -52,6 +55,7 @@ export function addWorklog(data) {
   return request({
     url: '/api/headteacher/worklog',
     method: 'post',
+    params: { ...HEADTEACHER_VIEW },
     data: data
   })
 }
@@ -61,6 +65,7 @@ export function updateWorklog(data) {
   return request({
     url: '/api/headteacher/worklog',
     method: 'put',
+    params: { ...HEADTEACHER_VIEW },
     data: data
   })
 }
@@ -69,7 +74,8 @@ export function updateWorklog(data) {
 export function deleteWorklog(ids) {
   return request({
     url: '/api/headteacher/worklog/' + ids,
-    method: 'delete'
+    method: 'delete',
+    params: { ...HEADTEACHER_VIEW }
   })
 }
 

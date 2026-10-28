@@ -149,6 +149,29 @@
         "navigationBarTitleText": "抽查确认"
       }
     }, {
+      "path": "inspection/index",
+      "style": {
+        "navigationBarTitleText": "学风检查",
+        "enablePullDownRefresh": true
+      }
+    }, {
+      "path": "inspection/add",
+      "style": {
+        "navigationBarTitleText": "登记学风检查"
+      }
+    }, {
+      "path": "counselor-progress/index",
+      "style": {
+        "navigationBarTitleText": "辅导员工作明细",
+        "enablePullDownRefresh": true
+      }
+    }, {
+      "path": "graduation/index",
+      "style": {
+        "navigationBarTitleText": "毕业班级管理",
+        "enablePullDownRefresh": true
+      }
+    }, {
       "path": "sign/index",
       "style": {
         "navigationBarTitleText": "签到管理"
@@ -156,12 +179,23 @@
     }, {
       "path": "sign/create",
       "style": {
-        "navigationBarTitleText": "发起签到"
+        "navigationBarTitleText": "发起课堂签到"
+      }
+    }, {
+      "path": "sign/dorm-create",
+      "style": {
+        "navigationBarTitleText": "发起晚寝确认"
       }
     }, {
       "path": "sign/detail",
       "style": {
         "navigationBarTitleText": "签到进度"
+      }
+    }, {
+      "path": "rollcall/course-select",
+      "style": {
+        "navigationBarTitleText": "上课点名",
+        "enablePullDownRefresh": true
       }
     }, {
       "path": "rollcall/index",
@@ -366,6 +400,11 @@
       "path": "class-awareness/competition",
       "style": {
         "navigationBarTitleText": "班情熟知赛事"
+      }
+    }, {
+      "path": "counselor-training/index",
+      "style": {
+        "navigationBarTitleText": "辅导员训练平台"
       }
     }, {
       "path": "case-analysis/index",

@@ -203,16 +203,13 @@ import {
   listDormFloors,
   listDormRooms,
   getNightRoster,
-  addNightCheck,
-  updateNightCheck,
   getNightCheck,
   listHouseworkItems,
   getNightGestureChallenge,
   verifyNightLocation
 } from '@/api/work/dormcheck'
-import { uploadFile, stripBaseUrl } from '@/utils/upload'
 import config from '@/config'
-import { enqueueRequest, isNetworkFailure, makeClientRequestId } from '@/utils/offlineQueue'
+import { enqueueRequest, flushOfflineQueue, makeClientRequestId } from '@/utils/offlineQueue'
 import { getWatermarkAddress, getWatermarkConfig } from '@/api/work/watermark'
 import { getLocation, prepareCapture, addWatermark } from '@/utils/watermark'
 
@@ -450,8 +447,7 @@ export default {
               return
             }
             const watermarked = await addWatermark(res.tempFilePaths[0], this.watermarkConfig, capture.captureInfo)
-            const url = await uploadFile(watermarked)
-            this.gesturePhoto = stripBaseUrl(url)
+            this.gesturePhoto = watermarked
           } catch (e) {
             uni.hideLoading()
             uni.showToast({ title: '手势照片上传失败', icon: 'none' })
@@ -768,17 +764,9 @@ export default {
         sourceType: ['camera', 'album'],
         success: res => {
           this.hwUploading++
-          uni.showLoading({ title: '上传中' })
-          uploadFile(res.tempFilePaths[0]).then(url => {
-            this.hwUploading--
-            uni.hideLoading()
-            if (!p.houseworkPhotos) this.$set(p, 'houseworkPhotos', [])
-            p.houseworkPhotos.push(stripBaseUrl(url))
-          }).catch(() => {
-            this.hwUploading--
-            uni.hideLoading()
-            uni.showToast({ title: '照片上传失败', icon: 'none' })
-          })
+          if (!p.houseworkPhotos) this.$set(p, 'houseworkPhotos', [])
+          p.houseworkPhotos.push(res.tempFilePaths[0])
+          this.hwUploading--
         }
       })
     },
@@ -791,8 +779,13 @@ export default {
     /** 相对路径 → 可显示地址；已是绝对地址（历史数据）原样返回。模板只能调组件方法，故不做成模块级函数 */
     fullUrl(path) {
       if (!path) return ''
-      if (path.indexOf('http') === 0) return path
+      if (this.isLocalPath(path) || path.indexOf('http') === 0) return path
       return config.baseUrl + (path.indexOf('/profile') === 0 ? path : '/profile' + path)
+    },
+    isLocalPath(path) {
+      const value = String(path || '')
+      return /^(wxfile:|blob:|file:|\/tmp\/|\/var\/|\/private\/)/.test(value)
+        || /^http:\/\/tmp\//.test(value)
     },
     markRoomPresent(g) {
       g.people.forEach(p => this.setStatus(p, 'present'))
@@ -939,6 +932,29 @@ export default {
       })
       return floors.length === 1 ? floors[0] : null
     },
+    buildEvidenceUploads(payload) {
+      const uploads = []
+      if (payload.gesturePhoto && this.isLocalPath(payload.gesturePhoto)) {
+        uploads.push({
+          localPath: payload.gesturePhoto,
+          uploadUrl: '/common/upload',
+          field: 'file',
+          dataPath: 'gesturePhoto'
+        })
+      }
+      ;(payload.detailList || []).forEach((detail, detailIndex) => {
+        ;(detail.houseworkPhotos || []).forEach((path, photoIndex) => {
+          if (!this.isLocalPath(path)) return
+          uploads.push({
+            localPath: path,
+            uploadUrl: '/common/upload',
+            field: 'file',
+            dataPath: 'detailList[' + detailIndex + '].houseworkPhotos[' + photoIndex + ']'
+          })
+        })
+      })
+      return uploads
+    },
     async submit(status) {
       if (this.submitting || !this.validate(status)) return
       if (status === 'submitted') {
@@ -951,40 +967,29 @@ export default {
         payload.clientRequestId = makeClientRequestId('DORMNIGHT')
         this.clientRequestId = payload.clientRequestId
       }
-      const req = this.editId ? updateNightCheck(payload) : addNightCheck(payload)
-      req.then(res => {
+      enqueueRequest({
+        businessType: this.editId ? 'dorm_night_update' : 'dorm_night_add',
+        title: '夜间考勤：' + (this.form.checkDate || ''),
+        clientRequestId: payload.clientRequestId,
+        request: {
+          url: '/api/teacher/dorm/night',
+          method: this.editId ? 'put' : 'post',
+          data: payload
+        },
+        uploads: this.buildEvidenceUploads(payload)
+      }).then(result => {
+        flushOfflineQueue()
+        uni.showToast({
+          title: result.duplicate
+            ? '该记录已在后台处理'
+            : (status === 'submitted' ? '已提交，照片后台上传' : '草稿已保存，照片后台上传'),
+          icon: 'none'
+        })
+        setTimeout(() => uni.navigateBack(), 700)
+      }).catch(() => {
+        uni.showToast({ title: '保存失败，请重试', icon: 'none' })
+      }).finally(() => {
         this.submitting = false
-        if (res.code === 200) {
-          uni.showToast({ title: status === 'submitted' ? '已提交' : '草稿已保存', icon: 'success' })
-          setTimeout(() => uni.navigateBack(), 600)
-        } else {
-          uni.showToast({ title: res.msg || '保存失败', icon: 'none' })
-        }
-      }).catch(async error => {
-        this.submitting = false
-        if (isNetworkFailure(error) && status === 'submitted' && (this.needsLocation || this.needsGesture)) {
-          uni.showToast({ title: '网络较弱，现场凭证尚未提交，请恢复网络后重试', icon: 'none', duration: 2500 })
-          return
-        }
-        if (isNetworkFailure(error)) {
-          const result = await enqueueRequest({
-            businessType: this.editId ? 'dorm_night_update' : 'dorm_night_add',
-            title: '夜间考勤：' + (this.form.checkDate || ''),
-            clientRequestId: payload.clientRequestId,
-            request: {
-              url: '/api/teacher/dorm/night',
-              method: this.editId ? 'put' : 'post',
-              data: payload
-            }
-          })
-          uni.showToast({
-            title: result.duplicate ? '已在待同步队列' : '网络较弱，已加入待同步',
-            icon: 'none'
-          })
-          setTimeout(() => uni.navigateBack(), 800)
-        } else {
-          uni.showToast({ title: '保存失败', icon: 'none' })
-        }
       })
     }
   }

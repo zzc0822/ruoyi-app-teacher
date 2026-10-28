@@ -359,17 +359,34 @@
             <text class="lr-days">{{ item.leaveDays }}天</text>
           </view>
         </view>
-        <view class="card">
+        <view class="card student-list-card">
           <text class="card-title">学生名单 ({{ filteredStudents.length }})</text>
           <view class="stu-row" v-for="(stu, idx) in filteredStudents" :key="stu.xh" @click="showDetail(stu)">
-            <text class="stu-idx">{{ idx + 1 }}</text>
-            <text class="stu-name link">{{ stu.studentName }}</text>
-            <text :class="['stu-sex', stu.genderName === '男' ? 'male' : stu.genderName === '女' ? 'female' : 'unknown']">{{ stu.genderName === '男' ? '♂' : stu.genderName === '女' ? '♀' : '?' }}</text>
-            <text class="stu-xh">{{ stu.xh }}</text>
-            <text class="stu-zzmm">{{ stu.zzmmName || '-' }}</text>
-            <text :class="['stu-status', isOnLeave(stu.xh) ? 'on-leave' : 'on-campus']">
-              {{ isOnLeave(stu.xh) ? '请假' : '在校' }}
-            </text>
+            <view class="stu-row-main">
+              <text class="stu-idx">{{ idx + 1 }}</text>
+              <text class="stu-name link">{{ stu.studentName }}</text>
+              <text :class="['stu-sex', stu.genderName === '男' ? 'male' : stu.genderName === '女' ? 'female' : 'unknown']">{{ stu.genderName === '男' ? '♂' : stu.genderName === '女' ? '♀' : '?' }}</text>
+              <text class="stu-zzmm">{{ stu.zzmmName || '政治面貌未录入' }}</text>
+              <text :class="['stu-status', isOnLeave(stu.xh) ? 'on-leave' : 'on-campus']">
+                {{ isOnLeave(stu.xh) ? '请假' : '在校' }}
+              </text>
+              <view
+                class="stu-portrait-btn"
+                role="button"
+                aria-label="查看学生画像"
+                @click.stop="showDetail(stu, 'portrait')"
+              >
+                <text>画像</text>
+              </view>
+            </view>
+            <view class="stu-row-meta">
+              <text class="stu-xh">学号 {{ stu.xh }}</text>
+              <view class="stu-phone">
+                <uni-icons type="phone" size="12" color="#64748b"></uni-icons>
+                <text class="stu-phone-label">电话</text>
+                <text>{{ stu.phone || '未录入' }}</text>
+              </view>
+            </view>
           </view>
           <view class="empty-tip" v-if="filteredStudents.length === 0">
             <text>无匹配学生</text>
@@ -463,22 +480,6 @@
           </view>
         </view>
 
-        <!-- 按班级汇总 -->
-        <view class="card" v-if="classList.length > 0">
-          <text class="card-title">班级汇总 ({{ classList.length }}个班)</text>
-          <view class="class-summary-item" v-for="(cls, idx) in classList" :key="cls.bjdm" @click="selectClass(cls.bjdm)">
-            <view class="csi-bar" :style="'background:' + classColors[idx % classColors.length]"></view>
-            <view class="csi-info">
-              <text class="csi-name">{{ cls.bjjc || cls.bjname }}</text>
-              <view class="csi-detail">
-                <text class="csi-gender">♂{{ cls.nans || 0 }} ♀{{ cls.nvsh || 0 }}</text>
-                <text class="csi-total">共{{ cls.bcrs || 0 }}人</text>
-              </view>
-            </view>
-            <uni-icons type="right" size="16" color="#ccc"></uni-icons>
-          </view>
-        </view>
-
         <!-- 搜索框 -->
         <view class="search-bar">
           <uni-easyinput v-model="searchKey" placeholder="搜索姓名/学号" @confirm="handleSearch" clearable @clear="handleSearch">
@@ -489,13 +490,16 @@
         </view>
 
         <!-- 班级列表 -->
-        <view class="card">
-          <text class="card-title">我的班级</text>
-          <view class="cls-row" v-for="(cls, idx) in classList" :key="cls.bjdm" @click="selectClass(cls.bjdm)">
-            <view class="cls-bar" :style="'background:' + classColors[idx % classColors.length]"></view>
-            <view class="cls-info">
-              <text class="cls-name">{{ cls.bjname }}</text>
-              <text class="cls-gender">♂{{ cls.nans || 0 }} ♀{{ cls.nvsh || 0 }} 共{{ cls.bcrs || 0 }}人</text>
+        <view class="card" v-if="classList.length > 0">
+          <text class="card-title">我的班级 ({{ classList.length }}个班)</text>
+          <view class="class-summary-item" v-for="(cls, idx) in classList" :key="cls.bjdm" @click="selectClass(cls.bjdm)">
+            <view class="csi-bar" :style="'background:' + classColors[idx % classColors.length]"></view>
+            <view class="csi-info">
+              <text class="csi-name">{{ cls.bjname || cls.bjjc }}</text>
+              <view class="csi-detail">
+                <text class="csi-gender">♂{{ cls.nans || 0 }} ♀{{ cls.nvsh || 0 }}</text>
+                <text class="csi-total">共{{ cls.bcrs || 0 }}人</text>
+              </view>
             </view>
             <uni-icons type="right" size="16" color="#ccc"></uni-icons>
           </view>
@@ -547,17 +551,34 @@
         </view>
 
         <!-- 学生名单 -->
-        <view class="card">
+        <view class="card student-list-card">
           <text class="card-title">学生名单 ({{ filteredStudents.length }})</text>
           <view class="stu-row" v-for="(stu, idx) in filteredStudents" :key="stu.xh" @click="showDetail(stu)">
-            <text class="stu-idx">{{ idx + 1 }}</text>
-            <text class="stu-name link">{{ stu.studentName }}</text>
-            <text :class="['stu-sex', stu.genderName === '男' ? 'male' : stu.genderName === '女' ? 'female' : 'unknown']">{{ stu.genderName === '男' ? '♂' : stu.genderName === '女' ? '♀' : '?' }}</text>
-            <text class="stu-xh">{{ stu.xh }}</text>
-            <text class="stu-zzmm">{{ stu.zzmmName || '-' }}</text>
-            <text :class="['stu-status', isOnLeave(stu.xh) ? 'on-leave' : 'on-campus']">
-              {{ isOnLeave(stu.xh) ? '请假' : '在校' }}
-            </text>
+            <view class="stu-row-main">
+              <text class="stu-idx">{{ idx + 1 }}</text>
+              <text class="stu-name link">{{ stu.studentName }}</text>
+              <text :class="['stu-sex', stu.genderName === '男' ? 'male' : stu.genderName === '女' ? 'female' : 'unknown']">{{ stu.genderName === '男' ? '♂' : stu.genderName === '女' ? '♀' : '?' }}</text>
+              <text class="stu-zzmm">{{ stu.zzmmName || '政治面貌未录入' }}</text>
+              <text :class="['stu-status', isOnLeave(stu.xh) ? 'on-leave' : 'on-campus']">
+                {{ isOnLeave(stu.xh) ? '请假' : '在校' }}
+              </text>
+              <view
+                class="stu-portrait-btn"
+                role="button"
+                aria-label="查看学生画像"
+                @click.stop="showDetail(stu, 'portrait')"
+              >
+                <text>画像</text>
+              </view>
+            </view>
+            <view class="stu-row-meta">
+              <text class="stu-xh">学号 {{ stu.xh }}</text>
+              <view class="stu-phone">
+                <uni-icons type="phone" size="12" color="#64748b"></uni-icons>
+                <text class="stu-phone-label">电话</text>
+                <text>{{ stu.phone || '未录入' }}</text>
+              </view>
+            </view>
           </view>
           <view class="empty-tip" v-if="filteredStudents.length === 0">
             <text>无匹配学生</text>
@@ -568,12 +589,18 @@
     </template>
     
     <!-- 学生详情弹窗（所有角色共享） -->
-    <uni-popup ref="detailPopup" type="bottom">
-      <view class="detail-panel">
+    <view v-if="detailVisible" class="student-detail-overlay" @click="closeDetail">
+      <view class="detail-panel" @click.stop>
         <view class="dp-header">
-          <text class="dp-title">学生详情</text>
-          <uni-icons type="closeempty" size="20" color="#999" @click="closeDetail"></uni-icons>
+          <view class="dp-title-wrap">
+            <text class="dp-title">学生档案</text>
+            <text class="dp-title-sub">概况与成长画像</text>
+          </view>
+          <view class="dp-close" @click="closeDetail">
+            <uni-icons type="closeempty" size="20" color="#64748b"></uni-icons>
+          </view>
         </view>
+        <scroll-view scroll-y class="detail-panel-scroll">
         <view class="dp-body" v-if="detailStu">
           <view class="dp-top">
             <image v-if="detailStu.photo && !detailStu._photoErr" class="dp-photo" :src="stuPhotoUrl(detailStu.photo)" mode="aspectFill" @error="onPhotoError"></image>
@@ -583,45 +610,214 @@
             <view class="dp-top-info">
               <text class="dp-name">{{ detailStu.studentName }}</text>
               <text class="dp-sub">{{ detailStu.genderName || '未知' }} · {{ detailStu.xh }}</text>
+              <view class="dp-top-meta">
+                <text class="dp-top-meta-item">{{ detailStu.className || '班级未录入' }}</text>
+                <text class="dp-top-meta-item">{{ detailStu.phone || '电话未录入' }}</text>
+              </view>
             </view>
           </view>
-          <view class="dp-grid">
-            <view class="dp-cell">
-              <text class="dp-label">班级</text>
-              <text class="dp-value">{{ detailStu.className || '-' }}</text>
+
+          <view class="dp-switch">
+            <view
+              class="dp-switch-item"
+              :class="{ active: detailMode === 'overview' }"
+              @click="switchDetailMode('overview')"
+            >
+              <text>概况</text>
             </view>
-            <view class="dp-cell">
-              <text class="dp-label">专业</text>
-              <text class="dp-value">{{ detailStu.majorName || '-' }}</text>
+            <view
+              class="dp-switch-item"
+              :class="{ active: detailMode === 'portrait' }"
+              @click="switchDetailMode('portrait')"
+            >
+              <text>画像</text>
+              <text v-if="portraitWarnings.length" class="dp-switch-badge">{{ portraitWarnings.length }}</text>
             </view>
-            <view class="dp-cell">
-              <text class="dp-label">学院</text>
-              <text class="dp-value">{{ detailStu.collegeName || '-' }}</text>
+          </view>
+
+          <!-- 概况：基础信息 + 当前指标 -->
+          <view v-if="detailMode === 'overview'" class="dp-overview">
+            <view class="dp-section-head">
+              <text class="dp-section-title">第二课堂关键指标</text>
+              <text class="dp-section-meta">{{ portraitLoading ? '更新中...' : portraitUpdateTime }}</text>
             </view>
-            <view class="dp-cell">
-              <text class="dp-label">年级</text>
-              <text class="dp-value">{{ detailStu.grade || '-' }}</text>
+            <view v-if="portraitError" class="dp-inline-error" @click="loadStudentPortrait(detailStu.xh, true)">
+              <uni-icons type="info" size="14" color="#b45309"></uni-icons>
+              <text>{{ portraitError }}，点击重试</text>
             </view>
-            <view class="dp-cell">
-              <text class="dp-label">宿舍</text>
-              <text class="dp-value">{{ detailStu.sssh || '-' }}</text>
+            <view class="dp-stat-grid">
+              <view v-for="item in overviewIndicators" :key="item.key" class="dp-stat-item">
+                <text class="dp-stat-value" :class="item.tone">{{ item.value }}</text>
+                <text class="dp-stat-label">{{ item.label }}</text>
+              </view>
             </view>
-            <view class="dp-cell">
-              <text class="dp-label">民族</text>
-              <text class="dp-value">{{ nzText(detailStu.nz) }}</text>
+
+            <view class="dp-section-head">
+              <text class="dp-section-title">指标取数</text>
+              <text class="dp-section-meta">{{ portraitMetrics.length }} 项</text>
             </view>
-            <view class="dp-cell">
-              <text class="dp-label">学籍状态</text>
-              <text class="dp-value">{{ xjztText(detailStu.xjzt) }}</text>
+            <view v-if="portraitMetrics.length" class="dp-metric-list">
+              <view v-for="metric in portraitMetrics" :key="metric.metricCode" class="dp-metric-item">
+                <view class="dp-metric-main">
+                  <text class="dp-metric-name">{{ metric.metricName || metric.metricCode }}</text>
+                  <text class="dp-metric-value" :class="{ muted: metric.value == null || metric.computable === false }">{{ formatMetricValue(metric) }}</text>
+                </view>
+                <view class="dp-metric-foot">
+                  <text>{{ formatMetricWindow(metric) }}</text>
+                  <text v-if="metric.detail" class="dp-metric-detail">{{ metric.detail }}</text>
+                  <text v-else-if="metric.computable === false" class="dp-metric-detail">该指标暂未接入取数</text>
+                  <text v-else class="dp-metric-detail">窗口内暂无记录</text>
+                </view>
+              </view>
             </view>
-            <view class="dp-cell">
-              <text class="dp-label">校区</text>
-              <text class="dp-value">{{ detailStu.xq || '-' }}</text>
+            <view v-else-if="!portraitLoading" class="dp-empty-line">暂无指标定义</view>
+
+            <view class="dp-section-head">
+              <text class="dp-section-title">基本信息</text>
+            </view>
+            <view class="dp-grid">
+              <view class="dp-cell">
+                <text class="dp-label">班级</text>
+                <text class="dp-value">{{ detailStu.className || '-' }}</text>
+              </view>
+              <view class="dp-cell">
+                <text class="dp-label">联系电话</text>
+                <text class="dp-value">{{ detailStu.phone || '-' }}</text>
+              </view>
+              <view class="dp-cell">
+                <text class="dp-label">专业</text>
+                <text class="dp-value">{{ detailStu.majorName || '-' }}</text>
+              </view>
+              <view class="dp-cell">
+                <text class="dp-label">学院</text>
+                <text class="dp-value">{{ detailStu.collegeName || '-' }}</text>
+              </view>
+              <view class="dp-cell">
+                <text class="dp-label">年级</text>
+                <text class="dp-value">{{ detailStu.grade || '-' }}</text>
+              </view>
+              <view class="dp-cell">
+                <text class="dp-label">宿舍</text>
+                <text class="dp-value">{{ detailStu.sssh || '-' }}</text>
+              </view>
+              <view class="dp-cell">
+                <text class="dp-label">民族</text>
+                <text class="dp-value">{{ nzText(detailStu.nz) }}</text>
+              </view>
+              <view class="dp-cell">
+                <text class="dp-label">学籍状态</text>
+                <text class="dp-value">{{ xjztText(detailStu.xjzt) }}</text>
+              </view>
+              <view class="dp-cell">
+                <text class="dp-label">校区</text>
+                <text class="dp-value">{{ detailStu.xq || '-' }}</text>
+              </view>
+            </view>
+          </view>
+
+          <!-- 画像：第二课堂分类、标签与预警 -->
+          <view v-else class="dp-portrait">
+            <view v-if="portraitLoading" class="dp-state">
+              <text>画像加载中...</text>
+            </view>
+            <view v-else-if="portraitError" class="dp-state dp-state-error" @click="loadStudentPortrait(detailStu.xh, true)">
+              <text>{{ portraitError }}</text>
+              <text class="dp-retry">点击重试</text>
+            </view>
+            <template v-else-if="portrait">
+              <view class="dp-section-head">
+                <text class="dp-section-title">学生概况</text>
+                <text class="dp-section-meta">画像基础信息</text>
+              </view>
+              <view class="dp-profile-context">
+                <view class="dp-context-item">
+                  <text class="dp-context-label">姓名</text>
+                  <text class="dp-context-value">{{ detailStu.studentName || '-' }}</text>
+                </view>
+                <view class="dp-context-item">
+                  <text class="dp-context-label">班级</text>
+                  <text class="dp-context-value">{{ detailStu.className || '-' }}</text>
+                </view>
+                <view class="dp-context-item">
+                  <text class="dp-context-label">联系电话</text>
+                  <text class="dp-context-value">{{ detailStu.phone || '-' }}</text>
+                </view>
+                <view class="dp-context-item">
+                  <text class="dp-context-label">政治面貌</text>
+                  <text class="dp-context-value">{{ detailStu.zzmmName || '-' }}</text>
+                </view>
+              </view>
+
+              <view class="dp-profile-summary">
+                <view class="dp-profile-stat">
+                  <text class="dp-profile-num">{{ portraitScoreTotal }}</text>
+                  <text class="dp-profile-label">加权成绩</text>
+                </view>
+                <view class="dp-profile-stat">
+                  <text class="dp-profile-num">{{ portraitTags.length }}</text>
+                  <text class="dp-profile-label">在标标签</text>
+                </view>
+                <view class="dp-profile-stat">
+                  <text class="dp-profile-num" :class="{ danger: portraitWarnings.length }">{{ portraitWarnings.length }}</text>
+                  <text class="dp-profile-label">预警记录</text>
+                </view>
+              </view>
+
+              <view class="dp-section-head">
+                <text class="dp-section-title">第二课堂分类</text>
+                <text class="dp-section-meta">{{ portraitUpdateTime }}</text>
+              </view>
+              <view v-if="hasScoreData" class="dp-score-list">
+                <view v-for="item in scoreDimensions" :key="item.key" class="dp-score-item">
+                  <view class="dp-score-head">
+                    <text class="dp-score-name">{{ item.label }}</text>
+                    <text class="dp-score-value" :class="item.tone">{{ item.value == null ? '暂无' : item.value + ' 分' }}</text>
+                  </view>
+                  <view class="dp-score-track">
+                    <view class="dp-score-bar" :class="item.tone" :style="{ width: item.percent + '%' }"></view>
+                  </view>
+                </view>
+              </view>
+              <view v-else class="dp-empty-line">暂无第二课堂积分记录</view>
+
+              <view class="dp-section-head">
+                <text class="dp-section-title">画像标签</text>
+                <text class="dp-section-meta">{{ portraitTags.length }} 个</text>
+              </view>
+              <view v-if="portraitTags.length" class="dp-tag-list">
+                <text
+                  v-for="tag in portraitTags"
+                  :key="tag.id || tag.tagCode"
+                  class="dp-tag"
+                  :class="tagTone(tag.tagCategory)"
+                >{{ tag.tagName || tag.tagCode }}</text>
+              </view>
+              <view v-else class="dp-empty-line">暂无在标标签</view>
+
+              <view class="dp-section-head">
+                <text class="dp-section-title">预警记录</text>
+                <text class="dp-section-meta">待处置 {{ pendingWarningCount }} 条</text>
+              </view>
+              <view v-if="portraitWarnings.length" class="dp-warning-list">
+                <view v-for="warning in portraitWarnings.slice(0, 6)" :key="warning.id" class="dp-warning-item">
+                  <view class="dp-warning-head">
+                    <text class="dp-warning-level" :class="warningTone(warning.warningLevel)">{{ warningLevelText(warning.warningLevel) }}</text>
+                    <text class="dp-warning-type">{{ warningTypeText(warning.warningType) }}</text>
+                    <text class="dp-warning-date">{{ warning.warningDate || warning.createTime || '' }}</text>
+                  </view>
+                  <text class="dp-warning-text">{{ warning.warningContent || warning.warningReason || '预警待复核' }}</text>
+                </view>
+              </view>
+              <view v-else class="dp-empty-line">暂无预警记录</view>
+            </template>
+            <view v-else class="dp-state">
+              <text>暂无可展示的画像数据</text>
             </view>
           </view>
         </view>
+        </scroll-view>
       </view>
-    </uni-popup>
+    </view>
 
     <!-- 全部班级列表弹窗 -->
     <uni-popup ref="allClassesPopup" type="bottom">
@@ -653,7 +849,7 @@
 <script>
 import { getMyClasses, getClassStudents } from '@/api/work/classcheck'
 import { listLeave } from '@/api/work/leave'
-import { listStuinfo, getCollegeClassTreeByRole } from '@/api/student/stuinfo'
+import { listStuinfo, getCollegeClassTreeByRole, getStudentPortrait } from '@/api/student/stuinfo'
 import { getRoleViewConfig } from '@/utils/roleViewConfig'
 import { isSecretary } from '@/utils/role'
 import { getCollegeSummary, getStatsByMajor, getStatsByCounselor } from '@/api/student/stats'
@@ -683,7 +879,12 @@ export default {
       classLeaves: [],
       classLeaveCount: 0,
       // 学生详情
+      detailVisible: false,
       detailStu: null,
+      detailMode: 'overview',
+      portrait: null,
+      portraitLoading: false,
+      portraitError: '',
       // 书记角色相关
       isSecretaryRole: false,
       isSecretarySidebar: false,
@@ -748,6 +949,57 @@ export default {
         (s.studentName && s.studentName.indexOf(key) >= 0) ||
         (s.xh && s.xh.indexOf(key) >= 0)
       )
+    },
+    portraitStat() {
+      return (this.portrait && this.portrait.stat) || {}
+    },
+    portraitMetrics() {
+      return (this.portrait && this.portrait.metrics) || []
+    },
+    portraitTags() {
+      return (this.portrait && this.portrait.tags) || []
+    },
+    portraitWarnings() {
+      return (this.portrait && this.portrait.warnings) || []
+    },
+    pendingWarningCount() {
+      return this.portraitWarnings.filter(warning => Number(warning.isConfirmed) !== 1).length
+    },
+    portraitScoreTotal() {
+      return this.portraitStat.scoreTotal == null ? '—' : this.portraitStat.scoreTotal
+    },
+    portraitUpdateTime() {
+      return this.portraitStat.updateTime || (this.portrait ? '暂无统计' : '')
+    },
+    overviewIndicators() {
+      return this.scoreDimensions.map(item => ({
+        key: item.key,
+        label: item.label,
+        value: this.formatStatValue(item.value, '分'),
+        tone: item.tone
+      }))
+    },
+    scoreDimensions() {
+      const dimensions = [
+        { key: 'de', label: '德育', field: 'scoreDe' },
+        { key: 'zhi', label: '智育', field: 'scoreZhi' },
+        { key: 'ti', label: '体育', field: 'scoreTi' },
+        { key: 'mei', label: '美育', field: 'scoreMei' },
+        { key: 'lao', label: '劳育', field: 'scoreLao' },
+        { key: 'chuang', label: '双创', field: 'scoreChuang' }
+      ]
+      return dimensions.map(item => {
+        const value = this.toScore(this.portraitStat[item.field])
+        return {
+          ...item,
+          value,
+          percent: value == null ? 0 : Math.min(100, Math.max(0, value)),
+          tone: this.scoreTone(value)
+        }
+      })
+    },
+    hasScoreData() {
+      return this.scoreDimensions.some(item => item.value != null)
     }
   },
   async onLoad() {
@@ -1372,8 +1624,7 @@ export default {
     // 处理搜索结果点击
     handleResultClick(item) {
       if (item.type === 'student') {
-        this.detailStu = item.data
-        this.$refs.detailPopup.open()
+        this.showDetail(item.data)
       } else if (item.type === 'major') {
         this.showMajorDetail(item.data)
       } else if (item.type === 'class') {
@@ -1416,9 +1667,39 @@ export default {
         this.classLeaveCount = this.classLeaves.length
       }).catch(() => { this.classLeaves = []; this.classLeaveCount = 0 })
     },
-    showDetail(stu) {
-      this.detailStu = stu
-      this.$refs.detailPopup.open()
+    showDetail(stu, mode = 'overview') {
+      this.detailStu = { ...stu }
+      this.detailMode = mode
+      this.portrait = null
+      this.portraitError = ''
+      this.portraitLoading = false
+      this.detailVisible = true
+      this.loadStudentPortrait(stu.xh)
+    },
+    switchDetailMode(mode) {
+      this.detailMode = mode
+      if (mode === 'portrait' && !this.portrait && !this.portraitLoading) {
+        this.loadStudentPortrait(this.detailStu && this.detailStu.xh)
+      }
+    },
+    loadStudentPortrait(xh, force = false) {
+      if (!xh) return
+      if (!force && this.portrait && this.portrait.xh === xh) return
+      const requestXh = xh
+      this.portraitLoading = true
+      this.portraitError = ''
+      getStudentPortrait(requestXh).then(res => {
+        if (!this.detailStu || this.detailStu.xh !== requestXh) return
+        this.portrait = res.data || null
+      }).catch(err => {
+        if (!this.detailStu || this.detailStu.xh !== requestXh) return
+        this.portrait = null
+        this.portraitError = (err && (err.msg || err.message)) || '画像加载失败'
+      }).finally(() => {
+        if (!this.detailStu || this.detailStu.xh === requestXh) {
+          this.portraitLoading = false
+        }
+      })
     },
     stuPhotoUrl(photo) {
       if (!photo) return ''
@@ -1433,7 +1714,63 @@ export default {
       }
     },
     closeDetail() {
-      this.$refs.detailPopup.close()
+      this.detailVisible = false
+    },
+    formatStatValue(value, unit) {
+      return value == null ? '—' : value + unit
+    },
+    toScore(value) {
+      if (value == null || value === '') return null
+      const score = Number(value)
+      return Number.isFinite(score) ? score : null
+    },
+    scoreTone(value) {
+      if (value == null) return 'neutral'
+      if (Number(value) < 60) return 'danger'
+      if (Number(value) < 80) return 'warning'
+      return 'good'
+    },
+    formatMetricValue(metric) {
+      if (!metric || metric.computable === false) return '未接入'
+      if (metric.value == null) return '无记录'
+      if (metric.metricUnit === 'RATIO') return (Number(metric.value) * 100).toFixed(1) + '%'
+      if (metric.metricUnit === 'TIMES') return Number(metric.value).toFixed(0) + ' 次'
+      return String(metric.value)
+    },
+    formatMetricWindow(metric) {
+      if (!metric) return ''
+      if (metric.statWindow === 'LAST_DAYS') return `近 ${metric.windowDays || 0} 天`
+      if (metric.statWindow === 'SEMESTER') return '本学期'
+      if (metric.statWindow === 'TERM') return '本学段'
+      return metric.statWindow || '统计窗口未配置'
+    },
+    tagTone(category) {
+      return {
+        RISK: 'risk',
+        ACADEMIC: 'academic',
+        ECONOMIC: 'economic',
+        DISCIPLINE: 'discipline',
+        EMPLOY: 'employ',
+        HONOR: 'honor'
+      }[category] || 'other'
+    },
+    warningTone(level) {
+      if (level === 'red') return 'red'
+      if (level === 'orange') return 'orange'
+      if (level === 'yellow') return 'yellow'
+      return 'default'
+    },
+    warningLevelText(level) {
+      return { red: '红色预警', orange: '橙色预警', yellow: '黄色预警' }[level] || '一般预警'
+    },
+    warningTypeText(type) {
+      return {
+        attendance: '出勤',
+        academic: '学业',
+        discipline: '纪律',
+        behavior: '行为',
+        night: '晚归'
+      }[type] || type || '综合'
     },
     handleSearch() {
       const key = this.searchKey.trim()
@@ -1655,44 +1992,6 @@ export default {
   display: block;
 }
 
-/* ===== 班级列表 ===== */
-.cls-row {
-  display: flex;
-  align-items: center;
-  padding: 16rpx 0;
-  border-bottom: 1rpx solid #f8f8f8;
-}
-
-.cls-row:last-child {
-  border-bottom: none;
-}
-
-.cls-bar {
-  width: 8rpx;
-  height: 48rpx;
-  border-radius: 4rpx;
-  margin-right: 16rpx;
-  flex-shrink: 0;
-}
-
-.cls-info {
-  flex: 1;
-}
-
-.cls-name {
-  font-size: 28rpx;
-  color: #333;
-  font-weight: 500;
-  display: block;
-}
-
-.cls-gender {
-  font-size: 22rpx;
-  color: #999;
-  margin-top: 4rpx;
-  display: block;
-}
-
 /* ===== 搜索结果学生行 ===== */
 .stu-row {
   display: flex;
@@ -1700,6 +1999,34 @@ export default {
   padding: 14rpx 0;
   border-bottom: 1rpx solid #f8f8f8;
   gap: 12rpx;
+}
+
+.student-list-card {
+  padding: 20rpx;
+}
+
+.student-list-card .stu-row {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10rpx;
+  padding: 20rpx 8rpx;
+}
+
+.stu-row-main {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  gap: 10rpx;
+}
+
+.stu-row-meta {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  gap: 20rpx;
+  padding-left: 52rpx;
+  color: #94a3b8;
+  font-size: 21rpx;
 }
 
 .stu-row:last-child {
@@ -1725,6 +2052,10 @@ export default {
   white-space: nowrap;
 }
 
+.stu-row-main .stu-name {
+  width: 110rpx;
+}
+
 .stu-name.link {
   color: #2979ff;
 }
@@ -1741,8 +2072,8 @@ export default {
 
 .stu-xh {
   font-size: 20rpx;
-  color: #999;
-  width: 180rpx;
+  color: #64748b;
+  width: auto;
   flex-shrink: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1753,6 +2084,7 @@ export default {
   font-size: 20rpx;
   color: #666;
   flex: 1;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1760,10 +2092,32 @@ export default {
   padding-right: 8rpx;
 }
 
+.stu-row-main .stu-zzmm {
+  min-width: 72rpx;
+  padding-right: 0;
+}
+
 .stu-cls {
   font-size: 20rpx;
   color: #999;
   flex-shrink: 0;
+}
+
+.stu-phone {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6rpx;
+  min-width: 230rpx;
+  margin-left: auto;
+  color: #475569;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.stu-phone-label {
+  color: #94a3b8;
+  font-size: 19rpx;
 }
 
 .stu-status {
@@ -1773,6 +2127,23 @@ export default {
   flex-shrink: 0;
   &.on-campus { color: #18bc37; background: #e8f8ea; }
   &.on-leave { color: #f3a044; background: #fef3e2; }
+}
+
+.stu-portrait-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 68rpx;
+  min-height: 40rpx;
+  box-sizing: border-box;
+  padding: 2rpx 10rpx;
+  border-radius: 8rpx;
+  background: #eff6ff;
+  color: #2563eb;
+  font-size: 19rpx;
+  line-height: 1;
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 /* ===== 班级头部 ===== */
@@ -1853,25 +2224,83 @@ export default {
 }
 
 /* ===== 学生详情弹窗 ===== */
+.student-detail-overlay {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  background: rgba(15, 23, 42, 0.48);
+}
+
 .detail-panel {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-height: 88vh;
+  overflow: hidden;
   background: #fff;
   border-radius: 24rpx 24rpx 0 0;
-  max-height: 70vh;
-  overflow-y: auto;
+  box-shadow: 0 -10rpx 40rpx rgba(15, 23, 42, 0.16);
+  animation: detail-panel-in 0.2s ease-out;
+}
+
+.detail-panel-scroll {
+  flex: 1;
+  min-height: 0;
+  max-height: calc(88vh - 112rpx);
+}
+
+@keyframes detail-panel-in {
+  from {
+    transform: translateY(40rpx);
+    opacity: 0.6;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
 }
 
 .dp-header {
   display: flex;
+  flex-shrink: 0;
   justify-content: space-between;
   align-items: center;
   padding: 24rpx 32rpx 16rpx;
   border-bottom: 1rpx solid #f0f0f0;
 }
 
+.dp-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 64rpx;
+  height: 64rpx;
+  margin: -12rpx -12rpx -12rpx 0;
+  border-radius: 50%;
+  background: #f8fafc;
+}
+
+.dp-title-wrap {
+  display: flex;
+  flex-direction: column;
+}
+
 .dp-title {
   font-size: 30rpx;
   font-weight: bold;
   color: #333;
+}
+
+.dp-title-sub {
+  margin-top: 4rpx;
+  font-size: 21rpx;
+  color: #94a3b8;
 }
 
 .dp-body {
@@ -1930,7 +2359,9 @@ export default {
 
 .dp-top-info {
   display: flex;
+  flex: 1;
   flex-direction: column;
+  min-width: 0;
   gap: 4rpx;
 }
 
@@ -1943,6 +2374,22 @@ export default {
 .dp-sub {
   font-size: 24rpx;
   color: #999;
+}
+
+.dp-top-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8rpx 16rpx;
+  margin-top: 6rpx;
+}
+
+.dp-top-meta-item {
+  max-width: 100%;
+  overflow: hidden;
+  color: #64748b;
+  font-size: 21rpx;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .dp-grid {
@@ -1968,6 +2415,417 @@ export default {
   color: #333;
   font-weight: 500;
   display: block;
+  word-break: break-all;
+}
+
+.dp-switch {
+  display: flex;
+  padding: 6rpx;
+  margin-bottom: 28rpx;
+  background: #f1f5f9;
+  border-radius: 16rpx;
+}
+
+.dp-switch-item {
+  position: relative;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16rpx 0;
+  border-radius: 12rpx;
+  font-size: 26rpx;
+  color: #64748b;
+  transition: all 0.2s ease;
+}
+
+.dp-switch-item.active {
+  background: #fff;
+  color: #1d4ed8;
+  font-weight: bold;
+  box-shadow: 0 2rpx 10rpx rgba(15, 23, 42, 0.08);
+}
+
+.dp-switch-badge {
+  min-width: 28rpx;
+  height: 28rpx;
+  padding: 0 7rpx;
+  margin-left: 8rpx;
+  box-sizing: border-box;
+  border-radius: 14rpx;
+  background: #ef4444;
+  color: #fff;
+  font-size: 18rpx;
+  line-height: 28rpx;
+  text-align: center;
+}
+
+.dp-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 30rpx 0 16rpx;
+}
+
+.dp-section-title {
+  font-size: 28rpx;
+  font-weight: bold;
+  color: #1e293b;
+}
+
+.dp-section-meta {
+  font-size: 21rpx;
+  color: #94a3b8;
+}
+
+.dp-inline-error {
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+  padding: 16rpx 18rpx;
+  margin-bottom: 14rpx;
+  border-radius: 12rpx;
+  background: #fffbeb;
+  color: #b45309;
+  font-size: 22rpx;
+}
+
+.dp-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12rpx;
+}
+
+.dp-stat-item {
+  min-width: 0;
+  padding: 18rpx 10rpx;
+  border: 1rpx solid #e8eef5;
+  border-radius: 14rpx;
+  background: #f8fafc;
+  text-align: center;
+}
+
+.dp-stat-value {
+  display: block;
+  font-size: 32rpx;
+  font-weight: bold;
+  color: #0f172a;
+  white-space: nowrap;
+}
+
+.dp-stat-label {
+  display: block;
+  margin-top: 5rpx;
+  font-size: 21rpx;
+  color: #64748b;
+}
+
+.dp-stat-value.good {
+  color: #15803d;
+}
+
+.dp-stat-value.warning,
+.dp-score-value.warning {
+  color: #b45309;
+}
+
+.dp-stat-value.danger,
+.dp-score-value.danger,
+.dp-profile-num.danger {
+  color: #dc2626;
+}
+
+.dp-stat-value.neutral,
+.dp-score-value.neutral {
+  color: #94a3b8;
+}
+
+.dp-score-value.good {
+  color: #15803d;
+}
+
+.dp-metric-list,
+.dp-score-list,
+.dp-warning-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12rpx;
+}
+
+.dp-metric-item {
+  padding: 18rpx;
+  border: 1rpx solid #e8eef5;
+  border-radius: 14rpx;
+  background: #fff;
+}
+
+.dp-metric-main {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16rpx;
+}
+
+.dp-metric-name {
+  min-width: 0;
+  font-size: 25rpx;
+  font-weight: 600;
+  color: #334155;
+}
+
+.dp-metric-value {
+  flex-shrink: 0;
+  font-size: 27rpx;
+  font-weight: bold;
+  color: #0f766e;
+}
+
+.dp-metric-value.muted {
+  color: #94a3b8;
+}
+
+.dp-metric-foot {
+  display: flex;
+  align-items: flex-start;
+  gap: 12rpx;
+  margin-top: 8rpx;
+  font-size: 21rpx;
+  color: #64748b;
+}
+
+.dp-metric-detail {
+  flex: 1;
+  min-width: 0;
+  color: #94a3b8;
+  word-break: break-all;
+}
+
+.dp-empty-line {
+  padding: 24rpx;
+  border-radius: 14rpx;
+  background: #f8fafc;
+  color: #94a3b8;
+  font-size: 23rpx;
+  text-align: center;
+}
+
+.dp-profile-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12rpx;
+  padding: 22rpx;
+  border-radius: 18rpx;
+  background: linear-gradient(135deg, #eff6ff, #f0fdfa);
+}
+
+.dp-profile-context {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12rpx;
+}
+
+.dp-context-item {
+  min-width: 0;
+  padding: 16rpx 18rpx;
+  border: 1rpx solid #e8eef5;
+  border-radius: 14rpx;
+  background: #f8fafc;
+}
+
+.dp-context-label {
+  display: block;
+  margin-bottom: 6rpx;
+  color: #94a3b8;
+  font-size: 20rpx;
+}
+
+.dp-context-value {
+  display: block;
+  overflow: hidden;
+  color: #334155;
+  font-size: 24rpx;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dp-profile-stat {
+  text-align: center;
+}
+
+.dp-profile-num {
+  display: block;
+  font-size: 38rpx;
+  font-weight: bold;
+  color: #0f172a;
+}
+
+.dp-profile-label {
+  display: block;
+  margin-top: 4rpx;
+  font-size: 21rpx;
+  color: #64748b;
+}
+
+.dp-score-item {
+  padding: 16rpx 18rpx;
+  border-radius: 14rpx;
+  background: #f8fafc;
+}
+
+.dp-score-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 24rpx;
+}
+
+.dp-score-name {
+  color: #334155;
+  font-weight: 600;
+}
+
+.dp-score-value {
+  color: #64748b;
+}
+
+.dp-score-track {
+  height: 10rpx;
+  margin-top: 12rpx;
+  overflow: hidden;
+  border-radius: 5rpx;
+  background: #e2e8f0;
+}
+
+.dp-score-bar {
+  height: 100%;
+  border-radius: 5rpx;
+  background: #64748b;
+  transition: width 0.35s ease;
+}
+
+.dp-score-bar.good {
+  background: #10b981;
+}
+
+.dp-score-bar.warning {
+  background: #f59e0b;
+}
+
+.dp-score-bar.danger {
+  background: #ef4444;
+}
+
+.dp-tag-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12rpx;
+}
+
+.dp-tag {
+  padding: 8rpx 16rpx;
+  border-radius: 999rpx;
+  background: #f1f5f9;
+  color: #475569;
+  font-size: 22rpx;
+}
+
+.dp-tag.risk,
+.dp-tag.discipline {
+  background: #fef2f2;
+  color: #b91c1c;
+}
+
+.dp-tag.academic,
+.dp-tag.economic {
+  background: #fffbeb;
+  color: #b45309;
+}
+
+.dp-tag.employ,
+.dp-tag.honor {
+  background: #ecfdf5;
+  color: #047857;
+}
+
+.dp-warning-item {
+  padding: 18rpx;
+  border: 1rpx solid #fee2e2;
+  border-radius: 14rpx;
+  background: #fffafa;
+}
+
+.dp-warning-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10rpx;
+}
+
+.dp-warning-level {
+  padding: 4rpx 10rpx;
+  border-radius: 8rpx;
+  background: #f1f5f9;
+  color: #64748b;
+  font-size: 20rpx;
+  font-weight: 600;
+}
+
+.dp-warning-level.red {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.dp-warning-level.orange {
+  background: #ffedd5;
+  color: #c2410c;
+}
+
+.dp-warning-level.yellow {
+  background: #fef9c3;
+  color: #a16207;
+}
+
+.dp-warning-type {
+  font-size: 22rpx;
+  color: #475569;
+}
+
+.dp-warning-date {
+  margin-left: auto;
+  font-size: 20rpx;
+  color: #94a3b8;
+}
+
+.dp-warning-text {
+  display: block;
+  margin-top: 10rpx;
+  font-size: 24rpx;
+  line-height: 1.55;
+  color: #334155;
+}
+
+.dp-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10rpx;
+  padding: 54rpx 20rpx;
+  color: #94a3b8;
+  font-size: 24rpx;
+}
+
+.dp-state-error {
+  color: #b45309;
+}
+
+.dp-retry {
+  color: #2563eb;
+}
+
+.dp-overview .dp-section-head:first-child,
+.dp-portrait .dp-section-head:first-child {
+  margin-top: 4rpx;
 }
 
 /* ===== 书记角色：专业统计视图 ===== */

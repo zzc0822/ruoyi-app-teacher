@@ -8,16 +8,21 @@
         现场照片（{{ minCount }}-{{ maxCount }}张）
         <text class="required" v-if="required">*</text>
       </text>
-      <view class="photo-upload-grid">
-        <view class="upload-item" v-for="(url, idx) in displayList" :key="idx">
-          <image :src="url" class="upload-preview" mode="aspectFill" @click="previewPhoto(idx)" />
-          <view class="remove-btn" @click="removePhoto(idx)">×</view>
-        </view>
-        <view class="upload-item add-item" v-if="displayList.length < maxCount" @click="capturePhoto">
-          <text class="add-icon">+</text>
-          <text class="add-text">拍照</text>
-        </view>
-      </view>
+      <local-photo-picker
+        ref="picker"
+        :scene-code="sceneCode"
+        :photos="photos"
+        :min-count="minCount"
+        :max-count="maxCount"
+        :required="required"
+        :fallback-address="fallbackAddress"
+        :require-location="requireLocation"
+        :show-title="false"
+        :show-tip="false"
+        @update:photos="onPhotosChange"
+        @capture="onCapture"
+        @location-state="onLocationState"
+      />
     </view>
 
     <view class="form-item">
@@ -31,23 +36,18 @@
       />
     </view>
 
-    <!-- 水印Canvas（离屏，组件作用域） -->
-    <canvas canvas-id="watermarkCanvas" style="position:fixed;left:-9999px;top:-9999px;width:1920px;height:1920px;"></canvas>
   </view>
 </template>
 
 <script>
-import { getWatermarkConfig } from '@/api/work/watermark'
-import { prepareCapture, addWatermark } from '@/utils/watermark'
-import { uploadFile, stripBaseUrl } from '@/utils/upload'
-import { resolveImg } from '@/utils/image'
+import LocalPhotoPicker from '@/components/local-photo-picker/index.vue'
 
 /**
- * 现场核实取证面板：只允许现场拍照，逐张确认定位水印后上传，入库存相对路径
- * 车辆核实/外宿核实等所有现场核验场景共用，保证取证口径一致
+ * 现场核实取证面板：复用本地拍照组件，网络上传由业务页交给后台队列。
  */
 export default {
   name: 'verify-capture',
+  components: { LocalPhotoPicker },
   props: {
     // 水印场景编码，决定后端水印配置（是否显示时间/坐标/地址）
     sceneCode: { type: String, required: true },
@@ -61,102 +61,34 @@ export default {
     required: { type: Boolean, default: true },
     remarkLabel: { type: String, default: '核实备注' },
     remarkPlaceholder: { type: String, default: '请填写核实情况（选填）' },
-    // 逆地理编码无结果时的地址兜底（如外宿地址）
-    fallbackAddress: { type: String, default: '' }
+    // 兼容旧调用；逆地理编码失败时优先作为地址兜底
+    fallbackAddress: { type: String, default: '' },
+    // 即使水印配置关闭，也要求取得现场定位（外宿现场核实用）
+    requireLocation: { type: Boolean, default: false }
   },
-  data() {
-    return {
-      watermarkConfig: null,
-      watermarkConfigPromise: null,
-      captureInfo: null
+  mounted() {
+    if (this.requireLocation) {
+      this.$nextTick(() => this.prepareCaptureInfo())
     }
-  },
-  computed: {
-    displayList() {
-      return (this.photos || []).map(resolveImg)
-    }
-  },
-  watch: {
-    sceneCode(val) {
-      this.watermarkConfig = null
-      this.loadConfig(val)
-    }
-  },
-  created() {
-    this.loadConfig(this.sceneCode)
   },
   methods: {
-    loadConfig(sceneCode) {
-      if (!sceneCode) return
-      this.watermarkConfigPromise = getWatermarkConfig(sceneCode)
-        .then(res => { this.watermarkConfig = res.data })
-        .catch(() => {})
+    onPhotosChange(photos) {
+      this.$emit('update:photos', photos)
     },
-    async capturePhoto() {
-      if ((this.photos || []).length >= this.maxCount) {
-        return uni.showToast({ title: '最多' + this.maxCount + '张', icon: 'none' })
-      }
-      // 逐张确认证信息，水印时间对应各自拍摄时刻；未确认则阻断
-      if (!(await this.ensureCaptureReady())) return
-      uni.chooseImage({
-        count: 1,
-        sizeType: ['compressed'],
-        sourceType: ['camera'],
-        success: async (res) => {
-          uni.showLoading({ title: '添加水印...' })
-          let uploaded
-          try {
-            const watermarked = await addWatermark(res.tempFilePaths[0], this.watermarkConfig, this.captureInfo, this)
-            uploaded = stripBaseUrl(await uploadFile(watermarked))
-          } catch (e) {
-            uni.hideLoading()
-            return uni.showToast({ title: '上传失败', icon: 'none' })
-          }
-          uni.hideLoading()
-          this.$emit('update:photos', (this.photos || []).concat([uploaded]))
-        }
-      })
+    onCapture(captureInfo) {
+      this.$emit('capture', captureInfo)
     },
-    // 拍照前确认水印时间与地址：定位失败或地址无法确定时不允许拍照，杜绝无水印照片
-    async ensureCaptureReady() {
-      if (!this.watermarkConfig && this.watermarkConfigPromise) {
-        await this.watermarkConfigPromise
-      }
-      const config = this.watermarkConfig
-      if (!config || config.enabled !== '1') return true
-      uni.showLoading({ title: '定位中...' })
-      const result = await prepareCapture(config, this.fallbackAddress)
-      uni.hideLoading()
-      if (!result.ready) {
-        uni.showToast({ title: result.message, icon: 'none', duration: 2500 })
-        return false
-      }
-      this.captureInfo = result.captureInfo
-      return true
-    },
-    removePhoto(idx) {
-      const next = (this.photos || []).slice()
-      next.splice(idx, 1)
-      this.$emit('update:photos', next)
-    },
-    previewPhoto(idx) {
-      uni.previewImage({ current: idx, urls: this.displayList })
+    onLocationState(state) {
+      this.$emit('location-state', state)
     },
     onRemarkInput(e) {
       this.$emit('update:remark', e.detail.value)
     },
-    /** 提交前由页面调用：照片数量不达标时提示并返回 false */
     ensurePhotoCount() {
-      const count = (this.photos || []).length
-      if (count < this.minCount) {
-        uni.showToast({ title: '请至少拍摄' + this.minCount + '张现场核实照片', icon: 'none' })
-        return false
-      }
-      if (count > this.maxCount) {
-        uni.showToast({ title: '核实照片最多' + this.maxCount + '张', icon: 'none' })
-        return false
-      }
-      return true
+      return this.$refs.picker.ensurePhotoCount()
+    },
+    prepareCaptureInfo() {
+      return this.$refs.picker.prefetchCaptureInfo()
     }
   }
 }
@@ -196,51 +128,6 @@ export default {
 }
 .required {
   color: #f56c6c;
-}
-.photo-upload-grid {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 16rpx;
-}
-.upload-item {
-  width: 160rpx;
-  height: 160rpx;
-  position: relative;
-}
-.upload-preview {
-  width: 100%;
-  height: 100%;
-  border-radius: 8rpx;
-}
-.remove-btn {
-  position: absolute;
-  top: -10rpx;
-  right: -10rpx;
-  width: 36rpx;
-  height: 36rpx;
-  background: #f56c6c;
-  color: #fff;
-  border-radius: 50%;
-  text-align: center;
-  line-height: 36rpx;
-  font-size: 24rpx;
-}
-.add-item {
-  background: #f5f5f5;
-  border: 2rpx dashed #ddd;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  border-radius: 8rpx;
-}
-.add-icon {
-  font-size: 48rpx;
-  color: #999;
-}
-.add-text {
-  font-size: 22rpx;
-  color: #999;
 }
 .form-textarea {
   background: #f5f5f5;

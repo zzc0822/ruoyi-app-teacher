@@ -189,6 +189,7 @@ export default {
     attendanceModeText(value) {
       const map = {
         onsite: '现场逐床点名',
+        phone: '学生手机确认',
         location: '楼栋定位点名',
         gesture: '指定手势照片',
         location_gesture: '楼栋定位 + 指定手势照片'

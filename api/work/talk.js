@@ -15,10 +15,11 @@ export function listTalk(query) {
 }
 
 // 获取谈话记录详情
-export function getTalk(id) {
+export function getTalk(id, query) {
   return request({
     url: '/api/talk/' + id,
-    method: 'get'
+    method: 'get',
+    params: query
   })
 }
 
@@ -41,10 +42,11 @@ export function updateTalk(data) {
 }
 
 // 删除谈话记录
-export function deleteTalk(ids) {
+export function deleteTalk(ids, query) {
   return request({
     url: '/api/talk/' + ids,
-    method: 'delete'
+    method: 'delete',
+    params: query
   })
 }
 
@@ -64,28 +66,29 @@ export function getMyStudents(keyword) {
 }
 
 // 获取待跟进的谈话记录
-export function getPendingTalks() {
+export function getPendingTalks(query) {
   return request({
     url: '/api/talk/pending',
-    method: 'get'
+    method: 'get',
+    params: query
   })
 }
 
 // 查询某次查课自动生成且未结束的谈话计划
-export function getTalkByCheck(checkId) {
+export function getTalkByCheck(checkId, query) {
   return request({
     url: '/api/talk/byCheck',
     method: 'get',
-    params: { checkId }
+    params: { checkId, ...(query || {}) }
   })
 }
 
 // 获取违纪学生列表
-export function getViolationStudents(checkDate, bjdm) {
+export function getViolationStudents(checkDate, bjdm, query) {
   return request({
     url: '/api/talk/violationStudents',
     method: 'get',
-    params: { checkDate, bjdm }
+    params: { checkDate, bjdm, ...(query || {}) }
   })
 }
 
@@ -98,18 +101,20 @@ export function getDeadlineConfig() {
 }
 
 // 共享候选：本次谈话对象所在班级的现任班主任
-export function getShareCandidates(talkId) {
+export function getShareCandidates(talkId, query) {
   return request({
     url: '/api/talk/shareCandidates/' + talkId,
-    method: 'get'
+    method: 'get',
+    params: query
   })
 }
 
 // 某条谈话的有效共享名单
-export function getTalkShares(talkId) {
+export function getTalkShares(talkId, query) {
   return request({
     url: '/api/talk/share/' + talkId,
-    method: 'get'
+    method: 'get',
+    params: query
   })
 }
 
@@ -131,10 +136,11 @@ export function revokeTalkShare(talkId, toTeacherId) {
 }
 
 // 结束谈话：走独立路由，服务端校验「已有谈话内容 + 重点/高危学生都有跟进计划」并闭环待办
-export function endTalk(id) {
+export function endTalk(id, query) {
   return request({
     url: '/api/talk/end/' + id,
-    method: 'put'
+    method: 'put',
+    params: query
   })
 }
 
@@ -148,18 +154,20 @@ export function getSceneCoverage(query) {
 }
 
 // 到期未跟进的重点/高危学生
-export function getDueFollowUp() {
+export function getDueFollowUp(query) {
   return request({
     url: '/api/talk/dueFollowUp',
-    method: 'get'
+    method: 'get',
+    params: query
   })
 }
 
 // 一人一档：某学生的全部谈话轮次与跟进状态
-export function getStudentTalkProfile(xh) {
+export function getStudentTalkProfile(xh, query) {
   return request({
     url: '/api/talk/studentProfile/' + xh,
-    method: 'get'
+    method: 'get',
+    params: query
   })
 }
 

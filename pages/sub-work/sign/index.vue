@@ -13,7 +13,7 @@
       </view>
       <view class="create-btn" @click="goCreate">
         <uni-icons type="plusempty" size="18" color="#fff"></uni-icons>
-        <text class="create-btn-text">发起签到</text>
+        <text class="create-btn-text">发起点名</text>
       </view>
     </view>
 
@@ -23,6 +23,9 @@
         <view class="sc-header">
           <view class="sc-title-row">
             <text class="sc-title">{{ item.sessionName }}</text>
+            <view class="sc-scene-tag" :class="'scene-' + (item.scene || 'class')">
+              {{ item.scene === 'dorm' ? '晚寝' : '课堂' }}
+            </view>
             <view class="sc-type-tag" :class="'type-' + item.signType">
               {{ typeMap[item.signType] || item.signType }}
             </view>
@@ -38,8 +41,10 @@
         </view>
         <view class="sc-body">
           <view class="sc-info-row">
-            <text class="sc-label">班级</text>
-            <text class="sc-value">{{ item.className || item.bjdm || '-' }}</text>
+            <text class="sc-label">{{ item.scene === 'dorm' ? '宿舍' : '班级' }}</text>
+            <text class="sc-value">
+              {{ item.scene === 'dorm' ? ((item.dormBuilding || '-') + ' ' + (item.dormFloor || '')) : (item.className || item.bjdm || '-') }}
+            </text>
           </view>
           <view class="sc-info-row" v-if="item.courseName">
             <text class="sc-label">课程</text>
@@ -61,11 +66,14 @@
             <view class="action-btn code-btn" v-if="item.signCode && item.status === '0'" @click.stop="showCode(item)">
               <text class="action-code">{{ item.signCode }}</text>
             </view>
+            <view class="action-btn qr-btn" v-if="item.signType === 'qr' && item.status === '0'" @click.stop="showQr(item)">
+              <text>二维码</text>
+            </view>
             <view class="action-btn finish-btn" v-if="item.status === '0'" @click.stop="handleFinish(item)">
               <text>结束</text>
             </view>
             <view class="action-btn confirm-btn" v-if="item.status === '1' && item.convertStatus === '0'" @click.stop="handleConfirm(item)">
-              <text>确认转化</text>
+              <text>{{ item.scene === 'dorm' ? '确认归档' : '确认转化' }}</text>
             </view>
           </view>
         </view>
@@ -90,6 +98,17 @@
         </view>
       </view>
     </view>
+
+    <view class="code-modal-mask" v-if="qrModalVisible" @click="qrModalVisible = false">
+      <view class="code-modal" @click.stop>
+        <text class="code-modal-title">学生扫码确认</text>
+        <image class="qr-image" v-if="currentQrImage" :src="currentQrImage" mode="aspectFit"></image>
+        <text class="code-modal-hint">学生使用学生端“扫一扫”确认本人</text>
+        <view class="code-modal-close" @click="qrModalVisible = false">
+          <text>关闭</text>
+        </view>
+      </view>
+    </view>
   </view>
 </template>
 
@@ -106,7 +125,9 @@ export default {
       statusMap: { '0': '进行中', '1': '已结束', '2': '已取消' },
       convertMap: { '0': '待确认', '1': '已转换', '2': '已拒绝' },
       codeModalVisible: false,
+      qrModalVisible: false,
       currentCode: '',
+      currentQrImage: '',
       refreshTimer: null,
     }
   },
@@ -147,7 +168,14 @@ export default {
       return t.substring(11, 16) || t
     },
     goCreate() {
-      uni.navigateTo({ url: '/pages/sub-work/sign/create' })
+      uni.showActionSheet({
+        itemList: ['课堂学生签到', '晚寝学生确认'],
+        success: res => {
+          uni.navigateTo({
+            url: res.tapIndex === 1 ? '/pages/sub-work/sign/dorm-create' : '/pages/sub-work/sign/create'
+          })
+        }
+      })
     },
     goDetail(item) {
       uni.navigateTo({ url: '/pages/sub-work/sign/detail?sessionId=' + item.sessionId })
@@ -155,6 +183,10 @@ export default {
     showCode(item) {
       this.currentCode = item.signCode
       this.codeModalVisible = true
+    },
+    showQr(item) {
+      this.currentQrImage = item.qrImage || ''
+      this.qrModalVisible = true
     },
     handleFinish(item) {
       uni.showModal({
@@ -171,13 +203,16 @@ export default {
       })
     },
     handleConfirm(item) {
+      const isDorm = item.scene === 'dorm'
       uni.showModal({
-        title: '确认转化',
-        content: '将签到结果转化为查课记录？未到学生将记为旷课。',
+        title: isDorm ? '确认归档' : '确认转化',
+        content: isDorm
+          ? '将学生确认结果归档为晚寝点名单？未确认且未请假的学生记为未归。'
+          : '将签到结果转化为查课记录？未签到学生将记为旷课。',
         success: (res) => {
           if (res.confirm) {
             confirmSignSession(item.sessionId).then(() => {
-              uni.showToast({ title: '已转化为查课记录', icon: 'success' })
+              uni.showToast({ title: isDorm ? '已归档为晚寝点名单' : '已转化为查课记录', icon: 'success' })
               this.getList()
             })
           }
@@ -203,6 +238,9 @@ export default {
 .sc-header { margin-bottom: 10px; }
 .sc-title-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
 .sc-title { font-size: 16px; font-weight: 600; color: #333; flex: 1; }
+.sc-scene-tag { font-size: 11px; padding: 2px 8px; border-radius: 10px; margin-right: 6px; }
+.sc-scene-tag.scene-class { background: #ecf5ff; color: #409EFF; }
+.sc-scene-tag.scene-dorm { background: #e9f7f1; color: #16865c; }
 .sc-type-tag { font-size: 11px; padding: 2px 8px; border-radius: 10px; background: #f0f0f0; color: #666; }
 .sc-type-tag.type-code { background: #ecf5ff; color: #409EFF; }
 .sc-type-tag.type-qr { background: #f0f9eb; color: #67C23A; }
@@ -231,6 +269,7 @@ export default {
 .sc-actions { display: flex; gap: 8px; }
 .action-btn { font-size: 12px; padding: 4px 12px; border-radius: 14px; }
 .action-btn.code-btn { background: #ecf5ff; }
+.action-btn.qr-btn { background: #f0f9eb; color: #529b2e; }
 .action-code { color: #409EFF; font-weight: 700; font-size: 14px; letter-spacing: 2px; }
 .finish-btn { background: #fdf6ec; color: #E6A23C; }
 .confirm-btn { background: #f0f9eb; color: #67C23A; }
@@ -243,6 +282,7 @@ export default {
 .code-modal { background: #fff; border-radius: 16px; padding: 30px 40px; text-align: center; min-width: 240px; }
 .code-modal-title { font-size: 16px; color: #333; display: block; margin-bottom: 16px; }
 .code-modal-code { font-size: 48px; font-weight: 700; color: #409EFF; letter-spacing: 8px; display: block; margin: 16px 0; }
+.qr-image { width: 240px; height: 240px; display: block; margin: 12px auto; }
 .code-modal-hint { font-size: 13px; color: #999; display: block; margin-bottom: 20px; }
 .code-modal-close { background: #f5f5f5; padding: 8px 24px; border-radius: 20px; display: inline-block; }
 .code-modal-close text { font-size: 14px; color: #666; }

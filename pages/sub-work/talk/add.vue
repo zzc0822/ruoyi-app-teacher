@@ -122,8 +122,8 @@
             <view :class="['vp-check', isViolationChecked(stu) ? 'vp-checked' : '']">
               <text v-if="isViolationChecked(stu)" class="vp-tick">✓</text>
             </view>
-            <text :class="['vp-badge', 'vp-' + (stu && stu.absentType)]" v-if="stu && stu.absentType">
-              {{ stu.absentType === 'late' ? '迟到' : stu.absentType === 'early_leave' ? '早退' : '旷课' }}
+            <text :class="['vp-badge', 'vp-' + violationBadgeClass(stu && stu.absentType)]" v-if="stu && stu.absentType">
+              {{ violationBadgeLabel(stu.absentType) }}
             </text>
             <view class="vp-info" v-if="stu">
               <view class="vp-name-row">
@@ -143,7 +143,7 @@
           <text class="annot-title">八必谈标注</text>
           <text class="annot-hint">非「常规」的学生必须选情形并填跟进计划</text>
         </view>
-        <view class="annot-row" v-for="(stu, ai) in form.studentList" :key="'an' + ai">
+        <view class="annot-row" v-for="(stu, ai) in form.studentList" :key="stu.xh">
           <view class="annot-main" @tap="toggleAnnot(stu)">
             <text class="annot-name">{{ stu.studentName || stu.xh }}</text>
             <text class="annot-tag tag-scene" v-if="stu.requiredScene">{{ sceneLabel(stu.requiredScene) }}</text>
@@ -197,7 +197,7 @@
       <view class="section-title">谈话内容</view>
       <!-- 历史记录 -->
       <view class="history-timeline" v-if="historyContent.length > 0">
-        <view class="history-item" v-for="(c, idx) in historyContent" :key="c.id || idx">
+        <view class="history-item" v-for="(c, idx) in historyContent" :key="idx">
           <view class="history-header">
             <text class="history-time">第{{ idx + 1 }}次 {{ formatDateTime(c.contentTime) }}</text>
           </view>
@@ -226,7 +226,7 @@
         <view class="attach-btn" @click="chooseAudio"><text>🎙 录音</text></view>
       </view>
       <view class="attach-grid" v-if="attachList.length > 0">
-        <view :class="['attach-item', item.mediaType === 'image' ? 'attach-image' : 'attach-file']" v-for="(item, idx) in attachList" :key="item.filePath || item.url || idx">
+        <view :class="['attach-item', item.mediaType === 'image' ? 'attach-image' : 'attach-file']" v-for="(item, idx) in attachList" :key="idx">
           <!-- 图片 -->
           <template v-if="item.mediaType === 'image'">
             <image :src="item.thumbUrl || item.url" mode="aspectFill" class="attach-img" @click="previewAttach(idx)"></image>
@@ -282,7 +282,7 @@
         </scroll-view>
         <view class="sp-current" v-if="shareList.length > 0">
           <text class="sp-current-title">当前共享名单</text>
-          <view class="sp-current-item" v-for="s in shareList" :key="s.shareId || s.toTeacherId">
+          <view class="sp-current-item" v-for="s in shareList" :key="s.toTeacherId">
             <text class="sp-current-name">{{ s.toName }}</text>
             <text class="sp-revoke" @click="doRevoke(s)">撤销</text>
           </view>
@@ -298,10 +298,10 @@
 </template>
 
 <script>
-import { addTalk, updateTalk, getTalk, getTalkByCheck, getMyStudents, getViolationStudents, getTalkAttachments, getDeadlineConfig, getShareCandidates, getTalkShares, shareTalk, revokeTalkShare, endTalk, handleRiskReport, getStudentTalkProfile } from '@/api/work/talk'
+import { getTalk, getTalkByCheck, getMyStudents, getViolationStudents, getTalkAttachments, getDeadlineConfig, getShareCandidates, getTalkShares, shareTalk, revokeTalkShare, handleRiskReport, getStudentTalkProfile } from '@/api/work/talk'
 import { getClassCheck } from '@/api/work/classcheck'
-import upload from '@/utils/upload'
-import { enqueueRequest, isNetworkFailure, makeClientRequestId } from '@/utils/offlineQueue'
+import { getStudyInspectionViolation } from '@/api/work/studyInspection'
+import { enqueueRequest, flushOfflineQueue, makeClientRequestId } from '@/utils/offlineQueue'
 import { chooseLocation, attachmentUrl } from '@/utils/common'
 import { checkPermi } from '@/utils/permission'
 import { getWatermarkConfig } from '@/api/work/watermark'
@@ -361,9 +361,11 @@ export default {
       watermarkConfig: null,
       watermarkConfigPromise: null,
       captureInfo: null,
+      viewScope: '',
     }
   },
   onLoad(options) {
+    this.viewScope = options && options.viewScope === 'headteacher' ? 'headteacher' : ''
     this.loadDicts()
     this.initDateTime()
     this.loginRoles = this.currentRoles()
@@ -379,8 +381,10 @@ export default {
       this.editId = options.id
       this.loadDetail(options.id)
     }
-    // 处理从待办进入的情况：todoId + businessId
-    if (options.todoId && options.businessId) {
+    // 学风检查待办的 businessId 是违纪记录ID，需要带入学生和违纪类型
+    if (options.studyViolationId) {
+      this.openTalkByStudyViolation(options.studyViolationId)
+    } else if (options.todoId && options.businessId) {
       // businessId 是查课记录ID
       this.openTalkByCheck(options.businessId)
     }
@@ -439,6 +443,7 @@ export default {
       return this.recorderRole !== 'headteacher'
     },
     dualRole() {
+      if (this.viewScope === 'headteacher') return false
       return isCounselor(this.loginRoles) && isHeadteacher(this.loginRoles)
     },
     recorderRoles() {
@@ -465,6 +470,7 @@ export default {
     },
     // 兼双职时默认以辅导员身份记录，仅有班主任身份时以班主任记录
     defaultRecorderRole() {
+      if (this.viewScope === 'headteacher') return 'headteacher'
       const roles = this.currentRoles()
       if (isCounselor(roles)) return 'counselor'
       if (isHeadteacher(roles)) return 'headteacher'
@@ -506,7 +512,7 @@ export default {
       return `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
     },
     loadDetail(id) {
-      getTalk(id).then(res => {
+      getTalk(id, this.viewScope ? { viewScope: this.viewScope } : undefined).then(res => {
         const data = res.data
         
         if (!data) return
@@ -603,7 +609,7 @@ export default {
     // 展开某个学生才拉他的一人一档，避免进页面就按人数并发一堆请求
     loadStudentProfile(stu) {
       if (!stu.xh || stu._profile) return
-      getStudentTalkProfile(stu.xh).then(res => {
+      getStudentTalkProfile(stu.xh, this.viewScope ? { viewScope: this.viewScope } : undefined).then(res => {
         const d = res.data || {}
         const last = (d.sessions || [])[0] || {}
         this.$set(stu, '_profile', {
@@ -682,7 +688,7 @@ export default {
         this.searchResult = []
         return
       }
-      getViolationStudents().then(res => {
+      getViolationStudents(null, null, this.viewScope ? { viewScope: this.viewScope } : undefined).then(res => {
         const rawList = (res.data || []).filter(s => s && s.xh)
         // 过滤掉：已谈话次数 >= 违纪次数 的学生
         this.violationList = rawList.filter(s => {
@@ -739,9 +745,46 @@ export default {
         this.form.talkTypeList.push('discipline')
       }
     },
+    violationBadgeLabel(type) {
+      return {
+        late: '迟到',
+        early_leave: '早退',
+        truant: '旷课',
+        sleeping: '课堂睡觉',
+        phone: '使用手机',
+        smoking: '吸烟',
+        dress: '仪容不规范',
+        other: '其他违纪'
+      }[type] || '违纪'
+    },
+    violationBadgeClass(type) {
+      if (type === 'late') return 'late'
+      if (type === 'early_leave') return 'early_leave'
+      return 'truant'
+    },
+    // 从学风检查待办进入：带入违纪学生，保存谈话后由后端按学号自动闭环待办
+    openTalkByStudyViolation(violationId) {
+      getStudyInspectionViolation(violationId).then(res => {
+        const violation = res.data
+        if (!violation || !violation.xh) return
+        if (violation.talkId) {
+          this.editId = String(violation.talkId)
+          this.loadDetail(violation.talkId)
+          uni.showToast({ title: '已加载学风违纪谈话计划', icon: 'none' })
+          return
+        }
+        this.addViolationStudent({
+          xh: violation.xh,
+          studentName: violation.studentName,
+          bjdm: violation.bjdm,
+          absentType: violation.violationType
+        })
+        uni.showToast({ title: '已加载学风违纪学生', icon: 'none' })
+      }).catch(() => {})
+    },
     // 从查课待办进入：优先复用查课自动生成的待谈话计划，避免重复新建
     openTalkByCheck(checkId) {
-      getTalkByCheck(checkId).then(res => {
+      getTalkByCheck(checkId, this.viewScope ? { viewScope: this.viewScope } : undefined).then(res => {
         const talk = res.data
         if (talk && talk.id) {
           this.editId = talk.id
@@ -871,7 +914,7 @@ export default {
             if (this.watermarkConfig && this.watermarkConfig.enabled === '1') {
               path = await addWatermark(path, this.watermarkConfig, this.captureInfo)
             }
-            this.uploadFile(path, 'image')
+            this.appendLocalAttachment(path, 'image')
           }
         }
       })
@@ -886,7 +929,7 @@ export default {
         sourceType: ['album'],
         sizeType: ['compressed'],
         success: (res) => {
-          res.tempFilePaths.forEach(p => this.uploadFile(p, 'image'))
+          res.tempFilePaths.forEach(p => this.appendLocalAttachment(p, 'image'))
         }
       })
     },
@@ -899,7 +942,7 @@ export default {
         count: 5 - this.attachList.length,
         type: 'file',
         success: (res) => {
-          res.tempFiles.forEach(f => this.uploadFile(f.path, 'document', f.name))
+          res.tempFiles.forEach(f => this.appendLocalAttachment(f.path, 'document', f.name))
         },
         fail: () => {
           uni.showToast({ title: '当前环境不支持选择文档', icon: 'none' })
@@ -916,40 +959,30 @@ export default {
         type: 'all',
         extension: ['mp3', 'wav', 'amr', 'aac', 'm4a'],
         success: (res) => {
-          res.tempFiles.forEach(f => this.uploadFile(f.path, 'audio', f.name))
+          res.tempFiles.forEach(f => this.appendLocalAttachment(f.path, 'audio', f.name))
         },
         fail: () => {
           uni.showToast({ title: '当前环境不支持选择录音', icon: 'none' })
         }
       })
     },
-    uploadFile(filePath, mediaType, fileName) {
-      uni.showLoading({ title: '上传中...' })
-      upload({
-        url: '/stumanage/talk/upload',
-        filePath: filePath,
-        name: 'file',
-        formData: { mediaType: mediaType || 'image' }
-      }).then(res => {
-        uni.hideLoading()
-        const data = res.data || res
-        if (data) {
-          const isImage = (mediaType || 'image') === 'image'
-          this.attachList.push({
-            url: isImage ? filePath : '',
-            thumbUrl: isImage ? filePath : '',
-            fileName: fileName || data.fileName || '',
-            mediaType: mediaType || 'image',
-            attachment: {
-              fileName: fileName || data.fileName || '', filePath: data.url || '',
-              fileSize: data.fileSize || 0, fileType: data.fileType || '',
-              mediaType: mediaType || 'image', exifData: data.exifData || '',
-            }
-          })
+    appendLocalAttachment(filePath, mediaType, fileName) {
+      const type = mediaType || 'image'
+      const isImage = type === 'image'
+      this.attachList.push({
+        localPath: filePath,
+        url: isImage ? filePath : '',
+        thumbUrl: isImage ? filePath : '',
+        fileName: fileName || '',
+        mediaType: type,
+        attachment: {
+          fileName: fileName || '',
+          filePath: '',
+          fileSize: 0,
+          fileType: '',
+          mediaType: type,
+          exifData: ''
         }
-      }).catch(() => {
-        uni.hideLoading()
-        uni.showToast({ title: '上传失败', icon: 'none' })
       })
     },
     removeAttach(idx) {
@@ -993,7 +1026,8 @@ export default {
       this.$refs.sharePopup && this.$refs.sharePopup.close()
     },
     loadShare() {
-      Promise.all([getShareCandidates(this.editId), getTalkShares(this.editId)]).then(([cRes, sRes]) => {
+      const query = this.viewScope ? { viewScope: this.viewScope } : undefined
+      Promise.all([getShareCandidates(this.editId, query), getTalkShares(this.editId, query)]).then(([cRes, sRes]) => {
         this.shareCandidates = cRes.data || []
         this.shareList = sRes.data || []
         this.shareCount = this.shareList.length
@@ -1075,16 +1109,13 @@ export default {
       }
       return true
     },
-    saveRecord() {
-      const data = this.buildRecordPayload()
-      return this.editId ? updateTalk(data) : addTalk(data)
-    },
     buildRecordPayload() {
       const talkTimeStr = this.talkDate + ' ' + this.talkTime + ':00'
       const deadlineStr = this.form.talkCategory === 'disciplinary' ? (this.deadlineDate + ' ' + this.deadlineTime + ':00') : null
       return {
         id: this.editId || undefined,
         clientRequestId: this.clientRequestId || undefined,
+        viewScope: this.viewScope || undefined,
         recorderRole: this.editId ? undefined : this.form.recorderRole,
         talkCategory: this.form.talkCategory,
         talkType: this.form.talkTypeList.join(','),
@@ -1107,15 +1138,25 @@ export default {
         }] : [],
         attachmentList: this.attachList.map((p, i) => ({
           businessType: 'talk',
-          fileName: p.attachment?.fileName || '',
-          filePath: p.attachment?.filePath || '',
-          fileSize: p.attachment?.fileSize || 0,
-          fileType: p.attachment?.fileType || '',
-          mediaType: p.attachment?.mediaType || 'image',
-          exifData: p.attachment?.exifData || '',
+          fileName: (p.attachment && p.attachment.fileName) || '',
+          filePath: (p.attachment && p.attachment.filePath) || '',
+          fileSize: (p.attachment && p.attachment.fileSize) || 0,
+          fileType: (p.attachment && p.attachment.fileType) || '',
+          mediaType: (p.attachment && p.attachment.mediaType) || 'image',
+          exifData: (p.attachment && p.attachment.exifData) || '',
           sortOrder: i + 1,
         })),
       }
+    },
+    buildAttachmentUploads() {
+      return this.attachList.map((item, index) => item.localPath ? {
+        localPath: item.localPath,
+        uploadUrl: '/stumanage/talk/upload',
+        field: 'file',
+        formData: { mediaType: item.mediaType || 'image' },
+        responseFields: { filePath: ['url'] },
+        dataPathPrefix: 'attachmentList[' + index + ']'
+      } : null).filter(Boolean)
     },
     emitRefresh() {
       // 通知首页和谈话列表刷新
@@ -1130,30 +1171,26 @@ export default {
         this.clientRequestId = makeClientRequestId('TALK')
       }
       const payload = this.buildRecordPayload()
-      const req = this.editId ? updateTalk(payload) : addTalk(payload)
-      req.then(() => {
-        uni.showToast({ title: this.editId ? '修改成功' : '提交成功', icon: 'success' })
+      enqueueRequest({
+        businessType: this.editId ? 'talk_update' : 'talk_add',
+        title: '谈心谈话：' + this.form.talkPlace,
+        clientRequestId: this.clientRequestId,
+        request: {
+          url: '/api/talk',
+          method: this.editId ? 'put' : 'post',
+          data: payload
+        },
+        uploads: this.buildAttachmentUploads()
+      }).then(result => {
+        flushOfflineQueue()
+        uni.showToast({
+          title: result.duplicate ? '该记录已在后台处理' : '已提交，附件后台上传',
+          icon: 'none'
+        })
         this.emitRefresh()
         setTimeout(() => { uni.navigateBack() }, 800)
-      }).catch(async error => {
-        if (isNetworkFailure(error)) {
-          const result = await enqueueRequest({
-            businessType: this.editId ? 'talk_update' : 'talk_add',
-            title: '谈心谈话：' + this.form.talkPlace,
-            clientRequestId: this.clientRequestId,
-            request: {
-              url: '/api/talk',
-              method: this.editId ? 'put' : 'post',
-              data: payload
-            }
-          })
-          uni.showToast({
-            title: result.duplicate ? '已在待同步队列' : '网络较弱，已加入待同步',
-            icon: 'none'
-          })
-          this.emitRefresh()
-          setTimeout(() => { uni.navigateBack() }, 900)
-        }
+      }).catch(() => {
+        uni.showToast({ title: '提交失败，请重试', icon: 'none' })
       }).finally(() => {
         this.submitting = false
       })
@@ -1167,28 +1204,36 @@ export default {
       }
       const payload = this.buildRecordPayload()
       this.ending = true
-      const saveReq = this.editId ? updateTalk(payload) : addTalk(payload)
-      saveReq.then(() => endTalk(talkId)).then(() => {
-        uni.showToast({ title: '本次谈话已结束，台账已闭环', icon: 'success' })
+      const endQuery = this.viewScope ? { viewScope: this.viewScope } : undefined
+      enqueueRequest({
+        businessType: 'talk_update_and_end',
+        title: '结束谈话：' + this.form.talkPlace,
+        clientRequestId: this.clientRequestId,
+        request: {
+          url: '/api/talk',
+          method: 'put',
+          data: payload
+        },
+        uploads: this.buildAttachmentUploads(),
+        followUps: [{
+          request: {
+            url: '/api/talk/end/' + talkId,
+            method: 'put',
+            params: endQuery
+          }
+        }]
+      }).then(result => {
+        flushOfflineQueue()
+        uni.showToast({
+          title: result.duplicate ? '结束操作已在后台处理' : '已提交，后台完成结束闭环',
+          icon: 'none'
+        })
         this.endedRecord = true
         this.form.isEnded = '1'
         this.emitRefresh()
         setTimeout(() => { uni.navigateBack() }, 1000)
-      }).catch(async error => {
-        if (isNetworkFailure(error)) {
-          await enqueueRequest({
-            businessType: this.editId ? 'talk_update' : 'talk_add',
-            title: '谈心谈话：' + this.form.talkPlace,
-            clientRequestId: this.clientRequestId,
-            request: {
-              url: '/api/talk',
-              method: this.editId ? 'put' : 'post',
-              data: payload
-            }
-          })
-          uni.showToast({ title: '已加入待同步，请同步后再结束谈话', icon: 'none' })
-        }
-        // 未结束的原因（没有内容/重点学生缺跟进计划）由后端给出，请求层已提示
+      }).catch(() => {
+        uni.showToast({ title: '结束失败，请重试', icon: 'none' })
       }).finally(() => {
         this.ending = false
       })
@@ -1213,7 +1258,7 @@ export default {
     },
     // 只回读明细的上报/处置状态，不整页重载，免得冲掉未保存的编辑
     refreshReportState() {
-      getTalk(this.editId).then(res => {
+      getTalk(this.editId, this.viewScope ? { viewScope: this.viewScope } : undefined).then(res => {
         const rows = (res.data && res.data.studentList) || []
         this.form.studentList.forEach(s => {
           const hit = rows.filter(x => x.xh === s.xh)[0]

@@ -3,6 +3,7 @@
  */
 export * from './schedule'
 export * from './classcheck'
+export * from './studyInspection'
 export * from './rollcall'
 export * from './classTree'
 export * from './classinfo'
@@ -15,3 +16,5 @@ export * from './teacherinfo'
 export * from './activity'
 export * from './counselorSchedule'
 export * from './dormcheck'
+export * from './dashboard'
+export * from './counselorProgress'

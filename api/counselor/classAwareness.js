@@ -1,5 +1,10 @@
 import request from '@/utils/request'
 
+// 训练规则与限时
+export function getConfig() {
+  return request({ url: '/counselor/class-awareness/config', method: 'get' })
+}
+
 // 获取我的班级列表
 export function getMyClasses() {
   return request({ url: '/counselor/class-awareness/myClasses', method: 'get' })

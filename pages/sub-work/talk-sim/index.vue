@@ -1,8 +1,12 @@
 <template>
   <view class="container">
+    <view v-if="isCompetition" class="competition-banner">
+      <uni-icons type="flag-filled" size="17" color="#b45309"></uni-icons>
+      <text>比赛作答 · {{ compName || '进行中的比赛' }}</text>
+    </view>
     <!-- 案例列表 -->
     <view v-if="!selectedCase" class="case-list">
-      <view class="page-title">谈心谈话训练</view>
+      <view class="page-title">{{ isCompetition ? '谈心谈话比赛' : '谈心谈话训练' }}</view>
       <view class="tab-bar">
         <view :class="getTabClass('all')" @click="tab='all'">全部案例</view>
         <view :class="getTabClass('my')" @click="tab='my'">我的记录</view>
@@ -82,6 +86,7 @@
           <view class="score-item"><text class="label">抓住核心问题</text><text class="value">{{ result.scoreProblem || 0 }}/30</text></view>
           <view class="score-item"><text class="label">教育引导效果</text><text class="value">{{ result.scoreEffect || 0 }}/30</text></view>
           <view class="score-item"><text class="label">沟通技巧</text><text class="value">{{ result.scoreCommunication || 0 }}/20</text></view>
+          <view class="score-item"><text class="label">作答用时</text><text class="value">{{ formatDuration(result.timeSpent) }}</text></view>
         </view>
       </view>
       <button class="btn btn-primary" @click="backToList">返回列表</button>
@@ -95,11 +100,21 @@ export default {
     return {
       tab: 'all', caseList: [], myList: [], selectedCase: null, showResult: false,
       form: { talkGoal: '', talkProcess: '', problemAnalysis: '', improvementMeasures: '', talkSummary: '' },
-      result: {}, submitting: false
+      result: {}, submitting: false, mode: 'training', compId: null, compName: '', answerStartedAt: 0
+    }
+  },
+  computed: {
+    isCompetition() {
+      return this.mode === 'competition' && !!this.compId
     }
   },
   filters: {
     truncate(val) { return val && val.length > 60 ? val.substring(0, 60) + '...' : val }
+  },
+  onLoad(options) {
+    if (options.compId) this.compId = Number(options.compId)
+    if (options.compName) this.compName = decodeURIComponent(options.compName)
+    this.mode = options.mode === 'competition' || this.compId ? 'competition' : 'training'
   },
   onShow() { this.loadCases(); this.loadMyList() },
   methods: {
@@ -108,23 +123,48 @@ export default {
     getDiffText(diff) { return diff === '1' ? '初级' : diff === '2' ? '中级' : '高级' },
     loadCases() { getCaseList({ caseType: 'talk_simulation' }).then(r => { this.caseList = r.rows || [] }) },
     loadMyList() { getMyTalkList().then(r => { this.myList = r.rows || [] }) },
-    selectCase(c) { this.selectedCase = c; this.form = { talkGoal: '', talkProcess: '', problemAnalysis: '', improvementMeasures: '', talkSummary: '' } },
+    selectCase(c) {
+      if (this.mode === 'competition' && !this.compId) {
+        return uni.showToast({ title: '请从比赛入口进入', icon: 'none' })
+      }
+      this.selectedCase = c
+      this.answerStartedAt = Date.now()
+      this.form = { talkGoal: '', talkProcess: '', problemAnalysis: '', improvementMeasures: '', talkSummary: '' }
+    },
     submitRecord() {
       if (!this.form.talkGoal || !this.form.talkProcess) {
         return uni.showToast({ title: '请至少填写谈话目标和过程记录', icon: 'none' })
       }
+      if (this.mode === 'competition' && !this.compId) {
+        return uni.showToast({ title: '比赛信息已失效，请重新进入', icon: 'none' })
+      }
       this.submitting = true
-      submitTalkRecord({ caseId: this.selectedCase.caseId, ...this.form }).then(r => {
-        this.result = r.data; this.showResult = true; this.submitting = false; this.loadMyList()
+      const timeSpent = Math.max(1, Math.round((Date.now() - this.answerStartedAt) / 1000))
+      submitTalkRecord({
+        caseId: this.selectedCase.caseId,
+        compId: this.isCompetition ? this.compId : null,
+        talkType: this.isCompetition ? '1' : '0',
+        timeSpent,
+        ...this.form
+      }).then(r => {
+        this.result = r.data; this.showResult = true; this.submitting = false; this.answerStartedAt = 0; this.loadMyList()
       }).catch(() => { this.submitting = false })
     },
     viewRecord(r) { this.result = r; this.showResult = true },
-    backToList() { this.showResult = false; this.selectedCase = null }
+    backToList() { this.showResult = false; this.selectedCase = null; this.answerStartedAt = 0 },
+    formatDuration(seconds) {
+      const value = Math.max(0, Number(seconds || 0))
+      const minutes = Math.floor(value / 60)
+      const remain = value % 60
+      if (!minutes) return remain + '秒'
+      return minutes + '分' + (remain ? remain + '秒' : '')
+    }
   }
 }
 </script>
 <style scoped>
 .container { padding: 20rpx; background: #f5f5f5; min-height: 100vh; }
+.competition-banner { display: flex; align-items: center; gap: 10rpx; margin-bottom: 18rpx; padding: 18rpx 22rpx; border: 1rpx solid #f5d9b5; border-radius: 12rpx; background: #fffbeb; color: #b45309; font-size: 24rpx; }
 .page-title { font-size: 36rpx; font-weight: bold; margin-bottom: 20rpx; color: #333; }
 .tab-bar { display: flex; background: #fff; border-radius: 12rpx; margin-bottom: 20rpx; overflow: hidden; }
 .tab-item { flex: 1; text-align: center; padding: 20rpx; font-size: 28rpx; color: #666; }

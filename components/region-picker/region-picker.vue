@@ -62,6 +62,8 @@ export default {
     placeholder: { type: String, default: '选择省 / 市 / 区县' },
     detailPlaceholder: { type: String, default: '街道、门牌号（选填）' },
     defaultProvince: { type: String, default: '' },
+    defaultCity: { type: String, default: '' },
+    defaultDistrict: { type: String, default: '' },
     minLevel: { type: Number, default: 2 },
     disabled: { type: Boolean, default: false }
   },
@@ -220,7 +222,15 @@ export default {
         this.regionNodes = []
         this.detail = ''
         this.unresolved = ''
-        this.locate(this.defaultPath())
+        const defaults = this.defaultPath()
+        this.locate(defaults)
+        if (defaults.length >= this.minLevel) {
+          this.regionNodes = defaults
+          this.selfEmit = true
+          const joined = this.namesOf(defaults).join('/')
+          this.$emit('input', joined)
+          this.$emit('change', joined)
+        }
         return
       }
       const { path, rest } = this.pathOf(text)
@@ -230,11 +240,18 @@ export default {
       this.unresolved = this.tree.length && path.length < this.minLevel ? text : ''
       this.locate(path.length ? path : this.defaultPath())
     },
-    // 空值时滚轮停在默认省（学校在广东，省内请假/外宿占绝大多数），但不往字段里写
+    // 空值时按默认省/市/区县初始化；配置到区县后会同步写入字段
     defaultPath() {
       if (!this.defaultProvince || !this.tree.length) return []
       const hit = this.matchOne(this.tree, this.defaultProvince)
-      return hit ? [hit.node] : []
+      if (!hit) return []
+      const path = [hit.node]
+      const city = this.defaultCity ? this.matchOne(hit.node.children, this.defaultCity) : null
+      if (!city) return path
+      path.push(city.node)
+      const district = this.defaultDistrict ? this.matchOne(city.node.children, this.defaultDistrict) : null
+      if (district) path.push(district.node)
+      return path
     },
     onColumnChange(e) {
       const { column, value } = e.detail

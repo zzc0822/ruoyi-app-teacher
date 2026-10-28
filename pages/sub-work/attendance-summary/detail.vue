@@ -19,8 +19,8 @@
       <text>{{ debugMsg }}</text>
     </view>
 
-    <!-- 网格表格：水平滚动 -->
-    <scroll-view v-if="rows.length > 0" scroll-x class="grid-scroll" :style="'height:' + scrollHeight + 'px'">
+    <!-- 网格表格：页面负责纵向滚动，表格负责横向滚动 -->
+    <scroll-view v-if="rows.length > 0" scroll-x class="grid-scroll">
       <view :style="'width:' + totalWidth + 'px'">
         <!-- 表头行 -->
         <view class="g-row g-hd">
@@ -83,7 +83,6 @@ export default {
       rows: [],
       currentWeek: 0,
       loading: true,
-      scrollHeight: 500,
       totalWidth: 800,
       debugMsg: '',
       legendItems: [
@@ -116,8 +115,6 @@ export default {
     this.className = decodeURIComponent(options.className || '')
     this.courseName = decodeURIComponent(options.courseName || '')
     uni.setNavigationBarTitle({ title: this.className || '考勤详情' })
-    const sys = uni.getSystemInfoSync()
-    this.scrollHeight = sys.windowHeight - 160
     this.loadData()
   },
   methods: {
@@ -164,7 +161,7 @@ export default {
         this.rows = arr
         // 计算总宽度：姓名列80px + 每列40px + 汇总列80px
         this.totalWidth = 80 + weeks.length * 40 + 80
-        this.debugMsg = 'rows:' + arr.length + ' totalW:' + this.totalWidth + ' scrollH:' + this.scrollHeight
+        this.debugMsg = 'rows:' + arr.length + ' totalW:' + this.totalWidth
       } catch (e) {
         this.debugMsg = 'error: ' + JSON.stringify(e)
       }
@@ -297,9 +294,14 @@ export default {
   flex-direction: column;
   border-right: 2rpx solid #ddd;
   background: #fff;
+  position: sticky;
+  left: 0;
+  z-index: 3;
+  box-shadow: 6rpx 0 10rpx rgba(0, 0, 0, 0.06);
 }
 .g-hd .c-name {
   background: #f0f2f5;
+  z-index: 4;
 }
 .row-alt .c-name {
   background: #fafbfc;
@@ -313,9 +315,14 @@ export default {
   min-width: 160rpx;
   border-left: 2rpx solid #ddd;
   background: #f8f9fa;
+  position: sticky;
+  right: 0;
+  z-index: 3;
+  box-shadow: -6rpx 0 10rpx rgba(0, 0, 0, 0.06);
 }
 .g-hd .c-sum {
   background: #f0f2f5;
+  z-index: 4;
 }
 
 /* 文本样式 */

@@ -48,6 +48,7 @@
         <text class="info-label">外宿地址</text>
         <text class="info-value">{{ detail.address }}</text>
       </view>
+      <offcampus-location :saved="detail" :auto-preview="false" />
       <view class="info-row">
         <text class="info-label">外宿理由</text>
         <text class="info-value">{{ detail.applyReason }}</text>
@@ -144,8 +145,10 @@
 import { getOffcampus, approveOffcampus, getOffcampusHistory } from '@/api/affair/offcampus'
 import { getDicts } from '@/api/system/dict/data'
 import { mergePhotoFields } from '@/utils/image'
+import OffcampusLocation from '@/components/offcampus-location/offcampus-location.vue'
 
 export default {
+  components: { OffcampusLocation },
   data() {
     return {
       detail: {},

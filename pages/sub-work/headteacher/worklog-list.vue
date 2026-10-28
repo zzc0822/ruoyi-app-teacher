@@ -187,7 +187,7 @@ export default {
         cancelText: '知道了',
         success: res => {
           if (res.confirm) {
-            uni.navigateTo({ url: '/pages/sub-work/talk/index' })
+            uni.navigateTo({ url: '/pages/sub-work/talk/index?viewScope=headteacher' })
           }
         }
       })

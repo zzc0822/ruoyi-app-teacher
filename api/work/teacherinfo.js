@@ -42,6 +42,23 @@ export function getRoleList() {
   })
 }
 
+// 获取当前登录账号的有效角色（小程序专用）
+export function getMyRoles() {
+  return request({
+    url: '/api/teacher/myRoles',
+    method: 'get',
+    silent: true
+  })
+}
+
+// 获取服务端按数据库角色记录选定的当前展示角色
+export function getCurrentRole() {
+  return request({
+    url: '/api/teacher/currentRole',
+    method: 'get'
+  })
+}
+
 // 删除教师信息
 export function delTeacherinfo(jsid) {
   return request({

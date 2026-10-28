@@ -530,6 +530,8 @@ export default {
         uni.navigateTo({ url: '/pages/sub-work/talk/add?id=' + item.businessId })
       } else if (item.todoType === 'talk') {
         uni.navigateTo({ url: '/pages/sub-work/talk/index' })
+      } else if (item.todoType === 'study_violation_talk') {
+        uni.navigateTo({ url: '/pages/sub-work/talk/add?studyViolationId=' + item.businessId })
       } else if (['classcheck_talk', 'leave_talk', 'offcampus_talk', 'vehicle_talk', 'warning_talk'].includes(item.todoType)) {
         uni.navigateTo({ url: '/pages/sub-work/talk/add?todoId=' + item.id + '&businessId=' + item.businessId })
       }
@@ -541,6 +543,7 @@ export default {
         talk: '谈话提醒', talk_disciplinary: '违纪谈话', talk_daily: '日常谈心',
         talk_risk_report: '高危谈心上报', talk_overdue: '谈话超期催办', talk_follow_up: '谈话到期跟进',
         classcheck_talk: '查课谈话', classcheck_confirm: '抽查待确认',
+        study_violation_talk: '学风违纪谈话',
         leave_talk: '请假逾期谈话', offcampus_talk: '外宿谈话',
         vehicle_talk: '车辆谈话', warning_talk: '预警谈话',
         check: '查课提醒', overdue: '逾期提醒'

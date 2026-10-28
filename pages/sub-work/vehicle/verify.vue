@@ -63,9 +63,10 @@
 </template>
 
 <script>
-import { getVehicle, verifyVehicle } from '@/api/affair/vehicle'
+import { getVehicle } from '@/api/affair/vehicle'
 import { mergePhotoFields } from '@/utils/image'
 import verifyCapture from '@/components/verify-capture/index.vue'
+import { enqueueRequest, flushOfflineQueue } from '@/utils/offlineQueue'
 
 export default {
   components: { verifyCapture },
@@ -111,6 +112,27 @@ export default {
       const map = { motorcycle: '摩托车', electric_bike: '电动车', bicycle: '自行车', car: '汽车' }
       return map[type] || type
     },
+    buildVerifyPayload(status) {
+      return {
+        id: this.id,
+        verifyStatus: status,
+        verifyPhotos: JSON.stringify([]),
+        verifyRemark: this.verifyRemark
+      }
+    },
+    buildVerifyUploads() {
+      return (this.verifyPhotoList || []).map(photo => {
+        const localPath = photo && (photo.localPath || photo.originalPath)
+        if (!localPath) return null
+        return {
+          localPath,
+          uploadUrl: '/common/upload',
+          field: 'file',
+          jsonArrayPath: 'verifyPhotos',
+          jsonArrayValue: 'filePath'
+        }
+      }).filter(Boolean)
+    },
     doVerify(status) {
       if (status === 'verified' && !this.$refs.capture.ensurePhotoCount()) return
 
@@ -121,19 +143,24 @@ export default {
         success: async (modalRes) => {
           if (!modalRes.confirm) return
           try {
-            const data = {
-              id: this.id,
-              verifyStatus: status,
-              verifyPhotos: JSON.stringify(this.verifyPhotoList),
-              verifyRemark: this.verifyRemark
-            }
-            const res = await verifyVehicle(data)
-            if (res.code === 200) {
-              uni.showToast({ title: '核实' + actionText + '成功', icon: 'success' })
-              setTimeout(() => uni.navigateBack(), 1500)
-            }
+            const result = await enqueueRequest({
+              businessType: 'vehicle_verify',
+              title: '车辆核实：' + (this.detail.studentName || this.detail.xh),
+              request: {
+                url: '/api/vehicle/verify',
+                method: 'put',
+                data: this.buildVerifyPayload(status)
+              },
+              uploads: this.buildVerifyUploads()
+            })
+            flushOfflineQueue()
+            uni.showToast({
+              title: result.duplicate ? '该核实已在后台处理' : '已提交，照片后台上传',
+              icon: 'none'
+            })
+            setTimeout(() => uni.navigateBack(), 450)
           } catch (e) {
-            uni.showToast({ title: '操作失败', icon: 'none' })
+            uni.showToast({ title: '提交失败，请重试', icon: 'none' })
           }
         }
       })

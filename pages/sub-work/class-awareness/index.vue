@@ -7,11 +7,30 @@
       <view class="mode-section">
         <view class="mode-label">答题模式</view>
         <view class="mode-btns">
-          <view :class="['mode-btn', mode==='training'?'active':'']" @click="mode='training'">训练模式</view>
-          <view :class="['mode-btn', mode==='competition'?'active':'']" @click="mode='competition'">竞赛模式</view>
+          <view :class="['mode-btn', mode==='training'?'active':'']" @click="selectMode('training')">训练模式</view>
+          <view :class="['mode-btn', mode==='competition'?'active':'']" @click="selectMode('competition')">竞赛模式</view>
         </view>
         <view class="mode-tip" v-if="mode==='training'">训练模式只显示正确率，不计分</view>
         <view class="mode-tip" v-if="mode==='competition'">竞赛模式根据时间系数×难度系数计算得分并排名</view>
+        <view v-if="mode==='competition'" class="competition-picker-block">
+          <view class="picker-label">选择比赛</view>
+          <picker
+            mode="selector"
+            :range="competitionOptions"
+            range-key="compName"
+            :value="selectedCompetitionIndex"
+            :disabled="!competitionOptions.length"
+            @change="handleCompetitionChange"
+          >
+            <view :class="['competition-picker', selectedCompetition ? 'has-value' : '']">
+              <text>{{ competitionPickerText }}</text>
+              <uni-icons type="down" size="15" color="#64748b"></uni-icons>
+            </view>
+          </picker>
+          <view v-if="!compLoading && !competitionOptions.length" class="picker-empty">
+            当前没有可参加的班情熟知比赛
+          </view>
+        </view>
       </view>
       <view class="config-info">
         <text>答题人数：{{ studentCount }}人</text>
@@ -149,15 +168,16 @@
       </view>
 
       <view class="result-btns">
-        <button class="retry-btn" @click="retry">再来一次</button>
-        <button class="back-btn" @click="goBack">返回首页</button>
+        <button v-if="mode==='training'" class="retry-btn" @click="retry">再来一次</button>
+        <button class="back-btn" @click="goBack">{{ mode==='competition' ? '返回训练平台' : '返回首页' }}</button>
       </view>
     </view>
   </view>
 </template>
 
 <script>
-import { startQuiz, submitQuiz, getDetail } from '@/api/counselor/classAwareness'
+import { startQuiz, submitQuiz, getDetail, getConfig } from '@/api/counselor/classAwareness'
+import { getAvailableCompetitions } from '@/api/counselor/training'
 import config from '@/config'
 
 export default {
@@ -165,6 +185,11 @@ export default {
   data() {
     return {
       mode: 'training',
+      compId: null,
+      compName: '',
+      competitionOptions: [],
+      selectedCompetition: null,
+      compLoading: false,
       studentCount: 20,
       timeLimit: 600,
       difficultyCoeff: 1.0,
@@ -184,18 +209,97 @@ export default {
       startTime: null
     }
   },
+  computed: {
+    selectedCompetitionIndex() {
+      const index = this.competitionOptions.findIndex(item => String(item.compId) === String(this.compId))
+      return index < 0 ? 0 : index
+    },
+    competitionPickerText() {
+      if (this.selectedCompetition) return this.selectedCompetition.compName
+      if (this.compLoading) return '正在加载比赛...'
+      return '请选择进行中的比赛'
+    }
+  },
   onLoad(options) {
     if (options.compId) this.compId = options.compId
-    if (options.mode) this.mode = options.mode
+    if (options.compName) this.compName = decodeURIComponent(options.compName)
+    this.mode = options.mode === 'competition' || options.compId ? 'competition' : 'training'
+    this.loadConfig()
+    this.loadCompetitions()
   },
   onUnload() {
     if (this.timer) clearInterval(this.timer)
   },
   methods: {
+    async loadConfig() {
+      try {
+        const res = await getConfig()
+        if (res.code === 200 && res.data) {
+          this.timeLimit = Number(res.data.timeLimit || this.timeLimit)
+          this.studentCount = Number(res.data.studentCount || this.studentCount)
+          this.difficultyCoeff = Number(res.data.difficultyCoeff || this.difficultyCoeff)
+          this.remainTime = this.timeLimit
+        }
+      } catch (e) {
+        // Keep the platform defaults when the rule configuration is unavailable.
+      }
+    },
+
+    async loadCompetitions() {
+      this.compLoading = true
+      try {
+        const res = await getAvailableCompetitions()
+        const rows = Array.isArray(res.data) ? res.data : []
+        this.competitionOptions = rows.filter(item =>
+          String(item.projectCodes || item.compType || '')
+            .split(',')
+            .map(code => code.trim())
+            .includes('class_awareness')
+        )
+        this.selectedCompetition = this.competitionOptions.find(item =>
+          String(item.compId) === String(this.compId)
+        ) || null
+        if (this.selectedCompetition) {
+          this.compId = this.selectedCompetition.compId
+          this.compName = this.selectedCompetition.compName
+        }
+      } catch (e) {
+        this.competitionOptions = []
+        this.selectedCompetition = null
+      }
+      this.compLoading = false
+    },
+
+    selectMode(nextMode) {
+      this.mode = nextMode
+      if (nextMode === 'training') {
+        this.compId = null
+        this.compName = ''
+        this.selectedCompetition = null
+      } else if (!this.competitionOptions.length) {
+        this.loadCompetitions()
+      }
+    },
+
+    handleCompetitionChange(event) {
+      const selected = this.competitionOptions[Number(event.detail.value)]
+      if (!selected) return
+      this.selectedCompetition = selected
+      this.compId = selected.compId
+      this.compName = selected.compName
+    },
+
     async handleStart() {
+      if (this.mode === 'competition' && !this.compId) {
+        uni.showToast({ title: '请先选择比赛', icon: 'none' })
+        return
+      }
       this.loading = true
       try {
-        const res = await startQuiz({ compId: this.compId, mode: this.mode })
+        const res = await startQuiz({
+          compId: this.mode === 'competition' ? this.compId : undefined,
+          mode: this.mode
+        })
         if (res.code === 200) {
           this.awarenessId = res.data.awarenessId
           this.details = res.data.details || []
@@ -205,7 +309,7 @@ export default {
           this.currentAnswer = { ...this.answers[0] }
           this.started = true
           this.startTime = Date.now()
-          this.remainTime = this.timeLimit
+          this.remainTime = Number(this.timeLimit || 600)
           this.startTimer()
         } else {
           uni.showToast({ title: res.msg || '开始失败', icon: 'none' })
@@ -332,6 +436,11 @@ export default {
 .mode-btn { flex: 1; text-align: center; padding: 20rpx; border-radius: 12rpx; background: #f0f0f0; font-size: 28rpx; }
 .mode-btn.active { background: #409eff; color: #fff; }
 .mode-tip { font-size: 24rpx; color: #999; margin-top: 15rpx; }
+.competition-picker-block { margin-top: 24rpx; padding-top: 24rpx; border-top: 1rpx solid #eef2f7; }
+.picker-label { margin-bottom: 12rpx; color: #475569; font-size: 24rpx; font-weight: 600; }
+.competition-picker { display: flex; align-items: center; justify-content: space-between; min-height: 76rpx; padding: 0 22rpx; border: 1rpx solid #dbe5e1; border-radius: 12rpx; background: #f8fafc; color: #94a3b8; font-size: 26rpx; box-sizing: border-box; }
+.competition-picker.has-value { border-color: #9bd3c8; background: #f0fdfa; color: #0f766e; }
+.picker-empty { margin-top: 12rpx; color: #b45309; font-size: 22rpx; }
 .config-info { display: flex; justify-content: space-around; background: #fff; border-radius: 16rpx; padding: 25rpx; margin-bottom: 40rpx; font-size: 26rpx; color: #666; }
 .start-btn { background: #409eff; color: #fff; border-radius: 50rpx; font-size: 32rpx; height: 88rpx; line-height: 88rpx; }
 .history-link { text-align: center; color: #409eff; font-size: 28rpx; margin-top: 30rpx; }

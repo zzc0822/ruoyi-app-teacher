@@ -31,6 +31,23 @@
           </view>
         </view>
         
+        <!-- 隐私协议自主选择 -->
+        <view class="privacy-consent">
+          <view class="consent-control">
+            <checkbox-group class="consent-checkbox-group" @change="handlePrivacyConsentChange">
+              <label class="consent-checkbox-label">
+                <checkbox value="accepted" :checked="privacyAccepted" color="#2563eb" class="consent-checkbox" />
+              </label>
+            </checkbox-group>
+            <view class="consent-copy">
+              <text class="consent-text">我已阅读并同意</text>
+              <text @click="handleUserAgrement" class="consent-link">《用户服务协议》</text>
+              <text class="consent-text">和</text>
+              <text @click="handlePrivacy" class="consent-link">《隐私政策》</text>
+            </view>
+          </view>
+        </view>
+
         <!-- 登录按钮 -->
         <view class="action-area">
           <button @click="handleLogin" class="login-btn primary">{{ isWxEnv ? '绑定并登录' : '登录' }}</button>
@@ -42,9 +59,18 @@
               <text class="divider-text">或</text>
               <view class="divider-line"></view>
             </view>
-            <button 
+            <button
+              v-if="privacyAccepted"
               open-type="getPhoneNumber" 
               @getphonenumber="handleGetPhoneNumber" 
+              class="login-btn outline"
+            >
+              <text class="iconfont icon-phone btn-icon"></text>
+              一键手机号登录
+            </button>
+            <button
+              v-else
+              @click="showPrivacyRequired"
               class="login-btn outline"
             >
               <text class="iconfont icon-phone btn-icon"></text>
@@ -59,11 +85,6 @@
             <text class="text-grey1">没有账号？</text>
             <text @click="handleUserRegister" class="text-blue">立即注册</text>
           </view>
-          <view class="xieyi text-center">
-            <text class="text-grey1">登录即代表同意</text>
-            <text @click="handleUserAgrement" class="text-blue">《用户协议》</text>
-            <text @click="handlePrivacy" class="text-blue">《隐私协议》</text>
-          </view>
         </view>
       </view>
     </view>
@@ -73,6 +94,8 @@
 <script>
   import { getCodeImg } from '@/api/auth'
   import { getToken } from '@/utils/auth'
+  import { bootstrapAuth } from '@/utils/authBootstrap'
+  import { acceptPrivacyConsent, hasPrivacyConsent } from '@/utils/privacy'
 
   export default {
     data() {
@@ -83,6 +106,9 @@
         register: false,
         // 是否微信小程序环境
         isWxEnv: false,
+        autoLoginPending: false,
+        redirecting: false,
+        privacyAccepted: hasPrivacyConsent(),
         globalConfig: getApp().globalData.config,
         // 登录表单
         loginForm: {
@@ -101,33 +127,57 @@
     onLoad() {
       // #ifdef MP-WEIXIN
       this.isWxEnv = true
-      this.tryWxAutoLogin()
       // #endif
       // #ifndef MP-WEIXIN
-      if (getToken()) {
+      if (getToken() && hasPrivacyConsent()) {
         uni.reLaunch({ url: '/pages/index' })
       }
       // #endif
     },
+    onReady() {
+      // #ifdef MP-WEIXIN
+      this.tryWxAutoLogin()
+      // #endif
+    },
     methods: {
       // 尝试微信自动登录
-      tryWxAutoLogin() {
-        if (getToken()) {
-          uni.reLaunch({ url: '/pages/index' })
+      async tryWxAutoLogin() {
+        if (!hasPrivacyConsent() || this.autoLoginPending || this.redirecting) {
           return
         }
+        this.autoLoginPending = true
         this.$modal.loading("自动登录中...")
-        this.$store.dispatch('WxLogin').then(() => {
+        try {
+          await bootstrapAuth()
           this.$modal.closeLoading()
-          this.loginSuccess()
-        }).catch(() => {
+          await this.redirectAfterLogin()
+        } catch (e) {
           this.$modal.closeLoading()
           // 微信未绑定，显示账号密码输入框让用户绑定
-        })
+        } finally {
+          this.autoLoginPending = false
+        }
       },
       // 用户注册
       handleUserRegister() {
         this.$tab.redirectTo(`/pages/register`)
+      },
+      handlePrivacyConsentChange(e) {
+        this.privacyAccepted = (e.detail.value || []).indexOf('accepted') !== -1
+      },
+      showPrivacyRequired() {
+        this.$modal.msgError('请先阅读并勾选同意《用户服务协议》和《隐私政策》')
+      },
+      ensurePrivacyConsent() {
+        if (!this.privacyAccepted) {
+          this.showPrivacyRequired()
+          return false
+        }
+        if (!acceptPrivacyConsent()) {
+          this.$modal.msgError('隐私协议状态保存失败，请重试')
+          return false
+        }
+        return true
       },
       // 隐私协议
       handlePrivacy() {
@@ -151,6 +201,9 @@
       },
       // 登录方法 — 区分环境
       async handleLogin() {
+        if (!this.ensurePrivacyConsent()) {
+          return
+        }
         if (this.loginForm.username === "") {
           this.$modal.msgError("请输入账号")
         } else if (this.loginForm.password === "") {
@@ -188,31 +241,10 @@
         })
       },
       // 登录成功后，处理函数
-      loginSuccess(result) {
-        // 设置用户信息
-        this.$store.dispatch('GetInfo').then(async res => {
-          // 清除旧的角色配置缓存（避免使用上一次的角色）
-          uni.removeStorageSync('roleConfig')
-          uni.removeStorageSync('userRoles')
-          
-          // 初始化角色配置
-          const { initRoleConfig, checkRealNameAuth } = await import('@/permission')
-          
-          // 获取角色配置
-          const roleConfig = await initRoleConfig()
-          
-          // 检查实名认证状态
-          const authStatus = await checkRealNameAuth()
-          
-          // 根据认证状态跳转页面
-          if (authStatus.needAuth) {
-            // 需要实名认证，跳转到身份选择页
-            this.$tab.reLaunch('/pages/auth/chooseIdentity')
-          } else {
-            // 已认证，跳转到对应首页
-            const homePage = roleConfig?.homePage || '/pages/index'
-            this.$tab.reLaunch(homePage)
-          }
+      loginSuccess() {
+        this.$store.dispatch('GetInfo').then(() => {
+          this.$modal.closeLoading()
+          this.redirectAfterLogin()
         }).catch(() => {
           
           // 统一提示“账号不存在”，不暴露具体原因
@@ -223,9 +255,38 @@
           }, 1500)
         })
       },
+      async redirectAfterLogin() {
+        if (this.redirecting) {
+          return
+        }
+        this.redirecting = true
+        try {
+          // 清除旧的角色配置缓存（避免使用上一次的角色）
+          uni.removeStorageSync('roleConfig')
+          uni.removeStorageSync('userRoles')
+
+          const { initRoleConfig, checkRealNameAuth } = await import('@/permission')
+          const roleConfig = await initRoleConfig()
+          const authStatus = await checkRealNameAuth()
+
+          if (authStatus.needAuth) {
+            this.$tab.reLaunch('/pages/auth/chooseIdentity')
+          } else {
+            const homePage = (roleConfig && roleConfig.homePage) || '/pages/index'
+            this.$tab.reLaunch(homePage)
+          }
+        } catch (e) {
+          this.redirecting = false
+          this.$modal.closeLoading()
+          this.$modal.msgError('登录成功，但页面跳转失败，请重试')
+        }
+      },
       
       // 获取手机号快捷登录
       handleGetPhoneNumber(e) {
+        if (!this.ensurePrivacyConsent()) {
+          return
+        }
         if (e.detail.errMsg === 'getPhoneNumber:ok') {
           // 检查是否有code
           if (!e.detail.code) {
@@ -381,6 +442,45 @@
       margin-top: 40rpx;
     }
 
+    .privacy-consent {
+      margin-top: 28rpx;
+      padding: 0 8rpx;
+    }
+
+    .consent-control {
+      display: flex;
+      align-items: flex-start;
+    }
+
+    .consent-checkbox-group {
+      flex: 0 0 46rpx;
+      width: 46rpx;
+      min-height: 38rpx;
+    }
+
+    .consent-checkbox-label {
+      display: flex;
+      align-items: flex-start;
+      min-height: 38rpx;
+    }
+
+    .consent-checkbox {
+      margin-top: -4rpx;
+      transform: scale(0.82);
+      transform-origin: left top;
+    }
+
+    .consent-copy {
+      flex: 1;
+      font-size: 24rpx;
+      line-height: 38rpx;
+      color: #64748b;
+    }
+
+    .consent-link {
+      color: #2563eb;
+    }
+
     .login-btn {
       width: 100%;
       height: 96rpx;
@@ -441,12 +541,6 @@
       .reg {
         margin-bottom: 16rpx;
         font-size: 26rpx;
-      }
-
-      .xieyi {
-        font-size: 24rpx;
-        color: #64748b;
-        line-height: 1.6;
       }
 
       .text-blue {

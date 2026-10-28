@@ -3,7 +3,7 @@
  * 用于根据用户角色显示不同的界面和功能
  * 
  * 统一角色判断规则：
- * - 书记：roleName包含"书记" 或 roleKey包含"secretary"
+ * - 学院书记：roleName包含"书记" 或 roleKey包含"secretary"，但不包含党支部书记
  * - 管理员：roleName包含"管理员" 或 roleKey包含"admin"
  * - 辅导员：roleName包含"辅导员" 或 roleKey包含"counselor"
  * - 班主任：roleName包含"班主任" 或 roleKey包含"headteacher"
@@ -35,8 +35,12 @@ export function isSecretary(roles) {
       roleKey = (role.roleKey || '').toLowerCase()
     }
     
-    // 统一判断：roleName包含"书记" 或 roleKey包含"secretary"
-    const isMatch = roleName.includes('书记') || roleKey.includes('secretary')
+    const isBranchSecretary = (roleName.includes('支部') && roleName.includes('书记'))
+      || (roleKey.includes('branch') && roleKey.includes('secretary'))
+
+    // 学院书记与党支部书记分开识别，避免党支部书记被误判为学院级管理者。
+    const isMatch = !isBranchSecretary
+      && (roleName.includes('书记') || roleKey.includes('secretary'))
     
     return isMatch
   })
@@ -199,19 +203,22 @@ export function isBranchSecretary(roles) {
     return false
   }
   return roles.some(role => {
+    let roleName = ''
     let roleKey = ''
     if (typeof role === 'string') {
       roleKey = role.toLowerCase()
+      roleName = role
     } else if (typeof role === 'object') {
+      roleName = role.roleName || ''
       roleKey = (role.roleKey || '').toLowerCase()
     }
-    // roleKey 包含 "branch" 和 "secretary" 但不是单独的 "secretary"
-    return roleKey.includes('branch') && roleKey.includes('secretary')
+    return (roleName.includes('支部') && roleName.includes('书记'))
+      || (roleKey.includes('branch') && roleKey.includes('secretary'))
   })
 }
 
 /**
- * 判断是否为总支书记（roleKey 精确为 secretary）
+ * 判断是否为学院总支书记（不含党支部书记）
  * @param {Array} roles - 用户角色列表
  * @returns {Boolean}
  */
@@ -220,13 +227,24 @@ export function isTopSecretary(roles) {
     return false
   }
   return roles.some(role => {
+    let roleName = ''
     let roleKey = ''
     if (typeof role === 'string') {
       roleKey = role.toLowerCase()
+      roleName = role
     } else if (typeof role === 'object') {
+      roleName = role.roleName || ''
       roleKey = (role.roleKey || '').toLowerCase()
     }
-    return roleKey === 'secretary'
+    const isBranchSecretary = (roleName.includes('支部') && roleName.includes('书记'))
+      || (roleKey.includes('branch') && roleKey.includes('secretary'))
+    return !isBranchSecretary && (
+      roleKey === 'secretary'
+      || roleKey === 'college_secretary'
+      || roleName.includes('党总支书记')
+      || roleName.includes('学院书记')
+      || roleName.includes('党委书记')
+    )
   })
 }
 
@@ -271,23 +289,4 @@ export function getRoleTypes(roles) {
   if (isAdmin(roles)) types.push('admin')
   if (types.length === 0) types.push('teacher')
   return types
-}
-
-/**
- * 获取角色显示名称（支持多角色合并显示）
- * @param {Array} roles - 用户角色列表
- * @returns {String} - 角色显示名称，如"书记/辅导员"
- */
-export function getRoleDisplayName(roles) {
-  const types = getRoleTypes(roles)
-  const roleMap = {
-    'secretary': '书记',
-    'counselor': '辅导员',
-    'headteacher': '班主任',
-    'partyCadre': '党务干部',
-    'admin': '管理员',
-    'teacher': '教师'
-  }
-  const names = types.map(t => roleMap[t] || t)
-  return names.join('/') || '用户'
 }

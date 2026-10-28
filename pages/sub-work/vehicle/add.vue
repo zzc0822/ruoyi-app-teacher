@@ -109,12 +109,11 @@
 </template>
 
 <script>
-import { addVehicle } from '@/api/affair/vehicle'
-import { uploadFile } from '@/utils/upload'
 import studentPicker from '@/components/student-picker/index.vue'
 import plateKeyboard from '@/components/plate-keyboard/index.vue'
 import { getWatermarkConfig } from '@/api/work/watermark'
 import { getLocation, addWatermark } from '@/utils/watermark'
+import { enqueueRequest, flushOfflineQueue } from '@/utils/offlineQueue'
 
 export default {
   components: { studentPicker, plateKeyboard },
@@ -136,6 +135,7 @@ export default {
       },
       showPlateKeyboard: false,
       watermarkConfig: null,
+      submitting: false,
       vehicleTypeOptions: [
         { label: '电动车', value: 'electric_bike' },
         { label: '摩托车', value: 'motorcycle' },
@@ -188,11 +188,7 @@ export default {
                   const location = await locPromise
                   tempPath = await addWatermark(tempPath, this.watermarkConfig, location)
                 }
-                uploadFile(tempPath).then(url => {
-                  this.form[field] = url
-                }).catch(() => {
-                  uni.showToast({ title: '上传失败', icon: 'none' })
-                })
+                this.form[field] = tempPath
               }
             })
           } else {
@@ -202,11 +198,7 @@ export default {
               sizeType: ['compressed'],
               sourceType: ['album'],
               success: (res) => {
-                uploadFile(res.tempFilePaths[0]).then(url => {
-                  this.form[field] = url
-                }).catch(() => {
-                  uni.showToast({ title: '上传失败', icon: 'none' })
-                })
+                this.form[field] = res.tempFilePaths[0]
               }
             })
           }
@@ -214,19 +206,49 @@ export default {
       })
     },
     async submit() {
+      if (this.submitting) return
       if (!this.form.xh) return uni.showToast({ title: '请选择学生', icon: 'none' })
       if (!this.form.vehicleType) return uni.showToast({ title: '请选择车辆类型', icon: 'none' })
       if (!this.form.vehiclePhoto) return uni.showToast({ title: '请上传车辆照片', icon: 'none' })
       if (!this.form.applyReason) return uni.showToast({ title: '请输入申请理由', icon: 'none' })
 
+      const photoFields = ['vehiclePhoto', 'drivingLicense', 'vehicleLicense', 'idCardPhoto']
+      const data = Object.assign({}, this.form)
+      photoFields.forEach(field => {
+        if (this.form[field]) data[field] = ''
+      })
+      const uploads = photoFields
+        .filter(field => this.form[field])
+        .map(field => ({
+          localPath: this.form[field],
+          uploadUrl: '/common/upload',
+          field: 'file',
+          dataPath: field,
+          jsonArrayValue: 'filePath'
+        }))
+
       try {
-        const res = await addVehicle(this.form)
-        if (res.code === 200) {
-          uni.showToast({ title: '登记成功，待现场核实', icon: 'success' })
-          setTimeout(() => uni.navigateBack(), 1500)
-        }
+        this.submitting = true
+        const result = await enqueueRequest({
+          businessType: 'vehicle_add',
+          title: '车辆登记：' + (this.form.studentName || this.form.xh),
+          request: {
+            url: '/api/vehicle',
+            method: 'post',
+            data
+          },
+          uploads
+        })
+        flushOfflineQueue()
+        uni.showToast({
+          title: result.duplicate ? '该登记已在后台处理' : '已提交，照片后台上传',
+          icon: 'none'
+        })
+        setTimeout(() => uni.navigateBack(), 800)
       } catch (e) {
         uni.showToast({ title: '提交失败', icon: 'none' })
+      } finally {
+        this.submitting = false
       }
     },
     getVehicleTypeText(type) {

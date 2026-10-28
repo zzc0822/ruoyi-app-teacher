@@ -262,7 +262,8 @@ export default {
       isSecretaryRole: false,
       showStatsOverview: true,
       counselorStats: [],
-      personalStats: { total: 0, pending: 0, ongoing: 0, completed: 0 }
+      personalStats: { total: 0, pending: 0, ongoing: 0, completed: 0 },
+      viewScope: ''
     }
   },
   computed: {
@@ -275,7 +276,8 @@ export default {
       return this.showAllDue ? this.dueList : this.dueList.slice(0, 3)
     }
   },
-  onLoad() {
+  onLoad(options) {
+    this.viewScope = options && options.viewScope === 'headteacher' ? 'headteacher' : ''
     this.checkRole()
     this.loadDicts()
     this.getList()
@@ -316,7 +318,7 @@ export default {
           roles = store.state.user.roles
         }
       }
-      this.isSecretaryRole = isSecretary(roles)
+      this.isSecretaryRole = !this.viewScope && isSecretary(roles)
       this.loadOverviewStats()
     },
     loadOverviewStats() {
@@ -347,6 +349,7 @@ export default {
     getList() {
       this.loadStatus = 'loading'
       const params = { ...this.queryParam }
+      if (this.viewScope) params.viewScope = this.viewScope
       if (this.filterStatus) {
         params.talkStatus = this.filterStatus
       }
@@ -376,10 +379,10 @@ export default {
     },
     // 覆盖率与到期提醒独立取，列表分页/筛选不影响「哪一类还没谈」
     loadOverview() {
-      getSceneCoverage().then(res => {
+      getSceneCoverage(this.viewScope ? { viewScope: this.viewScope } : undefined).then(res => {
         this.sceneCoverage = res.data || []
       }).catch(() => {})
-      getDueFollowUp().then(res => {
+      getDueFollowUp(this.viewScope ? { viewScope: this.viewScope } : undefined).then(res => {
         this.dueList = res.data || []
       }).catch(() => {})
     },
@@ -434,14 +437,17 @@ export default {
       this.getList()
     },
     goAdd() {
-      uni.navigateTo({ url: '/pages/sub-work/talk/add' })
+      const suffix = this.viewScope ? '?viewScope=' + this.viewScope : ''
+      uni.navigateTo({ url: '/pages/sub-work/talk/add' + suffix })
     },
     goDetail(item) {
-      uni.navigateTo({ url: '/pages/sub-work/talk/add?id=' + item.id })
+      const suffix = this.viewScope ? '&viewScope=' + this.viewScope : ''
+      uni.navigateTo({ url: '/pages/sub-work/talk/add?id=' + item.id + suffix })
     },
     goTalk(talkId) {
       if (!talkId) return
-      uni.navigateTo({ url: '/pages/sub-work/talk/add?id=' + talkId })
+      const suffix = this.viewScope ? '&viewScope=' + this.viewScope : ''
+      uni.navigateTo({ url: '/pages/sub-work/talk/add?id=' + talkId + suffix })
     },
     formatTalkCategory(val) {
       const map = { daily: '日常谈心', disciplinary: '违纪谈话' }

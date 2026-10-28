@@ -11,6 +11,10 @@
       <text>{{ semesterName }}{{ totalWeeks ? ' · 共' + totalWeeks + '周' : '' }}</text>
     </view>
 
+    <view v-if="fromRollcall" class="rollcall-entry-tip">
+      <text>选择课程后，点击“开始点名”</text>
+    </view>
+
     <!-- 无课查看入口（书记/辅导员可见） -->
     <view v-if="canViewFreeSlots" class="free-entry-row">
       <view class="free-entry-btn" @click="goFreeSlots">
@@ -30,12 +34,14 @@
         class="col-day header-cell"
         :class="{
           'today-col': isToday(day),
+          'selected-col': isSelectedDay(day),
           'holiday-col': getDayRule(day) && !getDayRule(day).isTeachingDay,
           'makeup-col': getDayRule(day) && getDayRule(day).isMakeup
         }"
+        @click="selectDay(day)"
       >
         <text class="header-text">{{ weekLabels[day - 1] }}</text>
-        <text class="header-date">{{ getDayDate(day) }}</text>
+        <text class="header-date">{{ formatDayMonth(day) }}</text>
         <text v-if="getDayRule(day) && !getDayRule(day).isTeachingDay" class="header-tag holiday">休</text>
         <text v-else-if="getDayRule(day) && getDayRule(day).isMakeup" class="header-tag makeup">调课</text>
       </view>
@@ -71,7 +77,7 @@
           :key="item.key"
           class="day-cell"
           :style="{ height: item.height + 'rpx' }"
-          @click="onCourseClick(item.course)"
+          @click="onCourseClick(item.course, day)"
         >
           <view v-if="item.course" class="course-block" :class="getCourseBlockClass(item.course, day)">
             <text v-if="getCourseAdjustStatus(item.course, day) === 'cancel'" class="course-cancel-tag">停课</text>
@@ -89,6 +95,57 @@
     <!-- 空状态 -->
     <view v-if="myScheduleList.length === 0" class="empty-state">
       <text class="empty-text">暂无课表数据</text>
+    </view>
+
+    <!-- 所选日期的课程与待办 -->
+    <view class="day-agenda">
+      <view class="agenda-header">
+        <text class="agenda-title">{{ selectedDateLabel }}</text>
+        <view class="agenda-counts">
+          <text class="agenda-count course-count">课程 {{ selectedDayCourses.length }}</text>
+          <text class="agenda-count todo-count">待办 {{ selectedDayTodos.length }}</text>
+        </view>
+      </view>
+
+      <view class="agenda-section">
+        <view class="agenda-section-title">课程</view>
+        <view
+          v-for="(item, index) in selectedDayCourses"
+          :key="index"
+          class="agenda-item"
+          @click="onCourseClick(item, selectedWeekday)"
+        >
+          <view class="agenda-time">{{ item.startSection }}-{{ item.endSection }}节</view>
+          <view class="agenda-main">
+            <text class="agenda-name">{{ item.courseName }}</text>
+            <text class="agenda-meta">{{ item.className || '-' }} · {{ getCourseClassroom(item, selectedWeekday) || '待定' }}</text>
+          </view>
+        </view>
+        <view v-if="selectedDayCourses.length === 0" class="agenda-empty">当天暂无课程</view>
+      </view>
+
+      <view class="agenda-section todo-agenda-section">
+        <view class="agenda-section-head">
+          <text class="agenda-section-title">待办</text>
+          <text class="agenda-more" @click="goTodoList">全部待办</text>
+        </view>
+        <view
+          v-for="(item, index) in selectedDayTodos"
+          :key="index"
+          class="agenda-item todo-agenda-item"
+          @click="handleTodoClick(item)"
+        >
+          <view :class="['todo-priority', 'priority-' + (item.urgency || 'normal')]"></view>
+          <view class="agenda-main">
+            <view class="todo-agenda-title">
+              <text class="agenda-name">{{ item.title }}</text>
+              <text v-if="item.todoType" class="todo-type">{{ getTodoTypeLabel(item.todoType) }}</text>
+            </view>
+            <text v-if="item.deadline" class="agenda-meta">截止 {{ formatTodoDeadline(item.deadline) }}</text>
+          </view>
+        </view>
+        <view v-if="selectedDayTodos.length === 0" class="agenda-empty">当天暂无待办</view>
+      </view>
     </view>
 
     <!-- 课程详情弹窗 -->
@@ -134,7 +191,7 @@
           <!-- 点名按钮 -->
           <view class="popup-actions">
             <view class="btn-rollcall" @click="goRollCall">
-              <text>{{ coursePopup.hasChecked ? '📋 查看点名' : '📋 开始点名' }}</text>
+              <text>{{ coursePopup.hasChecked ? '📋 修改点名' : '📋 开始点名' }}</text>
             </view>
           </view>
         </view>
@@ -147,6 +204,7 @@
 import { getMySchedule, getActiveSchedule, getMonthCalendar } from '@/api/work/schedule'
 import { getLeaveStudents } from '@/api/work/classcheck'
 import { getCheckStatus } from '@/api/work/rollcall'
+import { listTodo } from '@/api/work/todo'
 import { getClassShortName } from '@/utils/common'
 import { isSecretary, isCounselor, isHeadteacher, isAdmin } from '@/utils/role'
 import { resolveCalendarRule } from '@/utils/academicCalendar'
@@ -179,9 +237,12 @@ export default {
       realCurrentWeek: 1,
       totalWeeks: 0,
       semesterName: '',
+      fromRollcall: false,
       isHoliday: false,
       displayWeekOffset: 0,
       todayStr: '',
+      selectedDate: '',
+      todos: [],
       maxSections: 12,
       // 后端作息时间表: [{ lessonNo, startTime, endTime }, ...]
       sectionTimes: [],
@@ -212,15 +273,40 @@ export default {
         arr.push(i)
       }
       return arr
+    },
+    selectedWeekday() {
+      if (!this.selectedDate) return new Date().getDay() || 7
+      return new Date(this.selectedDate.replace(/-/g, '/')).getDay() || 7
+    },
+    selectedDateLabel() {
+      if (!this.selectedDate) return '当天安排'
+      const date = new Date(this.selectedDate.replace(/-/g, '/'))
+      const weekdays = ['周日', '周一', '周二', '周三', '周四', '周五', '周六']
+      return `${date.getMonth() + 1}月${date.getDate()}日 ${weekdays[date.getDay()]}`
+    },
+    selectedDayCourses() {
+      if (!this.selectedDate || this.currentWeek < 1) return []
+      return this.getDayCells(this.selectedWeekday)
+        .filter(item => item.course)
+        .map(item => item.course)
+    },
+    selectedDayTodos() {
+      if (!this.selectedDate) return []
+      return this.todos.filter(item => this.getTodoDate(item) === this.selectedDate)
     }
   },
-  onLoad() {
+  onLoad(options) {
+    this.fromRollcall = options && options.from === 'rollcall'
     const now = new Date()
     this.todayStr = this.formatDateStr(now)
+    this.selectedDate = this.todayStr
     this.checkFreeEntryRole()
     this.loadScheduleTimes()
     this.loadSchedule()
     this.loadCalendarRules()
+  },
+  onShow() {
+    this.loadTodos()
   },
   methods: {
     // 判断是否显示「无课查看」入口
@@ -302,6 +388,13 @@ export default {
       }).catch(() => {
         this.myScheduleList = []
         this.isHoliday = true
+      })
+    },
+    loadTodos() {
+      listTodo().then(res => {
+        this.todos = (res.data || []).filter(item => item.status !== '1' && item.status !== 1)
+      }).catch(() => {
+        this.todos = []
       })
     },
     calculateMaxSections() {
@@ -438,23 +531,11 @@ export default {
       const weekday = jsDay === 0 ? 7 : jsDay
       return day === weekday
     },
-    getDayDate(day) {
-      const now = new Date()
-      const jsDay = now.getDay()
-      const weekday = jsDay === 0 ? 7 : jsDay
-      const dayOffset = day - weekday
-      // 加上教学周偏移量（每周7天）
-      const totalOffset = dayOffset + this.displayWeekOffset * 7
-      const target = new Date(now.getTime() + totalOffset * 86400000)
+    formatDayMonth(day) {
+      const target = this.getDayDateValue(day)
       return (target.getMonth() + 1) + '/' + target.getDate()
     },
-    formatDateStr(date) {
-      const y = date.getFullYear()
-      const m = String(date.getMonth() + 1).padStart(2, '0')
-      const d = String(date.getDate()).padStart(2, '0')
-      return y + '-' + m + '-' + d
-    },
-    getDayDate(day) {
+    getDayDateValue(day) {
       const now = new Date()
       const jsDay = now.getDay()
       const weekday = jsDay === 0 ? 7 : jsDay
@@ -462,8 +543,76 @@ export default {
       const totalOffset = dayOffset + this.displayWeekOffset * 7
       return new Date(now.getTime() + totalOffset * 86400000)
     },
+    formatDateStr(date) {
+      const y = date.getFullYear()
+      const m = String(date.getMonth() + 1).padStart(2, '0')
+      const d = String(date.getDate()).padStart(2, '0')
+      return y + '-' + m + '-' + d
+    },
     getDayDateStr(day) {
-      return this.formatDateStr(this.getDayDate(day))
+      return this.formatDateStr(this.getDayDateValue(day))
+    },
+    selectDay(day) {
+      this.selectedDate = this.getDayDateStr(day)
+    },
+    isSelectedDay(day) {
+      return this.selectedDate === this.getDayDateStr(day)
+    },
+    getTodoDate(todo) {
+      const timeStr = todo.deadline || todo.startTime || todo.createTime
+      return timeStr ? String(timeStr).substring(0, 10) : ''
+    },
+    getTodoTypeLabel(type) {
+      const labels = {
+        talk_disciplinary: '违纪谈话',
+        talk_daily: '日常谈心',
+        talk_risk_report: '高危谈心',
+        talk_overdue: '谈话催办',
+        talk_follow_up: '谈话跟进',
+        classcheck_confirm: '查课确认',
+        classcheck_talk: '查课谈话',
+        leave: '请假',
+        leave_approval: '请假审批',
+        leave_talk: '请假谈话',
+        offcampus_talk: '外宿谈话',
+        vehicle_talk: '车辆谈话',
+        warning_talk: '预警谈话',
+        schedule: '课程',
+        meeting: '会议'
+      }
+      return labels[type] || type
+    },
+    formatTodoDeadline(value) {
+      const text = String(value || '')
+      return text.length >= 16 ? text.substring(5, 16) : text.substring(5, 10)
+    },
+    goTodoList() {
+      uni.navigateTo({ url: '/pages/sub-work/todo/index' })
+    },
+    handleTodoClick(item) {
+      if (item.todoType === 'classcheck_confirm') {
+        uni.navigateTo({
+          url: '/pages/sub-work/classcheck/confirm?id=' + item.businessId,
+          fail: () => this.goTodoList()
+        })
+      } else if (item.todoType === 'leave' || item.todoType === 'leave_approval') {
+        uni.navigateTo({
+          url: '/pages/sub-work/leave/detail?id=' + item.businessId,
+          fail: () => this.goTodoList()
+        })
+      } else if (['talk_disciplinary', 'talk_daily', 'talk_risk_report', 'talk_overdue', 'talk_follow_up'].includes(item.todoType)) {
+        uni.navigateTo({
+          url: '/pages/sub-work/talk/add?id=' + item.businessId,
+          fail: () => this.goTodoList()
+        })
+      } else if (['classcheck_talk', 'leave_talk', 'offcampus_talk', 'vehicle_talk', 'warning_talk'].includes(item.todoType)) {
+        uni.navigateTo({
+          url: '/pages/sub-work/talk/add?todoId=' + item.id + '&businessId=' + item.businessId,
+          fail: () => this.goTodoList()
+        })
+      } else {
+        this.goTodoList()
+      }
     },
     // 获取课程在指定日期的调整状态: 'normal' | 'adjusted' | 'cancel'
     getCourseAdjustStatus(course, day) {
@@ -497,8 +646,7 @@ export default {
       const p = this.coursePopup
       const course = this.coursePopup._course
       if (!course) return
-      // 计算上课日期
-      const dateStr = this.getWeekdayDateStr(course.weekday)
+      const dateStr = p.checkDate || this.getWeekdayDateStr(course.weekday)
       const params = {
         bjdm: course.bjdm || '',
         className: p.className || '',
@@ -517,8 +665,10 @@ export default {
       const queryStr = Object.keys(params).map(k => k + '=' + encodeURIComponent(params[k])).join('&')
       uni.navigateTo({ url: '/pages/sub-work/rollcall/index?' + queryStr })
     },
-    onCourseClick(course) {
+    onCourseClick(course, day) {
       if (!course) return
+      const checkDate = this.getDayDateStr(day || course.weekday)
+      this.selectedDate = checkDate
       const timeRange = this.getCourseTimeRange(course)
       const isCombined = course._combined && course._combined.length > 1
       
@@ -529,6 +679,8 @@ export default {
         className: isCombined ? course.className : getClassShortName(course.className || ''),
         startSection: course.startSection || '',
         endSection: course.endSection || '',
+        checkDate,
+        hasChecked: false,
         timeRange: timeRange,
         classroom: course.classroom || '',
         teacherName: course.teacherName || '',
@@ -543,9 +695,8 @@ export default {
         : (course.bjdm ? [course.bjdm] : [])
       
       if (bjdmList.length > 0) {
-        const dateStr = this.getWeekdayDateStr(course.weekday)
         const leavePromises = bjdmList.map(bjdm => 
-          getLeaveStudents(bjdm, dateStr).catch(() => ({ data: [] }))
+          getLeaveStudents(bjdm, checkDate).catch(() => ({ data: [] }))
         )
         Promise.all(leavePromises).then(results => {
           let allLeaves = []
@@ -565,11 +716,10 @@ export default {
       // 检查是否已点名（需要有bjdm才能查询）
       const checkBjdm = course.bjdm || (course._bjdmList && course._bjdmList[0]) || ''
       if (checkBjdm) {
-        const checkDateStr = this.getWeekdayDateStr(course.weekday)
-        getCheckStatus(checkBjdm, checkDateStr, Number(course.startSection)).then(res => {
-          this.coursePopup.hasChecked = !!res.data
+        getCheckStatus(checkBjdm, checkDate, Number(course.startSection)).then(res => {
+          this.$set(this.coursePopup, 'hasChecked', !!res.data)
         }).catch(() => {
-          this.coursePopup.hasChecked = false
+          this.$set(this.coursePopup, 'hasChecked', false)
         })
       } else {
         this.coursePopup.hasChecked = false
@@ -577,15 +727,10 @@ export default {
     },
     // 根据星期几计算对应的日期字符串
     getWeekdayDateStr(weekday) {
-      const now = new Date()
-      const jsDay = now.getDay()
-      const currentWeekday = jsDay === 0 ? 7 : jsDay
-      const dayOffset = weekday - currentWeekday + this.displayWeekOffset * 7
-      const target = new Date(now.getTime() + dayOffset * 86400000)
-      const y = target.getFullYear()
-      const m = String(target.getMonth() + 1).padStart(2, '0')
-      const d = String(target.getDate()).padStart(2, '0')
-      return `${y}-${m}-${d}`
+      return this.getDayDateStr(weekday)
+    },
+    syncSelectedDateToDisplayWeek() {
+      this.selectedDate = this.getDayDateStr(this.selectedWeekday)
     },
     prevWeek() {
       this.displayWeekOffset--
@@ -595,6 +740,7 @@ export default {
           this.currentWeek = this.totalWeeks
           this.isHoliday = false
         }
+        this.syncSelectedDateToDisplayWeek()
         this.loadCalendarRules()
         return
       }
@@ -603,6 +749,7 @@ export default {
         this.currentWeek = 0
         this.isHoliday = true
       }
+      this.syncSelectedDateToDisplayWeek()
       this.loadCalendarRules()
     },
     nextWeek() {
@@ -611,6 +758,7 @@ export default {
         // 假期中往后切：尝试进入第1教学周
         this.currentWeek = 1
         this.isHoliday = false
+        this.syncSelectedDateToDisplayWeek()
         this.loadCalendarRules()
         return
       }
@@ -619,6 +767,7 @@ export default {
         this.isHoliday = true
         this.currentWeek = 0
       }
+      this.syncSelectedDateToDisplayWeek()
       this.loadCalendarRules()
     }
   }
@@ -664,6 +813,15 @@ export default {
   border-bottom: 1rpx solid #eee;
   font-size: 22rpx;
   color: #999;
+}
+
+.rollcall-entry-tip {
+  padding: 14rpx 24rpx;
+  background: #ecfdf5;
+  border-bottom: 1rpx solid #a7f3d0;
+  color: #047857;
+  font-size: 24rpx;
+  text-align: center;
 }
 
 /* 无课查看入口 */
@@ -769,6 +927,16 @@ export default {
   background: #eef4ff;
 }
 
+.header-cell.selected-col {
+  background: #e0f2fe;
+  box-shadow: inset 0 -4rpx 0 #2563eb;
+}
+
+.header-cell.selected-col .header-text,
+.header-cell.selected-col .header-date {
+  color: #1d4ed8;
+}
+
 .holiday-col {
   background: #fff7ed;
 }
@@ -850,6 +1018,174 @@ export default {
     font-size: 28rpx;
     color: #ccc;
   }
+}
+
+/* 所选日期安排 */
+.day-agenda {
+  margin: 24rpx;
+  padding: 24rpx;
+  background: #fff;
+  border-radius: 16rpx;
+  border: 1rpx solid #e5eaf0;
+}
+
+.agenda-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16rpx;
+  padding-bottom: 20rpx;
+  border-bottom: 1rpx solid #edf2f7;
+}
+
+.agenda-title {
+  min-width: 0;
+  color: #1e293b;
+  font-size: 28rpx;
+  font-weight: 700;
+}
+
+.agenda-counts {
+  display: flex;
+  align-items: center;
+  gap: 10rpx;
+  flex-shrink: 0;
+}
+
+.agenda-count {
+  padding: 4rpx 12rpx;
+  border-radius: 999rpx;
+  font-size: 20rpx;
+}
+
+.course-count {
+  background: #eff6ff;
+  color: #2563eb;
+}
+
+.todo-count {
+  background: #fff7ed;
+  color: #c2410c;
+}
+
+.agenda-section {
+  padding-top: 20rpx;
+}
+
+.todo-agenda-section {
+  margin-top: 20rpx;
+  border-top: 1rpx solid #edf2f7;
+}
+
+.agenda-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.agenda-section-title {
+  color: #475569;
+  font-size: 24rpx;
+  font-weight: 600;
+}
+
+.agenda-more {
+  color: #2563eb;
+  font-size: 22rpx;
+}
+
+.agenda-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 16rpx;
+  padding: 18rpx 0;
+  border-bottom: 1rpx solid #f1f5f9;
+}
+
+.agenda-item:last-of-type {
+  border-bottom: none;
+}
+
+.agenda-time {
+  width: 104rpx;
+  padding: 8rpx 0;
+  flex-shrink: 0;
+  border-radius: 8rpx;
+  background: #eff6ff;
+  color: #2563eb;
+  font-size: 20rpx;
+  text-align: center;
+}
+
+.agenda-main {
+  min-width: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6rpx;
+}
+
+.agenda-name {
+  color: #1e293b;
+  font-size: 26rpx;
+  line-height: 1.4;
+  word-break: break-all;
+}
+
+.agenda-meta {
+  color: #94a3b8;
+  font-size: 21rpx;
+  line-height: 1.4;
+}
+
+.agenda-empty {
+  padding: 24rpx 0 8rpx;
+  color: #b0bac8;
+  font-size: 23rpx;
+  text-align: center;
+}
+
+.todo-priority {
+  width: 10rpx;
+  height: 10rpx;
+  margin-top: 12rpx;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: #94a3b8;
+}
+
+.todo-priority.priority-overdue,
+.todo-priority.priority-high {
+  background: #dc2626;
+}
+
+.todo-priority.priority-today,
+.todo-priority.priority-medium {
+  background: #f59e0b;
+}
+
+.todo-priority.priority-tomorrow,
+.todo-priority.priority-low {
+  background: #10b981;
+}
+
+.todo-agenda-title {
+  display: flex;
+  align-items: center;
+  gap: 10rpx;
+}
+
+.todo-agenda-title .agenda-name {
+  flex: 1;
+}
+
+.todo-type {
+  flex-shrink: 0;
+  padding: 2rpx 10rpx;
+  border-radius: 6rpx;
+  background: #f1f5f9;
+  color: #64748b;
+  font-size: 19rpx;
 }
 
 /* 课程详情弹窗 */

@@ -89,8 +89,13 @@
       </view>
     </scroll-view>
 
-    <view class="add-btn" @click="goAdd">
-      <text class="add-btn-text">+ 发起考勤</text>
+    <view class="bottom-actions">
+      <view class="phone-btn" @click="goPhoneSign">
+        <text>学生手机确认</text>
+      </view>
+      <view class="add-btn" @click="goAdd">
+        <text class="add-btn-text">发起现场考勤</text>
+      </view>
     </view>
   </view>
 </template>
@@ -193,6 +198,7 @@ export default {
     attendanceModeText(value) {
       const map = {
         onsite: '现场逐床',
+        phone: '学生手机确认',
         location: '楼栋定位',
         gesture: '手势照片',
         location_gesture: '定位 + 手势'
@@ -225,6 +231,9 @@ export default {
     },
     goAdd() {
       uni.navigateTo({ url: '/pages/sub-work/dormcheck/night' })
+    },
+    goPhoneSign() {
+      uni.navigateTo({ url: '/pages/sub-work/sign/dorm-create' })
     },
     goRectify() {
       uni.navigateTo({ url: '/pages/sub-work/dormcheck/rectify' })
@@ -384,13 +393,27 @@ export default {
   color: #999;
   font-size: 28rpx;
 }
-.add-btn {
+.bottom-actions {
   position: fixed;
   bottom: 40rpx;
   left: 50%;
   transform: translateX(-50%);
+  display: flex;
+  gap: 16rpx;
+  white-space: nowrap;
+}
+.phone-btn {
+  background: #fff;
+  border: 2rpx solid #9aaeea;
+  color: #536cbf;
+  padding: 20rpx 34rpx;
+  border-radius: 40rpx;
+  box-shadow: 0 4rpx 20rpx rgba(102, 126, 234, 0.16);
+  font-size: 28rpx;
+}
+.add-btn {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  padding: 20rpx 60rpx;
+  padding: 20rpx 38rpx;
   border-radius: 40rpx;
   box-shadow: 0 4rpx 20rpx rgba(102, 126, 234, 0.4);
 }

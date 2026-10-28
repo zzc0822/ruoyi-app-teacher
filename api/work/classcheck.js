@@ -66,6 +66,29 @@ export function getMyClasses() {
   })
 }
 
+// 根据日期、节次和班级查询对应课程信息
+export function getClassScheduleByDate(calDate, sectionNo, bjdm) {
+  return request({
+    url: '/integration/classSchedule/lookupByDate',
+    method: 'get',
+    params: { calDate, sectionNo, bjdm }
+  })
+}
+
+// 检查同一班级、日期和节次是否已有查课记录
+export function checkDuplicate(bjdm, checkDate, lessonNo) {
+  return listClassCheck({
+    pageNum: 1,
+    pageSize: 1,
+    bjdm,
+    checkDate,
+    lessonNo
+  }).then(res => ({
+    ...res,
+    data: (res.rows && res.rows[0]) || null
+  }))
+}
+
 // 获取查课统计数据
 export function getClassCheckStats() {
   return request({

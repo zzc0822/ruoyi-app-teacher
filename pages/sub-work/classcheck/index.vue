@@ -369,6 +369,8 @@ export default {
   onLoad() {
     // 确保用户信息已加载
     this.ensureUserInfoLoaded()
+    uni.$on('offlineQueueSynced', this.handleBackgroundSync)
+    uni.$on('offlineQueueItemFailed', this.handleBackgroundSyncFailed)
     
     // 计算当前星期几和节次
     this.computeCurrentTime()
@@ -378,6 +380,10 @@ export default {
     
     this.getList()
     this.getStats()
+  },
+  onUnload() {
+    uni.$off('offlineQueueSynced', this.handleBackgroundSync)
+    uni.$off('offlineQueueItemFailed', this.handleBackgroundSyncFailed)
   },
   onShow() {
     // 从新建查课页返回时刷新列表
@@ -400,6 +406,19 @@ export default {
     }
   },
   methods: {
+    handleBackgroundSync(item) {
+      const businessType = String((item && item.businessType) || '')
+      if (businessType.indexOf('classcheck_') !== 0) return
+      this.queryParam.pageNum = 1
+      this.getList()
+      this.getStats()
+      this.loadCheckedStatus()
+    },
+    handleBackgroundSyncFailed(item) {
+      const businessType = String((item && item.businessType) || '')
+      if (businessType.indexOf('classcheck_') !== 0) return
+      uni.showToast({ title: '查课记录后台同步失败，请到工作台重试', icon: 'none', duration: 3000 })
+    },
     // 切换专业展开/折叠
     toggleMajorExpand(zydm) {
       this.$set(this.expandedMajors, zydm, !this.expandedMajors[zydm])
@@ -726,7 +745,12 @@ export default {
       uni.navigateTo({ url: '/pages/sub-work/classcheck/add?' + params.join('&') })
     },
     goDetail(item) {
-      uni.navigateTo({ url: '/pages/sub-work/classcheck/add?id=' + item.id })
+      const id = item && (item.id || item.checkId || item.recordId)
+      if (!id) {
+        uni.showToast({ title: '查课记录ID缺失', icon: 'none' })
+        return
+      }
+      uni.navigateTo({ url: '/pages/sub-work/classcheck/add?id=' + id })
     },
     previewPhoto(attachmentList, index) {
       // 优先使用后端返回的base64缩略图，否则拼HTTP全路径

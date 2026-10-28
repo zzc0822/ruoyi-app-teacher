@@ -5,6 +5,10 @@
       <view class="stats-card">
         <view class="stats-row">
           <view class="stats-item">
+            <text class="stats-num blue">{{ supplementCount }}</text>
+            <text class="stats-label">待补充</text>
+          </view>
+          <view class="stats-item">
             <text class="stats-num">{{ pendingCount }}</text>
             <text class="stats-label">待审批</text>
           </view>
@@ -124,6 +128,7 @@
     <!-- 筛选栏 -->
     <view class="filter-bar">
       <view :class="['filter-item', activeTab === 'all' ? 'active' : '']" @click="switchTab('all')">全部</view>
+      <view :class="['filter-item', activeTab === 'supplement' ? 'active' : '']" @click="switchTab('supplement')">待补充</view>
       <view :class="['filter-item', activeTab === 'pending' ? 'active' : '']" @click="switchTab('pending')">待审批</view>
       <view :class="['filter-item', activeTab === 'approved' ? 'active' : '']" @click="switchTab('approved')">已批准</view>
       <view :class="['filter-item', activeTab === 'rejected' ? 'active' : '']" @click="switchTab('rejected')">已拒绝</view>
@@ -222,6 +227,7 @@ export default {
       loadStatus: 'more',
       loading: false,
       // 统计
+      supplementCount: 0,
       pendingCount: 0,
       approvedCount: 0,
       overdueCount: 0,
@@ -363,6 +369,10 @@ export default {
       this.loadStats()
     },
     loadStats() {
+      // 待补充数
+      listLeave({ pageNum: 1, pageSize: 1, approvalStatus: 'supplement' }).then(res => {
+        this.supplementCount = res.total || 0
+      }).catch(() => {})
       // 待审批数
       listLeave({ pageNum: 1, pageSize: 1, approvalStatus: 'pending' }).then(res => {
         this.pendingCount = res.total || 0
@@ -488,6 +498,7 @@ export default {
     },
     formatStatus(val) {
       const map = {
+        supplement: '待补充',
         pending: '待审批',
         approved: '已批准',
         rejected: '已拒绝',
@@ -500,7 +511,7 @@ export default {
       return map[val] || val || '未知'
     },
     formatReturnStatus(val) {
-      const map = { not_returned: '未销假', returned: '已销假', overdue: '逾期未归' }
+      const map = { not_returned: '未销假', returned: '已销假', overdue: '逾期未归', late_returned: '逾期销假' }
       return map[val] || val || ''
     },
     formatDate(val) {
@@ -514,7 +525,8 @@ export default {
     },
     // 附件显示逻辑：待审批/转上级显示请假佐证，已销假显示销假佐证
     getDisplayAttachments(item) {
-      if (item.returnStatus === 'returned' && item.returnAttachmentList && item.returnAttachmentList.length > 0) {
+      if ((item.returnStatus === 'returned' || item.returnStatus === 'late_returned')
+          && item.returnAttachmentList && item.returnAttachmentList.length > 0) {
         return item.returnAttachmentList
       }
       if (item.leaveAttachmentList && item.leaveAttachmentList.length > 0) {
@@ -523,7 +535,8 @@ export default {
       return []
     },
     getAttachLabel(item) {
-      if (item.returnStatus === 'returned' && item.returnAttachmentList && item.returnAttachmentList.length > 0) {
+      if ((item.returnStatus === 'returned' || item.returnStatus === 'late_returned')
+          && item.returnAttachmentList && item.returnAttachmentList.length > 0) {
         return '销假佐证'
       }
       return '请假佐证'
@@ -589,6 +602,7 @@ export default {
   font-weight: bold;
   color: #fff;
   &.orange { color: #fbbd3c; }
+  &.blue { color: #90caf9; }
   &.red { color: #ffcdd2; }
 }
 
@@ -695,10 +709,13 @@ export default {
   padding: 16rpx 20rpx;
   margin-top: 12rpx;
   gap: 8rpx;
+  overflow-x: auto;
+  white-space: nowrap;
 }
 
 .filter-item {
-  flex: 1;
+  flex: 0 0 auto;
+  min-width: 96rpx;
   text-align: center;
   font-size: 24rpx;
   color: #666;
@@ -753,6 +770,7 @@ export default {
   font-size: 22rpx;
   padding: 4rpx 14rpx;
   border-radius: 8rpx;
+  &.status-supplement { color: #7c3aed; background: #f3e8ff; }
   &.status-pending { color: #f3a044; background: #fef3e2; }
   &.status-approved { color: #18bc37; background: #e8f8ea; }
   &.status-rejected { color: #e43d33; background: #fef0f0; }
@@ -831,6 +849,7 @@ export default {
   &.return-not_returned { color: #999; }
   &.return-returned { color: #18bc37; }
   &.return-overdue { color: #e43d33; font-weight: bold; }
+  &.return-late_returned { color: #e43d33; font-weight: bold; }
 }
 
 /* ===== 操作按钮 ===== */

@@ -350,7 +350,7 @@ export default {
         // 筛选出选中班级的课程
         let filteredList = []
         const bjdmSet = this.selectMode === 'single' 
-          ? new Set([this.selectedClass?.bjdm])
+          ? new Set([this.selectedClass ? this.selectedClass.bjdm : undefined])
           : new Set(this.selectedClasses)
         
         data.forEach(item => {

@@ -206,8 +206,8 @@
 </template>
 
 <script>
-import { getCollegeOptions, submitApply, getMyApply, getApplyQualification } from '@/api/affair/headteacher'
-import upload from '@/utils/upload'
+import { getCollegeOptions, getMyApply, getApplyQualification } from '@/api/affair/headteacher'
+import { enqueueRequest, flushOfflineQueue } from '@/utils/offlineQueue'
 
 export default {
   data() {
@@ -329,36 +329,20 @@ export default {
         count: 5 - this.photoList.length,
         sizeType: ['compressed'],
         success: (res) => {
-          res.tempFilePaths.forEach(path => this.uploadPhoto(path))
+          res.tempFilePaths.forEach(path => {
+            this.photoList.push({
+              url: path,
+              localPath: path,
+              attachment: {
+                fileName: '',
+                filePath: '',
+                fileSize: 0,
+                fileType: '',
+                mediaType: 'image'
+              }
+            })
+          })
         }
-      })
-    },
-    uploadPhoto(filePath) {
-      uni.showLoading({ title: '上传中...' })
-      upload({
-        url: '/api/headteacher/apply/attachment',
-        filePath: filePath,
-        name: 'file'
-      }).then(res => {
-        uni.hideLoading()
-        const data = res.data
-        if (!data || !data.filePath) {
-          uni.showToast({ title: '附件上传失败', icon: 'none' })
-          return
-        }
-        this.photoList.push({
-          url: filePath,
-          attachment: {
-            fileName: data.fileName || '',
-            filePath: data.filePath,
-            fileSize: data.fileSize || 0,
-            fileType: data.fileType || '',
-            mediaType: data.mediaType || 'image'
-          }
-        })
-      }).catch(() => {
-        uni.hideLoading()
-        uni.showToast({ title: '附件上传失败', icon: 'none' })
       })
     },
     removePhoto(idx) {
@@ -391,8 +375,7 @@ export default {
         uni.showToast({ title: first, icon: 'none', duration: 3000 })
         return
       }
-      this.submitting = true
-      submitApply({
+      const data = {
         applyXydm: this.form.applyXydm,
         expectNj: this.form.expectNj || null,
         applyReason: this.form.applyReason,
@@ -407,13 +390,33 @@ export default {
         workExperience: this.form.workExperience || null,
         awards: this.form.awards || null,
         attachmentList: this.photoList.map(p => p.attachment)
-      }).then(() => {
-        uni.showToast({ title: '已提交，等待学院审核', icon: 'success' })
+      }
+      const uploads = this.photoList.map((item, index) => ({
+        localPath: item.localPath,
+        uploadUrl: '/api/headteacher/apply/attachment',
+        field: 'file',
+        dataPathPrefix: 'attachmentList[' + index + ']'
+      }))
+      this.submitting = true
+      enqueueRequest({
+        businessType: 'headteacher_apply',
+        title: '班主任申请',
+        request: {
+          url: '/api/headteacher/apply',
+          method: 'post',
+          data
+        },
+        uploads
+      }).then(result => {
+        flushOfflineQueue()
+        uni.showToast({ title: result.duplicate ? '申请已在后台处理' : '已提交，附件后台上传', icon: 'none' })
         this.form.applyReason = ''
         this.photoList = []
         this.loadApply()
         this.loadQualification()
-      }).catch(() => {}).finally(() => {
+      }).catch(() => {
+        uni.showToast({ title: '提交失败，请重试', icon: 'none' })
+      }).finally(() => {
         this.submitting = false
       })
     },

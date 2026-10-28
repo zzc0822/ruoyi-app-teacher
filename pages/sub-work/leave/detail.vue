@@ -10,7 +10,8 @@
       <view :class="['status-banner', 'banner-' + detail.approvalStatus]">
         <view class="banner-icon">{{ statusIcon }}</view>
         <text class="banner-text">{{ formatStatus(detail.approvalStatus) }}</text>
-        <text class="banner-sub" v-if="detail.approvalLevel === 'secretary'">超过3天，需上级审批</text>
+        <text class="banner-sub" v-if="detail.approvalStatus === 'supplement'">查课登记请假，等待辅导员补充</text>
+        <text class="banner-sub" v-else-if="detail.approvalLevel === 'secretary'">超过3天，需上级审批</text>
         <text class="banner-sub" v-else-if="detail.approvalLevel === 'counselor'">3天以内，辅导员审批</text>
       </view>
 
@@ -92,8 +93,105 @@
         </view>
       </view>
 
+      <!-- 查课请假待补充 -->
+      <view class="info-section" v-if="detail.approvalStatus === 'supplement'">
+        <view class="section-title">
+          <text class="title-icon">✍</text>
+          <text class="title-text">信息补充</text>
+        </view>
+        <view class="supplement-owner-tip" v-if="!canSupplement">
+          <text>该记录由负责辅导员补充</text>
+        </view>
+        <view class="supplement-form" v-else>
+          <view class="form-row">
+            <text class="form-label">请假类型</text>
+            <picker
+              mode="selector"
+              :range="leaveTypeOptions"
+              range-key="label"
+              :value="leaveTypeIndex"
+              @change="onLeaveTypeChange"
+            >
+              <view class="form-picker">
+                <text :class="{ 'form-placeholder': !supplementForm.leaveType }">{{ leaveTypeLabel }}</text>
+                <text class="form-arrow">›</text>
+              </view>
+            </picker>
+          </view>
+          <view class="form-row">
+            <text class="form-label">请假事由</text>
+            <textarea
+              v-model="supplementForm.leaveReason"
+              class="form-textarea"
+              maxlength="200"
+              placeholder="请填写具体请假事由"
+            />
+          </view>
+          <view class="form-row">
+            <text class="form-label">离校时间</text>
+            <view class="datetime-row">
+              <picker mode="date" :value="supplementForm.startDate" @change="onStartDateChange">
+                <view class="form-picker compact">{{ supplementForm.startDate || '选择日期' }}</view>
+              </picker>
+              <picker mode="time" :value="supplementForm.startClock" @change="onStartClockChange">
+                <view class="form-picker compact">{{ supplementForm.startClock || '选择时间' }}</view>
+              </picker>
+            </view>
+          </view>
+          <view class="form-row">
+            <text class="form-label">预计返校</text>
+            <view class="datetime-row">
+              <picker mode="date" :value="supplementForm.endDate" @change="onEndDateChange">
+                <view class="form-picker compact">{{ supplementForm.endDate || '选择日期' }}</view>
+              </picker>
+              <picker mode="time" :value="supplementForm.endClock" @change="onEndClockChange">
+                <view class="form-picker compact">{{ supplementForm.endClock || '选择时间' }}</view>
+              </picker>
+            </view>
+          </view>
+          <view class="form-row">
+            <text class="form-label">请假天数</text>
+            <input
+              v-model="supplementForm.leaveDays"
+              class="form-input"
+              type="digit"
+              placeholder="请输入请假天数"
+            />
+          </view>
+          <view class="form-row">
+            <text class="form-label">家长电话</text>
+            <input
+              v-model="supplementForm.parentPhone"
+              class="form-input"
+              type="number"
+              maxlength="11"
+              placeholder="请填写可核实的家长电话"
+            />
+          </view>
+          <view class="contact-confirm">
+            <view class="contact-confirm-copy">
+              <text class="contact-confirm-title">已联系家长核实</text>
+              <text class="contact-confirm-sub">提交后将进入请假审批</text>
+            </view>
+            <switch
+              :checked="supplementForm.parentContacted === '1'"
+              color="#2563eb"
+              @change="onParentContactedChange"
+            />
+          </view>
+          <button
+            class="supplement-submit"
+            :loading="supplementSaving"
+            :disabled="supplementSaving"
+            @click="submitSupplement"
+          >
+            提交审批
+          </button>
+        </view>
+      </view>
+
       <!-- 审批信息 -->
-      <view class="info-section" v-if="detail.approvalStatus !== 'pending'">
+      <view class="info-section" v-if="detail.approvalStatus !== 'pending' && detail.approvalStatus !== 'supplement'">
         <view class="section-title">
           <text class="title-icon">✅</text>
           <text class="title-text">审批信息</text>
@@ -182,7 +280,9 @@
 </template>
 
 <script>
-import { getLeave, approvalLeave, returnLeave } from '@/api/work/leave'
+import { getLeave, approvalLeave, returnLeave, updateSupplementLeave } from '@/api/work/leave'
+import { getTeacherinfoByUserId } from '@/api/work/teacherinfo'
+import { isAdmin } from '@/utils/role'
 import config from '@/config'
 
 export default {
@@ -190,30 +290,199 @@ export default {
     return {
       id: null,
       detail: null,
-      baseUrl: config.baseUrl
+      baseUrl: config.baseUrl,
+      currentTeacherId: null,
+      isAdminUser: false,
+      supplementSaving: false,
+      leaveTypeOptions: [
+        { value: 'sick', label: '病假' },
+        { value: 'personal', label: '事假' },
+        { value: 'public', label: '公假' },
+        { value: 'other', label: '其他' }
+      ],
+      supplementForm: {
+        leaveType: '',
+        leaveReason: '',
+        startDate: '',
+        startClock: '',
+        endDate: '',
+        endClock: '',
+        leaveDays: '',
+        parentPhone: '',
+        parentContacted: '0'
+      }
     }
   },
   computed: {
     statusIcon() {
       if (!this.detail || !this.detail.approvalStatus) return '❓'
-      const map = { pending: '⏳', approved: '✓', rejected: '✕', forward: '↑' }
+      const map = { supplement: '待补', pending: '⏳', approved: '✓', rejected: '✕', forward: '↑' }
       return map[this.detail.approvalStatus] || '❓'
     },
     canReturn() {
-      return this.detail && this.detail.approvalStatus === 'approved' && this.detail.returnStatus !== 'returned'
+      return this.detail && this.detail.approvalStatus === 'approved'
+        && this.detail.returnStatus !== 'returned' && this.detail.returnStatus !== 'late_returned'
+    },
+    canSupplement() {
+      if (!this.detail || this.detail.approvalStatus !== 'supplement') return false
+      if (this.isAdminUser) return true
+      return this.currentTeacherId != null
+        && this.detail.counselorId != null
+        && String(this.currentTeacherId) === String(this.detail.counselorId)
+    },
+    leaveTypeIndex() {
+      const index = this.leaveTypeOptions.findIndex(item => item.value === this.supplementForm.leaveType)
+      return index < 0 ? 0 : index
+    },
+    leaveTypeLabel() {
+      const item = this.leaveTypeOptions.find(option => option.value === this.supplementForm.leaveType)
+      return item ? item.label : '请选择'
     }
   },
   onLoad(options) {
     this.id = options.id
+    this.loadCurrentIdentity()
     this.loadDetail()
   },
   methods: {
+    loadCurrentIdentity() {
+      let roles = []
+      try { roles = uni.getStorageSync('user_roles') || [] } catch (e) {}
+      this.isAdminUser = isAdmin(roles)
+      getTeacherinfoByUserId().then(res => {
+        this.currentTeacherId = res.data && res.data.teacherId
+      }).catch(() => {})
+    },
     loadDetail() {
       getLeave(this.id).then(res => {
         this.detail = res.data || res
+        this.initSupplementForm()
       }).catch(() => {
         uni.showToast({ title: '加载失败', icon: 'none' })
       })
+    },
+    initSupplementForm() {
+      if (!this.detail || this.detail.approvalStatus !== 'supplement') return
+      const start = this.splitDateTime(this.detail.startTime)
+      const end = this.splitDateTime(this.detail.endTime)
+      const reason = this.detail.leaveReason || ''
+      this.supplementForm = {
+        leaveType: this.detail.leaveType === 'other' && reason.indexOf('查课登记请假') >= 0
+          ? '' : (this.detail.leaveType || ''),
+        leaveReason: reason.indexOf('查课登记请假') >= 0 ? '' : reason,
+        startDate: start.date,
+        startClock: start.clock === '00:00' ? '08:00' : start.clock,
+        endDate: end.date,
+        endClock: end.clock,
+        leaveDays: this.detail.leaveDays || '',
+        parentPhone: this.detail.parentPhone || '',
+        parentContacted: this.detail.parentContacted || '0'
+      }
+      this.calculateSupplementDays()
+    },
+    splitDateTime(value) {
+      if (!value) return { date: '', clock: '' }
+      const normalized = String(value).replace(' ', 'T')
+      const date = new Date(normalized)
+      if (isNaN(date.getTime())) {
+        return { date: String(value).slice(0, 10), clock: String(value).slice(11, 16) }
+      }
+      return {
+        date: this.formatDatePart(date),
+        clock: String(date.getHours()).padStart(2, '0') + ':' + String(date.getMinutes()).padStart(2, '0')
+      }
+    },
+    formatDatePart(date) {
+      return date.getFullYear() + '-' + String(date.getMonth() + 1).padStart(2, '0')
+        + '-' + String(date.getDate()).padStart(2, '0')
+    },
+    onLeaveTypeChange(e) {
+      const item = this.leaveTypeOptions[Number(e.detail.value)]
+      if (item) this.supplementForm.leaveType = item.value
+    },
+    onStartDateChange(e) {
+      this.supplementForm.startDate = e.detail.value
+      this.calculateSupplementDays()
+    },
+    onStartClockChange(e) {
+      this.supplementForm.startClock = e.detail.value
+      this.calculateSupplementDays()
+    },
+    onEndDateChange(e) {
+      this.supplementForm.endDate = e.detail.value
+      this.calculateSupplementDays()
+    },
+    onEndClockChange(e) {
+      this.supplementForm.endClock = e.detail.value
+      this.calculateSupplementDays()
+    },
+    onParentContactedChange(e) {
+      this.supplementForm.parentContacted = e.detail.value ? '1' : '0'
+    },
+    calculateSupplementDays() {
+      const start = this.combineDateTime(this.supplementForm.startDate, this.supplementForm.startClock)
+      const end = this.combineDateTime(this.supplementForm.endDate, this.supplementForm.endClock)
+      if (!start || !end || end <= start) return
+      const hours = (end.getTime() - start.getTime()) / 3600000
+      const days = Math.max(0.5, Math.ceil((hours / 24) * 2) / 2)
+      this.supplementForm.leaveDays = String(days)
+    },
+    combineDateTime(date, clock) {
+      if (!date || !clock) return null
+      const value = new Date(date + 'T' + clock + ':00')
+      return isNaN(value.getTime()) ? null : value
+    },
+    async submitSupplement() {
+      if (!this.canSupplement || this.supplementSaving) return
+      const form = this.supplementForm
+      if (!form.leaveType) {
+        return uni.showToast({ title: '请选择请假类型', icon: 'none' })
+      }
+      if (!form.leaveReason.trim()) {
+        return uni.showToast({ title: '请填写请假事由', icon: 'none' })
+      }
+      const start = this.combineDateTime(form.startDate, form.startClock)
+      const end = this.combineDateTime(form.endDate, form.endClock)
+      if (!start || !end || end <= start) {
+        return uni.showToast({ title: '请填写正确的离校和返校时间', icon: 'none' })
+      }
+      if (!form.leaveDays || Number(form.leaveDays) <= 0) {
+        return uni.showToast({ title: '请假天数必须大于0', icon: 'none' })
+      }
+      if (form.parentContacted !== '1') {
+        return uni.showToast({ title: '请先联系家长核实', icon: 'none' })
+      }
+      if (!/^1[3-9]\d{9}$/.test(String(form.parentPhone || '').trim())) {
+        return uni.showToast({ title: '请填写正确的家长电话', icon: 'none' })
+      }
+      this.supplementSaving = true
+      try {
+        await updateSupplementLeave(this.id, {
+          leaveType: form.leaveType,
+          leaveReason: form.leaveReason.trim(),
+          startTime: this.formatDateTimeValue(start),
+          endTime: this.formatDateTimeValue(end),
+          leaveDays: Number(form.leaveDays),
+          parentPhone: String(form.parentPhone).trim(),
+          parentContacted: '1'
+        })
+        uni.showToast({ title: '已提交审批', icon: 'success' })
+        this.loadDetail()
+      } catch (error) {
+        uni.showToast({
+          title: (error && (error.msg || error.message)) || '提交失败',
+          icon: 'none',
+          duration: 2500
+        })
+      } finally {
+        this.supplementSaving = false
+      }
+    },
+    formatDateTimeValue(date) {
+      return date.getFullYear() + '-' + String(date.getMonth() + 1).padStart(2, '0')
+        + '-' + String(date.getDate()).padStart(2, '0')
+        + ' ' + String(date.getHours()).padStart(2, '0')
+        + ':' + String(date.getMinutes()).padStart(2, '0') + ':00'
     },
     doApproval(status) {
       const statusText = { approved: '批准', rejected: '拒绝', forward: '转上级审批' }
@@ -260,7 +529,7 @@ export default {
       })
     },
     formatStatus(val) {
-      const map = { pending: '待审批', approved: '已批准', rejected: '已拒绝', forward: '转上级审批' }
+      const map = { supplement: '待补充', pending: '待审批', approved: '已批准', rejected: '已拒绝', forward: '转上级审批' }
       return map[val] || val || '未知'
     },
     formatLeaveType(val) {
@@ -268,7 +537,7 @@ export default {
       return map[val] || val || '未知'
     },
     formatReturnStatus(val) {
-      const map = { not_returned: '未销假', returned: '已销假', overdue: '逾期未归' }
+      const map = { not_returned: '未销假', returned: '已销假', overdue: '逾期未归', late_returned: '逾期销假' }
       return map[val] || val || ''
     },
     formatTransport(val) {
@@ -291,7 +560,7 @@ export default {
       return map[val] || val || '-'
     },
     formatReturnStatusSafe(val) {
-      const map = { not_returned: '未销假', returned: '已销假', overdue: '逾期未归' }
+      const map = { not_returned: '未销假', returned: '已销假', overdue: '逾期未归', late_returned: '逾期销假' }
       return map[val] || val || '-'
     },
     goBack() {
@@ -343,6 +612,7 @@ export default {
   padding: 30rpx;
   text-align: center;
   margin-bottom: 20rpx;
+  &.banner-supplement { background: linear-gradient(135deg, #8b5cf6, #6d28d9); }
   &.banner-pending { background: linear-gradient(135deg, #f3a044, #e07e1c); }
   &.banner-approved { background: linear-gradient(135deg, #18bc37, #0fad2e); }
   &.banner-rejected { background: linear-gradient(135deg, #e43d33, #c62828); }
@@ -425,6 +695,7 @@ export default {
   &.return-not_returned { color: #999; }
   &.return-returned { color: #18bc37; }
   &.return-overdue { color: #e43d33; font-weight: bold; }
+  &.return-late_returned { color: #e43d33; font-weight: bold; }
 }
 
 /* 时间轴 */
@@ -496,6 +767,121 @@ export default {
   font-size: 26rpx;
   color: #333;
   line-height: 1.6;
+}
+
+/* 查课请假补充 */
+.supplement-owner-tip {
+  padding: 20rpx;
+  border-radius: 10rpx;
+  background: #f5f3ff;
+  color: #6d28d9;
+  font-size: 24rpx;
+  text-align: center;
+}
+
+.supplement-form {
+  display: flex;
+  flex-direction: column;
+  gap: 18rpx;
+}
+
+.form-row {
+  display: flex;
+  flex-direction: column;
+  gap: 10rpx;
+}
+
+.form-label {
+  color: #64748b;
+  font-size: 22rpx;
+}
+
+.form-picker,
+.form-input,
+.form-textarea {
+  box-sizing: border-box;
+  width: 100%;
+  border: 1rpx solid #dbe3ec;
+  border-radius: 8rpx;
+  background: #f8fafc;
+  color: #1e293b;
+  font-size: 26rpx;
+}
+
+.form-picker {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 72rpx;
+  padding: 0 20rpx;
+}
+
+.form-picker.compact {
+  justify-content: center;
+}
+
+.form-placeholder {
+  color: #94a3b8;
+}
+
+.form-arrow {
+  color: #94a3b8;
+  font-size: 34rpx;
+}
+
+.form-input {
+  height: 72rpx;
+  padding: 0 20rpx;
+}
+
+.form-textarea {
+  min-height: 140rpx;
+  padding: 18rpx 20rpx;
+  line-height: 1.5;
+}
+
+.datetime-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(0, 0.85fr);
+  gap: 12rpx;
+}
+
+.contact-confirm {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16rpx;
+  padding: 18rpx 20rpx;
+  border: 1rpx solid #dbeafe;
+  border-radius: 8rpx;
+  background: #f8fbff;
+}
+
+.contact-confirm-copy {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 5rpx;
+}
+
+.contact-confirm-title {
+  color: #1e293b;
+  font-size: 25rpx;
+  font-weight: 600;
+}
+
+.contact-confirm-sub {
+  color: #64748b;
+  font-size: 21rpx;
+}
+
+.supplement-submit {
+  margin-top: 2rpx;
+  border-radius: 8rpx;
+  background: #2563eb;
+  color: #fff;
+  font-size: 27rpx;
+  font-weight: 600;
 }
 
 /* 附件缩略图 */

@@ -91,7 +91,8 @@
       </view>
       <view class="form-item">
         <text class="form-label">外宿地址 <text class="required">*</text></text>
-        <region-picker v-model="form.address" default-province="广东省" />
+        <region-picker v-model="form.address" default-province="广东省" default-city="肇庆市" default-district="端州区" />
+        <offcampus-location :address="form.address" :campus="form.campus" />
       </view>
       <view class="form-item">
         <text class="form-label">外宿理由 <text class="required">*</text></text>
@@ -146,17 +147,18 @@
 </template>
 
 <script>
-import { addOffcampus, getOffcampusHistory, getOffcampusAttendance, getOffcampusPeriods } from '@/api/affair/offcampus'
+import { getOffcampusHistory, getOffcampusAttendance, getOffcampusPeriods } from '@/api/affair/offcampus'
 import { listVehicle } from '@/api/affair/vehicle'
-import { uploadFile, stripBaseUrl } from '@/utils/upload'
 import studentPicker from '@/components/student-picker/index.vue'
 import regionPicker from '@/components/region-picker/region-picker.vue'
+import OffcampusLocation from '@/components/offcampus-location/offcampus-location.vue'
 import { getWatermarkConfig } from '@/api/work/watermark'
 import { getDicts } from '@/api/system/dict/data'
-import { getLocation, addWatermark } from '@/utils/watermark'
+import { prepareCapture, addWatermark } from '@/utils/watermark'
+import { enqueueRequest, flushOfflineQueue } from '@/utils/offlineQueue'
 
 export default {
-  components: { studentPicker, regionPicker },
+  components: { studentPicker, regionPicker, OffcampusLocation },
   computed: {
     selectedVehicleLabel() {
       const v = this.vehicleOptions.find(v => v.value === this.form.vehicleId)
@@ -166,7 +168,7 @@ export default {
   data() {
     return {
       form: {
-        xh: '', studentName: '', bjdm: '', className: '', xydm: '',
+        xh: '', studentName: '', bjdm: '', className: '', xydm: '', campus: '',
         academicYear: '', startDate: '', endDate: '', housingType: '', applyReason: '', address: '',
         transportType: '', vehicleId: null
       },
@@ -196,7 +198,9 @@ export default {
         { label: '其他', value: 'other' }
       ],
       vehicleOptions: [],
-      watermarkConfig: null
+      watermarkConfig: null,
+      watermarkConfigPromise: null,
+      submitting: false
     }
   },
   onLoad() {
@@ -204,7 +208,7 @@ export default {
     this.loadPeriods()
     this.loadHousingTypes()
     this.loadTransportTypes()
-    getWatermarkConfig('offcampus').then(res => {
+    this.watermarkConfigPromise = getWatermarkConfig('offcampus').then(res => {
       this.watermarkConfig = res.data
     }).catch(() => {})
   },
@@ -277,6 +281,7 @@ export default {
       this.form.bjdm = stu.bjdm || ''
       this.form.className = stu.className || stu.bjjc || ''
       this.form.xydm = stu.xydm || ''
+      this.form.campus = stu.campus || '星湖校区'
       // 加载该学生的车辆登记列表
       this.loadStudentVehicles()
       // 加载该学生的历史外宿申请
@@ -290,6 +295,7 @@ export default {
       this.form.bjdm = ''
       this.form.className = ''
       this.form.xydm = ''
+      this.form.campus = ''
       this.vehicleOptions = []
       this.historyList = []
       this.attendanceList = []
@@ -344,17 +350,26 @@ export default {
       if (this.materialPhotoList.length >= 9) return uni.showToast({ title: '最多9张', icon: 'none' })
       uni.showActionSheet({
         itemList: ['拍照上传', '从相册选择'],
-        success: (action) => {
+        success: async (action) => {
           if (action.index === 0) {
-            const locPromise = getLocation()
+            const capture = await this.prepareWatermarkCapture()
+            if (!capture.ready) {
+              return uni.showToast({ title: capture.message, icon: 'none', duration: 2500 })
+            }
             uni.chooseImage({
               count: 1, sizeType: ['compressed'], sourceType: ['camera'],
               success: async (res) => {
                 let path = res.tempFilePaths[0]
-                if (this.watermarkConfig && this.watermarkConfig.enabled === '1') {
-                  const location = await locPromise
-                  path = await addWatermark(path, this.watermarkConfig, location)
+                try {
+                  if (this.watermarkConfig && this.watermarkConfig.enabled === '1') {
+                    uni.showLoading({ title: '添加水印...' })
+                    path = await addWatermark(path, this.watermarkConfig, capture.captureInfo)
+                  }
+                } catch (e) {
+                  uni.hideLoading()
+                  return uni.showToast({ title: '添加水印失败', icon: 'none' })
                 }
+                uni.hideLoading()
                 this.appendMaterial(path)
               }
             })
@@ -369,10 +384,20 @@ export default {
         }
       })
     },
+    async prepareWatermarkCapture() {
+      if (!this.watermarkConfig && this.watermarkConfigPromise) {
+        await this.watermarkConfigPromise
+      }
+      if (!this.watermarkConfig || this.watermarkConfig.enabled !== '1') {
+        return { ready: true, message: '', captureInfo: null }
+      }
+      uni.showLoading({ title: '定位中...' })
+      const result = await prepareCapture(this.watermarkConfig, this.form.address)
+      uni.hideLoading()
+      return result
+    },
     appendMaterial(path) {
-      uploadFile(path).then(url => {
-        this.materialPhotoList.push(url)
-      }).catch(() => { uni.showToast({ title: '上传失败', icon: 'none' }) })
+      this.materialPhotoList.push(path)
     },
     removeMaterial(idx) { this.materialPhotoList.splice(idx, 1) },
     previewMaterial(idx) { uni.previewImage({ current: idx, urls: this.materialPhotoList }) },
@@ -409,6 +434,11 @@ export default {
       const absent = (Number(item.absentLessons) || 0) + (Number(item.lateLessons) || 0) + (Number(item.earlyLeaveLessons) || 0)
       return '缺勤率 ' + (absent / total * 100).toFixed(1) + '%'
     },
+    hasSpecificAddress(address) {
+      const text = String(address || '').replace(/\//g, '').trim()
+      const matched = text.match(/(?:省|自治区).*?(?:市|自治州|地区).*?(?:区|县|旗)(.+)$/)
+      return (matched ? matched[1] : text).trim().length >= 2
+    },
     getAttRateClass(item) {
       const total = Number(item.totalLessons) || 0
       if (total === 0) return ''
@@ -419,28 +449,50 @@ export default {
       return 'att-rate-ok'
     },
     async submit() {
+      if (this.submitting) return
       if (!this.form.xh) return uni.showToast({ title: '请选择学生', icon: 'none' })
       if (!this.form.housingType) return uni.showToast({ title: '请选择外宿类型', icon: 'none' })
       if (!this.form.startDate || !this.form.endDate) return uni.showToast({ title: '请选择外宿期限', icon: 'none' })
       if (this.form.startDate > this.form.endDate) return uni.showToast({ title: '结束日期不能早于开始日期', icon: 'none' })
-      if (!this.form.address) return uni.showToast({ title: '请输入外宿地址', icon: 'none' })
+      if (!this.hasSpecificAddress(this.form.address)) return uni.showToast({ title: '请填写具体街道、小区或门牌号', icon: 'none' })
       if (!this.form.applyReason) return uni.showToast({ title: '请输入外宿理由', icon: 'none' })
       if (this.materialPhotoList.length < 3) return uni.showToast({ title: '请至少上传3张佐证材料', icon: 'none' })
       if (!this.form.transportType) return uni.showToast({ title: '请选择交通工具', icon: 'none' })
 
       const data = {
         ...this.form,
-        materialPhotos: JSON.stringify(this.materialPhotoList.map(stripBaseUrl))
+        materialPhotos: JSON.stringify([])
       }
+      const uploads = this.materialPhotoList.map(localPath => ({
+        localPath,
+        uploadUrl: '/common/upload',
+        field: 'file',
+        jsonArrayPath: 'materialPhotos',
+        jsonArrayValue: 'filePath'
+      }))
 
       try {
-        const res = await addOffcampus(data)
-        if (res.code === 200) {
-          uni.showToast({ title: '提交成功，待现场核实', icon: 'success' })
-          setTimeout(() => uni.navigateBack(), 1500)
-        }
+        this.submitting = true
+        const result = await enqueueRequest({
+          businessType: 'offcampus_add',
+          title: '外宿申请：' + (this.form.studentName || this.form.xh),
+          request: {
+            url: '/api/offcampus',
+            method: 'post',
+            data
+          },
+          uploads
+        })
+        flushOfflineQueue()
+        uni.showToast({
+          title: result.duplicate ? '该申请已在后台处理' : '已提交，材料后台上传',
+          icon: 'none'
+        })
+        setTimeout(() => uni.navigateBack(), 800)
       } catch (e) {
         uni.showToast({ title: '提交失败', icon: 'none' })
+      } finally {
+        this.submitting = false
       }
     }
   }

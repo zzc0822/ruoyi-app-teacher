@@ -1,5 +1,6 @@
 import { getToken } from '@/utils/auth'
 import { getRoleConfig, getRealNameStatus } from '@/api/campus/roleView'
+import { hasPrivacyConsent } from '@/utils/privacy'
 
 // 登录页面
 const loginPage = "/pages/login"
@@ -13,6 +14,7 @@ const whiteList = [
 
 // 全局角色配置缓存
 let globalRoleConfig = null
+let redirectingToLogin = false
 
 // 检查地址白名单
 function checkWhite(url) {
@@ -94,6 +96,22 @@ export function hasFeature(feature) {
   return config.features[feature] === true
 }
 
+function redirectToLogin() {
+  if (redirectingToLogin) {
+    return
+  }
+  redirectingToLogin = true
+  // Avoid launching a new route from inside the active navigation interceptor.
+  setTimeout(() => {
+    uni.reLaunch({
+      url: loginPage,
+      complete: () => {
+        redirectingToLogin = false
+      }
+    })
+  }, 0)
+}
+
 // 页面跳转验证拦截器
 let list = ["navigateTo", "redirectTo", "reLaunch", "switchTab"]
 list.forEach(item => {
@@ -103,17 +121,9 @@ list.forEach(item => {
         return true
       }
       
-      if (getToken()) {
-        // 已登录用户访问登录页，重定向到首页
+      if (getToken() && hasPrivacyConsent()) {
+        // The login page owns the post-authentication redirect after onReady.
         if (to.url === loginPage || to.url === '/pages/login') {
-          const config = getRoleConfigSync()
-          let homePage = config?.homePage || '/pages/index'
-          
-          if (!homePage.startsWith('/')) {
-            homePage = '/' + homePage
-          }
-          
-          uni.reLaunch({ url: homePage + (homePage.indexOf('?') === -1 ? '?redirect=true' : '&redirect=true') })
           return false
         }
         return true
@@ -122,7 +132,7 @@ list.forEach(item => {
         if (checkWhite(to.url)) {
           return true
         }
-        uni.reLaunch({ url: loginPage })
+        redirectToLogin()
         return false
       }
     },

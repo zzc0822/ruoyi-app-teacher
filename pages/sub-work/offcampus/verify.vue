@@ -31,6 +31,7 @@
         <text class="info-label">外宿地址</text>
         <text class="info-value">{{ detail.address }}</text>
       </view>
+      <offcampus-location :saved="detail" :auto-preview="false" />
       <view class="info-row">
         <text class="info-label">外宿理由</text>
         <text class="info-value">{{ detail.applyReason }}</text>
@@ -84,8 +85,31 @@
       :photos.sync="verifyPhotoList"
       :remark.sync="verifyRemark"
       :fallback-address="detail.address"
+      require-location
       tip="请到现场查看住宿环境实际情况，拍摄3-5张核实照片"
+      @capture="onCaptureEvidence"
+      @location-state="onLocationState"
     />
+
+    <view class="location-check-card" :class="verifyLocationCheck.stateClass">
+      <view class="location-check-head">
+        <text class="location-check-title">现场定位校验</text>
+        <text class="location-check-state">{{ verifyLocationCheck.stateText }}</text>
+      </view>
+      <view class="location-check-row">
+        <text class="location-check-label">外宿地点</text>
+        <text class="location-check-value">{{ detail.address || '-' }}</text>
+      </view>
+      <view class="location-check-row">
+        <text class="location-check-label">现场坐标</text>
+        <text class="location-check-value">{{ captureCoordinateText }}</text>
+      </view>
+      <view class="location-check-row" v-if="verifyLocationCheck.available">
+        <text class="location-check-label">现场距离</text>
+        <text class="location-check-value">{{ verifyLocationCheck.distanceText }}</text>
+      </view>
+      <text class="location-check-note">{{ verifyLocationCheck.message }}</text>
+    </view>
 
     <!-- 操作按钮 -->
     <view class="action-bar">
@@ -100,20 +124,24 @@
 </template>
 
 <script>
-import { getOffcampus, verifyOffcampus, getOffcampusHistory, getOffcampusAttendance } from '@/api/affair/offcampus'
+import { getOffcampus, getOffcampusHistory, getOffcampusAttendance } from '@/api/affair/offcampus'
 import { mergePhotoFields } from '@/utils/image'
 import { getDicts } from '@/api/system/dict/data'
 import verifyCapture from '@/components/verify-capture/index.vue'
-import { enqueueRequest, isNetworkFailure } from '@/utils/offlineQueue'
+import OffcampusLocation from '@/components/offcampus-location/offcampus-location.vue'
+import { enqueueRequest, flushOfflineQueue } from '@/utils/offlineQueue'
 
 export default {
-  components: { verifyCapture },
+  components: { verifyCapture, OffcampusLocation },
   data() {
     return {
       id: null,
       detail: {},
       verifyPhotoList: [],
       verifyRemark: '',
+      captureInfo: null,
+      locationState: 'idle',
+      locationMessage: '',
       historyList: [],
       attendanceList: [],
       // 字典 fd_offcampus_housing_type 拉取前的兜底选项
@@ -139,6 +167,65 @@ export default {
         d.extraMaterials,
         d.transportProof
       )
+    },
+    captureCoordinateText() {
+      if (this.locationState === 'locating') return '正在获取现场定位'
+      if (!this.captureInfo) return this.locationState === 'failed' ? '定位失败，请重试' : '等待现场定位'
+      const latitude = Number(this.captureInfo.latitude)
+      const longitude = Number(this.captureInfo.longitude)
+      if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return '未获取到坐标'
+      return '北纬' + latitude.toFixed(6) + '，东经' + longitude.toFixed(6)
+    },
+    verifyLocationCheck() {
+      const rawLatitude = this.captureInfo ? this.captureInfo.latitude : null
+      const rawLongitude = this.captureInfo ? this.captureInfo.longitude : null
+      const rawAddressLatitude = this.detail ? this.detail.mapLatitude : null
+      const rawAddressLongitude = this.detail ? this.detail.mapLongitude : null
+      const latitude = Number(rawLatitude)
+      const longitude = Number(rawLongitude)
+      const addressLatitude = Number(rawAddressLatitude)
+      const addressLongitude = Number(rawAddressLongitude)
+      if (rawAddressLatitude == null || rawAddressLongitude == null
+        || !Number.isFinite(addressLatitude) || !Number.isFinite(addressLongitude)) {
+        return {
+          available: false,
+          withinRange: false,
+          stateClass: 'check-unavailable',
+          stateText: '待定位',
+          distanceText: '-',
+          message: '外宿地址尚未解析到地图坐标，无法执行现场距离校验'
+        }
+      }
+      if (rawLatitude == null || rawLongitude == null
+        || !Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+        const locating = this.locationState === 'locating'
+        const failed = this.locationState === 'failed'
+        return {
+          available: false,
+          withinRange: false,
+          stateClass: failed ? 'check-fail' : 'check-pending',
+          stateText: locating ? '定位中' : (failed ? '定位失败' : '待定位'),
+          distanceText: '-',
+          message: failed
+            ? (this.locationMessage || '现场定位失败，请开放定位权限后重试')
+            : (locating ? '正在获取现场位置' : '进入页面后会自动获取现场位置')
+        }
+      }
+      const distance = this.distanceMeters(latitude, longitude, addressLatitude, addressLongitude)
+      const accuracy = Math.min(Math.max(Number(this.captureInfo.accuracy) || 0, 0), 100)
+      const effectiveDistance = Math.max(0, distance - accuracy)
+      const radius = Number(this.detail.verifyRadiusMeters) || 300
+      const withinRange = effectiveDistance <= radius
+      return {
+        available: true,
+        withinRange,
+        stateClass: withinRange ? 'check-pass' : 'check-fail',
+        stateText: withinRange ? '范围内' : '范围外',
+        distanceText: '约' + Math.round(distance) + '米（允许' + radius + '米）',
+        message: withinRange
+          ? '现场位置在外宿地址附近，可以提交核实通过'
+          : '现场位置距外宿地址约' + Math.round(distance) + '米，超出' + radius + '米核实范围'
+      }
     }
   },
   onLoad(options) {
@@ -194,6 +281,30 @@ export default {
         if (options.length) this.housingTypeOptions = options
       }).catch(() => {})
     },
+    onCaptureEvidence(captureInfo) {
+      this.captureInfo = captureInfo || null
+      if (this.captureInfo) {
+        this.locationState = 'ready'
+        this.locationMessage = ''
+      }
+    },
+    onLocationState(payload = {}) {
+      this.locationState = payload.state || 'idle'
+      this.locationMessage = payload.message || ''
+      if (payload.info) this.captureInfo = Object.assign({}, payload.info)
+      if (payload.state === 'ready' && !payload.info) this.captureInfo = null
+    },
+    distanceMeters(lat1, lng1, lat2, lng2) {
+      const earthRadius = 6371008.8
+      const radLat1 = lat1 * Math.PI / 180
+      const radLat2 = lat2 * Math.PI / 180
+      const deltaLat = (lat2 - lat1) * Math.PI / 180
+      const deltaLng = (lng2 - lng1) * Math.PI / 180
+      const a = Math.sin(deltaLat / 2) * Math.sin(deltaLat / 2)
+        + Math.cos(radLat1) * Math.cos(radLat2)
+        * Math.sin(deltaLng / 2) * Math.sin(deltaLng / 2)
+      return earthRadius * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+    },
     calcAbsentRate(item) {
       const total = Number(item.totalLessons) || 0
       if (total === 0) return '无记录'
@@ -210,8 +321,41 @@ export default {
       if (rate >= 0.15) return 'att-rate-warn'
       return 'att-rate-ok'
     },
+    buildVerifyPayload(status) {
+      return {
+        id: this.id,
+        verifyStatus: status,
+        verifyPhotos: JSON.stringify([]),
+        verifyRemark: this.verifyRemark,
+        verifyLatitude: this.captureInfo ? this.captureInfo.latitude : null,
+        verifyLongitude: this.captureInfo ? this.captureInfo.longitude : null,
+        verifyAccuracyMeters: this.captureInfo ? this.captureInfo.accuracy : null
+      }
+    },
+    buildVerifyUploads() {
+      return (this.verifyPhotoList || []).map(photo => {
+        const localPath = photo && (photo.localPath || photo.originalPath)
+        if (!localPath) return null
+        return {
+          localPath,
+          uploadUrl: '/common/upload',
+          field: 'file',
+          jsonArrayPath: 'verifyPhotos',
+          jsonArrayValue: 'filePath'
+        }
+      }).filter(Boolean)
+    },
     doVerify(status) {
       if (status === 'verified' && !this.$refs.capture.ensurePhotoCount()) return
+      if (status === 'verified' && !this.captureInfo) {
+        return uni.showToast({ title: '请先现场拍照获取定位', icon: 'none', duration: 2200 })
+      }
+      if (status === 'verified' && !this.verifyLocationCheck.available) {
+        return uni.showToast({ title: this.verifyLocationCheck.message, icon: 'none', duration: 2800 })
+      }
+      if (status === 'verified' && !this.verifyLocationCheck.withinRange) {
+        return uni.showToast({ title: this.verifyLocationCheck.message, icon: 'none', duration: 3200 })
+      }
       const actionText = status === 'verified' ? '通过' : '驳回'
       uni.showModal({
         title: '确认' + actionText,
@@ -219,41 +363,25 @@ export default {
         success: async (modalRes) => {
           if (!modalRes.confirm) return
           try {
-            const data = {
-              id: this.id,
-              verifyStatus: status,
-              verifyPhotos: JSON.stringify(this.verifyPhotoList),
-              verifyRemark: this.verifyRemark
-            }
-            const res = await verifyOffcampus(data)
-            if (res.code === 200) {
-              uni.showToast({ title: '核实' + actionText + '成功', icon: 'success' })
-              setTimeout(() => uni.navigateBack(), 1500)
-            }
+            const result = await enqueueRequest({
+              businessType: 'offcampus_verify',
+              title: '外宿核实：' + (this.detail.studentName || this.detail.xh),
+              request: {
+                url: '/api/offcampus/verify',
+                method: 'put',
+                data: this.buildVerifyPayload(status)
+              },
+              uploads: this.buildVerifyUploads()
+            })
+            flushOfflineQueue()
+            uni.showToast({
+              title: result.duplicate ? '该核实已在后台处理' : '已提交，照片后台上传',
+              icon: 'none'
+            })
+            setTimeout(() => uni.navigateBack(), 450)
           } catch (e) {
-            if (isNetworkFailure(e)) {
-              const result = await enqueueRequest({
-                businessType: 'offcampus_verify',
-                title: '外宿核实：' + (this.detail.studentName || this.detail.xh),
-                request: {
-                  url: '/api/offcampus/verify',
-                  method: 'put',
-                  data: {
-                    id: this.id,
-                    verifyStatus: status,
-                    verifyPhotos: JSON.stringify(this.verifyPhotoList),
-                    verifyRemark: this.verifyRemark
-                  }
-                }
-              })
-              uni.showToast({
-                title: result.duplicate ? '已在待同步队列' : '网络较弱，已加入待同步',
-                icon: 'none'
-              })
-              setTimeout(() => uni.navigateBack(), 1200)
-            } else {
-              uni.showToast({ title: '操作失败', icon: 'none' })
-            }
+            const message = typeof e === 'string' ? e : ((e && e.message) || '提交失败，请重试')
+            uni.showToast({ title: message, icon: 'none', duration: 3200 })
           }
         }
       })
@@ -298,4 +426,19 @@ export default {
 .att-rate-warn { color: #ff9800; }
 .att-rate-danger { color: #f44336; }
 .att-detail { font-size: 22rpx; color: #999; }
+.location-check-card { background: #fff; margin: 20rpx; border-radius: 12rpx; padding: 24rpx; border-left: 6rpx solid #cbd5e1; }
+.location-check-card.check-pass { border-left-color: #16a34a; }
+.location-check-card.check-fail { border-left-color: #dc2626; }
+.location-check-card.check-unavailable { border-left-color: #f59e0b; }
+.location-check-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16rpx; }
+.location-check-title { font-size: 28rpx; font-weight: 600; color: #1f2937; }
+.location-check-state { padding: 4rpx 12rpx; border-radius: 6rpx; background: #f1f5f9; color: #64748b; font-size: 22rpx; }
+.check-pass .location-check-state { background: #ecfdf5; color: #15803d; }
+.check-fail .location-check-state { background: #fef2f2; color: #b91c1c; }
+.check-unavailable .location-check-state { background: #fffbeb; color: #b45309; }
+.location-check-row { display: flex; margin-bottom: 10rpx; }
+.location-check-label { width: 140rpx; flex-shrink: 0; color: #94a3b8; font-size: 24rpx; }
+.location-check-value { flex: 1; min-width: 0; color: #334155; font-size: 24rpx; line-height: 34rpx; }
+.location-check-note { display: block; margin-top: 8rpx; padding: 14rpx 16rpx; border-radius: 8rpx; background: #f8fafc; color: #64748b; font-size: 23rpx; line-height: 34rpx; }
+.check-fail .location-check-note { background: #fff7f7; color: #b91c1c; }
 </style>

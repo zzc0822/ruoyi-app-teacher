@@ -56,12 +56,14 @@ const upload = config => {
           }
         },
         fail: (error) => {
-          let { message } = error
+          let message = String(
+            (error && (error.message || error.errMsg)) || '上传失败'
+          )
           if (message == 'Network Error') {
             message = '后端接口连接异常'
-          } else if (message.includes('timeout')) {
+          } else if (message.indexOf('timeout') > -1) {
             message = '系统接口请求超时'
-          } else if (message.includes('Request failed with status code')) {
+          } else if (message.indexOf('Request failed with status code') > -1) {
             message = '系统接口' + message.substr(message.length - 3) + '异常'
           }
           if (!config.silent) toast(message)

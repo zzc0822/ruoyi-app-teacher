@@ -2,7 +2,7 @@ import request from '@/utils/request'
 
 // 获取案例列表
 export function getCaseList(query) {
-  return request({ url: '/counselor/case/list', method: 'get', params: query })
+  return request({ url: '/counselor/case/published', method: 'get', params: query })
 }
 // 获取案例详情
 export function getCaseDetail(caseId) {

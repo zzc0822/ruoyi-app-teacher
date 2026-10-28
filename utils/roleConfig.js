@@ -36,9 +36,7 @@ export const ROLE_CONFIG = {
       stuinfo: true        // 学生信息
     },
     // 首页路径
-    homePage: "/pages/index",
-    // 角色名称
-    roleName: "教师"
+    homePage: "/pages/index"
   },
   
   // 学生角色
@@ -72,9 +70,7 @@ export const ROLE_CONFIG = {
       campus: true         // 校园墙
     },
     // 首页路径
-    homePage: "/pages/student/tab",
-    // 角色名称
-    roleName: "学生"
+    homePage: "/pages/student/tab"
   }
 }
 
@@ -136,13 +132,4 @@ export function getConfigByRoles(roles = []) {
  */
 export function hasFeature(config, feature) {
   return config.features[feature] === true
-}
-
-/**
- * 获取角色显示名称
- * @param {String} role - 角色标识
- * @returns {String}
- */
-export function getRoleName(role) {
-  return ROLE_CONFIG[role]?.roleName || role
 }

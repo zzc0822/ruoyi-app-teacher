@@ -27,9 +27,9 @@ export function getLocation() {
 
 /**
  * 拍照前确认水印取证信息：水印时间取确认时刻，水印地址由后端逆地理编码得出
- * 未取到定位或地址时返回 ready=false，由调用方阻断拍照并提示
+ * 逆地理编码成功时显示地址，失败时先用业务地点兜底；坐标只画在定位行
  * @param {object} config 水印配置
- * @param {string} fallbackAddress 逆地理编码无结果时的地址兜底（如上课地点）
+ * @param {string} fallbackAddress 保留兼容旧调用；地址解析失败时优先记录定位坐标
  * @returns Promise<{ready: boolean, message: string, captureInfo: object|null}>
  */
 export async function prepareCapture(config, fallbackAddress) {
@@ -42,24 +42,47 @@ export async function prepareCapture(config, fallbackAddress) {
     return { ready: false, message: '未获取到定位信息，请开放定位权限后重试', captureInfo: null }
   }
   let address = ''
+  let addressSource = ''
   if (config.showAddress === '1') {
     if (location) {
       try {
         const res = await getWatermarkAddress(location.latitude, location.longitude)
-        address = (res && res.data) || ''
+        // 兼容旧版后端把地址放在 msg 字段的响应
+        address = (res && (res.data || (res.msg !== '操作成功' ? res.msg : ''))) || ''
+        if (address) addressSource = 'regeo'
       } catch (e) {
         address = ''
       }
     }
     if (!address) {
       address = fallbackAddress || ''
+      if (address) addressSource = 'fallback'
+    }
+    if (!address && location) {
+      address = formatCoordinateAddress(location)
+      addressSource = 'coordinate'
     }
     if (!address) {
       return { ready: false, message: '未确定水印地址，请重新定位或补充地点信息后重试', captureInfo: null }
     }
   }
   const time = parseTime(new Date(), '{y}-{m}-{d} {h}:{i}:{s} 星期{a}')
-  return { ready: true, message: '', captureInfo: Object.assign({}, location, { address: address, time: time }) }
+  return {
+    ready: true,
+    message: '',
+    captureInfo: Object.assign({}, location, {
+      address: address,
+      addressSource: addressSource,
+      addressResolved: addressSource === 'regeo',
+      time: time
+    })
+  }
+}
+
+function formatCoordinateAddress(location) {
+  const latitude = Number(location.latitude).toFixed(6)
+  const longitude = Number(location.longitude).toFixed(6)
+  return '定位坐标：北纬' + latitude + '，东经' + longitude + '（地图地址未解析）'
 }
 
 /**
@@ -70,7 +93,7 @@ export async function prepareCapture(config, fallbackAddress) {
  * @param {object} [scope] 自定义组件实例；canvas 声明在组件内时必传，小程序才找得到该组件作用域下的 canvas
  * @returns Promise<string> 水印后的图片临时路径
  */
-export function addWatermark(filePath, config, captureInfo, scope) {
+export function addWatermark(filePath, config, captureInfo, scope, canvasId = 'watermarkCanvas') {
   return new Promise((resolve, reject) => {
     // 水印未启用，直接返回原图
     if (!config || config.enabled !== '1') {
@@ -81,8 +104,8 @@ export function addWatermark(filePath, config, captureInfo, scope) {
     uni.getImageInfo({
       src: filePath,
       success: (imgInfo) => {
-        // 限制最大边1920px
-        const maxSide = 1920
+        // 取证信息保持清晰即可，过大的 Canvas 会明显拖慢手机端绘制。
+        const maxSide = 1600
         let drawW = imgInfo.width
         let drawH = imgInfo.height
         if (drawW > maxSide || drawH > maxSide) {
@@ -91,26 +114,7 @@ export function addWatermark(filePath, config, captureInfo, scope) {
           drawH = Math.round(drawH * scale)
         }
 
-        const canvasId = 'watermarkCanvas'
-        uni.canvasToTempFilePath({
-          canvasId: canvasId,
-          x: 0,
-          y: 0,
-          width: drawW,
-          height: drawH,
-          destWidth: drawW,
-          destHeight: drawH,
-          fileType: 'jpg',
-          quality: 0.85,
-          success: () => {
-            // 先确保canvas尺寸正确，再绘制
-            _doDrawWatermark(canvasId, drawW, drawH, filePath, imgInfo, config, captureInfo, resolve, reject, scope)
-          },
-          fail: (err) => {
-            // canvas可能未就绪，直接尝试绘制
-            _doDrawWatermark(canvasId, drawW, drawH, filePath, imgInfo, config, captureInfo, resolve, reject, scope)
-          }
-        }, scope)
+        _doDrawWatermark(canvasId, drawW, drawH, filePath, imgInfo, config, captureInfo, resolve, reject, scope)
       },
       fail: () => {
         resolve(filePath)
@@ -164,7 +168,8 @@ function _doDrawWatermark(canvasId, drawW, drawH, filePath, imgInfo, config, cap
   }
 
   // 地理地址（拍照前由后端逆地理编码确认）
-  if (config.showAddress === '1' && captureInfo && captureInfo.address) {
+  const addressIsCoordinateFallback = captureInfo && captureInfo.addressSource === 'coordinate'
+  if (config.showAddress === '1' && captureInfo && captureInfo.address && !addressIsCoordinateFallback) {
     lines.push({ text: captureInfo.address, size: fontSize, bold: false })
   }
 
@@ -219,7 +224,7 @@ function _exportCanvas(canvasId, drawW, drawH, resolve, fallbackPath, scope) {
     destWidth: drawW,
     destHeight: drawH,
     fileType: 'jpg',
-    quality: 0.85,
+    quality: 0.82,
     success: (res) => {
       resolve(res.tempFilePath)
     },

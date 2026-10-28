@@ -121,9 +121,9 @@
 </template>
 
 <script>
-import { getMyClasses, getClassDetail, addWorklog, getWorklog, updateWorklog, getWorklogContext } from '@/api/affair/headteacher'
-import upload from '@/utils/upload'
+import { getMyClasses, getClassDetail, getWorklog, getWorklogContext } from '@/api/affair/headteacher'
 import config from '@/config'
+import { enqueueRequest, flushOfflineQueue } from '@/utils/offlineQueue'
 
 const PUNISH_OPTIONS = [
   { value: '1', label: '警告' },
@@ -507,25 +507,14 @@ export default {
       })
     },
     uploadEvidence(tempPath) {
-      uni.showLoading({ title: '上传中…' })
-      upload({ url: '/common/upload', filePath: tempPath, name: 'file' }).then(res => {
-        uni.hideLoading()
-        const path = res.fileName || ''
-        if (!path) {
-          uni.showToast({ title: '上传失败', icon: 'none' })
-          return
-        }
-        // 入库一律存相对路径，显示时再拼 baseUrl
-        this.evidenceList.push({
-          filePath: path,
-          fileName: res.originalFilename || path.substring(path.lastIndexOf('/') + 1),
-          fileType: res.fileType || this.extOf(path),
-          mediaType: 'image',
-          thumbUrl: tempPath
-        })
-      }).catch(() => {
-        uni.hideLoading()
-        uni.showToast({ title: '上传失败', icon: 'none' })
+      // 本地占位，提交时由离线队列后台上传并回填附件字段
+      this.evidenceList.push({
+        localPath: tempPath,
+        filePath: '',
+        fileName: '',
+        fileType: this.extOf(tempPath),
+        mediaType: 'image',
+        thumbUrl: tempPath
       })
     },
     removeEvidence(idx) {
@@ -587,15 +576,35 @@ export default {
       } else {
         delete data.attachmentList
       }
-      const api = this.editId ? updateWorklog(data) : addWorklog(data)
-      api.then(() => {
-        uni.showToast({ title: this.editId ? '修改成功' : '提交成功', icon: 'success' })
+      const uploads = this.evidenceList
+        .map((item, index) => item.localPath ? {
+          localPath: item.localPath,
+          uploadUrl: '/common/upload',
+          field: 'file',
+          dataPathPrefix: 'attachmentList[' + index + ']'
+        } : null)
+        .filter(Boolean)
+      enqueueRequest({
+        businessType: this.editId ? 'headteacher_worklog_update' : 'headteacher_worklog_add',
+        title: '班主任工作记录：' + (this.form.title || this.chapterMeta.label || ''),
+        request: {
+          url: '/api/headteacher/worklog',
+          method: this.editId ? 'put' : 'post',
+          params: { viewScope: 'headteacher' },
+          data
+        },
+        uploads
+      }).then(result => {
+        flushOfflineQueue()
+        uni.showToast({
+          title: result.duplicate ? '该记录已在后台处理' : '已提交，照片后台上传',
+          icon: 'none'
+        })
         setTimeout(() => {
           uni.navigateBack()
-        }, 1200)
-      }).catch(err => {
-        const msg = (err && err.msg) || (err && err.data && err.data.msg) || '提交失败'
-        uni.showToast({ title: msg, icon: 'none', duration: 2500 })
+        }, 900)
+      }).catch(() => {
+        uni.showToast({ title: '提交失败，请重试', icon: 'none', duration: 2500 })
       }).finally(() => {
         this.submitting = false
       })

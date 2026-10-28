@@ -22,6 +22,15 @@ export function getLeave(id) {
   })
 }
 
+// 补全查课生成的待补充请假并提交审批
+export function updateSupplementLeave(id, data) {
+  return request({
+    url: '/api/leave/' + id + '/supplement',
+    method: 'put',
+    data: data
+  })
+}
+
 // 审批请假
 export function approvalLeave(data) {
   return request({

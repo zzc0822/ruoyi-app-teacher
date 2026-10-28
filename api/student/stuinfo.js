@@ -51,6 +51,14 @@ export function getStuinfoDetail(xh) {
   })
 }
 
+// 获取学生画像卡（服务端按当前账号带班视野收口）
+export function getStudentPortrait(xh) {
+  return request({
+    url: '/analysis/portrait/student/' + xh,
+    method: 'get'
+  })
+}
+
 // 获取学院-班级树结构
 export function getCollegeClassTree() {
   return request({

@@ -5,10 +5,7 @@
         <view class="section-title">基本信息</view>
         <view class="form-item">
           <text class="form-label">签到场景</text>
-          <view class="radio-group">
-            <view class="radio-item" :class="{active: form.scene === 'class'}" @click="form.scene = 'class'">课堂签到</view>
-            <view class="radio-item" :class="{active: form.scene === 'dorm'}" @click="form.scene = 'dorm'">宿舍查寝</view>
-          </view>
+          <view class="fixed-scene">课堂签到 · 学生在手机端确认</view>
         </view>
         <view class="form-item">
           <text class="form-label">签到名称</text>
@@ -113,7 +110,7 @@
 
 <script>
 import { addSignSession } from '@/api/work/sign'
-import { getMyClasses } from '@/api/work/classcheck'
+import { getTeacherClasses } from '@/api/work/rollcall'
 
 export default {
   data() {
@@ -166,7 +163,7 @@ export default {
   methods: {
     async loadClasses() {
       try {
-        const res = await getMyClasses()
+        const res = await getTeacherClasses()
         this.classList = res.data || []
       } catch (e) {}
     },
@@ -269,6 +266,7 @@ export default {
 .radio-group { display: flex; gap: 10px; }
 .radio-item { padding: 8px 20px; border-radius: 20px; font-size: 13px; background: #f5f5f5; color: #666; }
 .radio-item.active { background: #ecf5ff; color: #409EFF; font-weight: 600; }
+.fixed-scene { padding: 10px 12px; border-radius: 8px; background: #f5f7ff; color: #4058bd; font-size: 13px; }
 
 .form-picker { display: flex; align-items: center; justify-content: space-between; background: #f8f8f8; border: 1px solid #eee; border-radius: 8px; padding: 10px 12px; }
 .picker-value { font-size: 14px; color: #333; }

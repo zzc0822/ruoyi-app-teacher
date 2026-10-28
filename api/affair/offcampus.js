@@ -35,11 +35,12 @@ export function addOffcampus(data) {
 }
 
 // 辅导员现场核实
-export function verifyOffcampus(data) {
+export function verifyOffcampus(data, options = {}) {
   return request({
     url: '/api/offcampus/verify',
     method: 'put',
-    data: data
+    data: data,
+    ...options
   })
 }
 
@@ -83,5 +84,14 @@ export function getOffcampusPeriods(academicYear) {
     url: '/api/offcampus/periods',
     method: 'get',
     params: { academicYear: academicYear }
+  })
+}
+
+// 解析外宿地址、返回地图坐标及到校直线距离
+export function previewOffcampusLocation(address, campus) {
+  return request({
+    url: '/api/offcampus/location',
+    method: 'get',
+    params: { address: address, campus: campus }
   })
 }
