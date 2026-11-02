@@ -328,7 +328,8 @@ export default {
           this.counselorStats = data.sort((a, b) => (b.total || 0) - (a.total || 0))
         }).catch(() => {})
       } else {
-        getModuleOverview().then(res => {
+        const params = this.viewScope ? { viewScope: this.viewScope } : undefined
+        getModuleOverview(params).then(res => {
           if (res.data && res.data.talk) {
             this.personalStats = res.data.talk
           }

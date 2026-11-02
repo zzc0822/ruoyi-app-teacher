@@ -84,8 +84,19 @@
       </view>
     </view>
 
+    <!-- 学生干部检查提交的建议：辅导员确认后才开始计时 -->
+    <view class="recheck-card" v-if="canConfirm">
+      <view class="section-title">确认整改建议</view>
+      <text class="confirm-hint">学生干部检查发现的问题，确认后开始计入整改时限；无需整改可直接忽略。</text>
+      <textarea class="recheck-input" v-model="confirmReason" placeholder="忽略原因（可选）" maxlength="300" />
+      <view class="recheck-btns">
+        <view class="btn-reject" @click="doConfirm(false)"><text>忽略建议</text></view>
+        <view class="btn-pass" @click="doConfirm(true)"><text>确认并开始计时</text></view>
+      </view>
+    </view>
+
     <!-- 复核操作：只有待复核/已打回状态给按钮 -->
-    <view class="recheck-card" v-if="canRecheck">
+    <view class="recheck-card" v-else-if="canRecheck">
       <view class="section-title">现场复核</view>
       <textarea class="recheck-input" v-model="recheckDesc" placeholder="复核意见（打回时必填，写清还要改哪里）" maxlength="500" />
       <view class="recheck-btns">
@@ -103,7 +114,7 @@
 </template>
 
 <script>
-import { getRectify, recheckRectify } from '@/api/work/dormcheck'
+import { getRectify, recheckRectify, confirmRectify } from '@/api/work/dormcheck'
 import { resolveImg } from '@/utils/image'
 
 export default {
@@ -112,6 +123,7 @@ export default {
       rectifyId: null,
       detail: {},
       recheckDesc: '',
+      confirmReason: '',
       submitting: false
     }
   },
@@ -121,6 +133,7 @@ export default {
     },
     statusText() {
       const map = {
+        suggested: '待确认建议',
         pending: '待整改',
         submitted: '待复核',
         rejected: '复核打回',
@@ -132,6 +145,9 @@ export default {
     },
     canRecheck() {
       return ['submitted', 'rejected', 'overdue'].indexOf(this.statusKey) > -1
+    },
+    canConfirm() {
+      return this.statusKey === 'suggested'
     },
     roomText() {
       const building = this.detail.buildingName || this.detail.apartmentName || ''
@@ -149,6 +165,9 @@ export default {
     actionTextMap() {
       return {
         create: '下达整改',
+        suggest: '提交整改建议',
+        confirm: '确认整改建议',
+        ignore: '忽略整改建议',
         submit: '提交整改',
         recheck_pass: '复核通过',
         recheck_reject: '复核打回',
@@ -210,6 +229,26 @@ export default {
         this.submitting = false
         uni.showToast({ title: '复核失败', icon: 'none' })
       })
+    },
+    doConfirm(accept) {
+      if (this.submitting) return
+      this.submitting = true
+      confirmRectify({
+        rectifyId: Number(this.rectifyId),
+        accept: accept,
+        reason: this.confirmReason
+      }).then(res => {
+        this.submitting = false
+        if (res.code === 200) {
+          uni.showToast({ title: res.msg || '已处理', icon: 'success' })
+          setTimeout(() => uni.navigateBack(), 700)
+        } else {
+          uni.showToast({ title: res.msg || '处理失败', icon: 'none' })
+        }
+      }).catch(() => {
+        this.submitting = false
+        uni.showToast({ title: '处理失败', icon: 'none' })
+      })
     }
   }
 }
@@ -238,6 +277,7 @@ export default {
   color: #666;
 }
 .st-pending { background: #fff3e0; color: #ff9800; }
+.st-suggested { background: #fef3c7; color: #b45309; }
 .st-submitted { background: #e3f2fd; color: #2196f3; }
 .st-rejected, .st-overdue { background: #ffebee; color: #f44336; }
 .st-passed { background: #e8f5e9; color: #4caf50; }
@@ -302,6 +342,13 @@ export default {
   font-size: 26rpx;
   color: #333;
   box-sizing: border-box;
+}
+.confirm-hint {
+  display: block;
+  margin-bottom: 14rpx;
+  font-size: 24rpx;
+  color: #64748b;
+  line-height: 34rpx;
 }
 .recheck-btns { display: flex; gap: 16rpx; margin-top: 18rpx; }
 .btn-reject, .btn-pass {

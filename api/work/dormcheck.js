@@ -17,6 +17,41 @@ import request from '@/utils/request'
 
 /* ==================== 宿舍索引与在住名单 ==================== */
 
+// 宿舍工作台概况：住宿人数、今日巡查、整改待办、异常汇总
+export function getDormWorkbenchOverview(query) {
+  return request({
+    url: '/api/teacher/dorm/workbench/overview',
+    method: 'get',
+    params: query
+  })
+}
+
+// 工作台房间卡片：最近得分、今日巡查状态、未闭环异常
+export function listDormWorkbenchRooms(query) {
+  return request({
+    url: '/api/teacher/dorm/workbench/rooms',
+    method: 'get',
+    params: query
+  })
+}
+
+// 视野内住宿概况：在住人数、占房数、楼栋数与男女分布
+export function getDormOverview(query) {
+  return request({
+    url: '/api/teacher/dorm/overview',
+    method: 'get',
+    params: query
+  })
+}
+
+// 房间在住名单：混合宿舍视野外床位由后端脱敏
+export function getRoomStudents(roomId) {
+  return request({
+    url: '/api/teacher/dorm/room/' + roomId + '/students',
+    method: 'get'
+  })
+}
+
 // 楼栋节点（只回视野内有在住学生的楼栋）
 export function listDormBuildings(query) {
   return request({
@@ -162,6 +197,110 @@ export function getRectify(rectifyId) {
 export function recheckRectify(data) {
   return request({
     url: '/api/teacher/dorm/check/rectify/recheck',
+    method: 'put',
+    data: data
+  })
+}
+
+// 确认/忽略学生干部检查产生的「待确认整改建议」
+export function confirmRectify(data) {
+  return request({
+    url: '/api/teacher/dorm/check/rectify/confirm',
+    method: 'put',
+    data: data
+  })
+}
+
+/* ==================== 现场巡查评分 ==================== */
+
+// 当日巡查批次：同一辅导员当天复用，避免每查一间房建一条批次
+export function ensureDailyCheckTask() {
+  return request({
+    url: '/api/teacher/dorm/check/task/daily',
+    method: 'post'
+  })
+}
+
+// 当日批次内的房间清单：带本批次已录状态与上次得分
+export function listCheckRooms(query) {
+  return request({
+    url: '/api/teacher/dorm/check/rooms',
+    method: 'get',
+    params: query
+  })
+}
+
+// 启用的检查标准：按检查类型/类别收窄
+export function listEnabledCheckItems(query) {
+  return request({
+    url: '/api/teacher/dorm/check/item/enabled',
+    method: 'get',
+    params: query
+  })
+}
+
+// 保存检查单：扣分明细、违禁品与整改要求一并提交
+export function saveCheckRecord(data) {
+  return request({
+    url: '/api/teacher/dorm/check/record',
+    method: 'post',
+    data: data
+  })
+}
+
+// 检查单详情
+export function getCheckRecord(recordId) {
+  return request({
+    url: '/api/teacher/dorm/check/record/' + recordId,
+    method: 'get'
+  })
+}
+
+// 历史检查记录：传 roomId 即看某间宿舍的历次检查
+export function listCheckRecords(query) {
+  return request({
+    url: '/api/teacher/dorm/check/record/list',
+    method: 'get',
+    params: query
+  })
+}
+
+/* ==================== 宿舍异常台账 ==================== */
+
+export function listDormIssues(query) {
+  return request({
+    url: '/api/teacher/dorm/issue/list',
+    method: 'get',
+    params: query
+  })
+}
+
+export function getDormIssueSummary(query) {
+  return request({
+    url: '/api/teacher/dorm/issue/summary',
+    method: 'get',
+    params: query
+  })
+}
+
+export function getDormIssue(issueId) {
+  return request({
+    url: '/api/teacher/dorm/issue/' + issueId,
+    method: 'get'
+  })
+}
+
+export function addDormIssue(data) {
+  return request({
+    url: '/api/teacher/dorm/issue',
+    method: 'post',
+    data: data
+  })
+}
+
+export function updateDormIssue(data) {
+  return request({
+    url: '/api/teacher/dorm/issue',
     method: 'put',
     data: data
   })

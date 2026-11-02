@@ -7,3 +7,12 @@ export function getCounselorWorkProgress() {
     method: 'get'
   })
 }
+
+// 辅导员工作进展下钻：指定辅导员 + 统计项的实际记录
+export function getCounselorWorkRecords(params) {
+  return request({
+    url: '/api/work/counselor-progress/records',
+    method: 'get',
+    params: params || {}
+  })
+}

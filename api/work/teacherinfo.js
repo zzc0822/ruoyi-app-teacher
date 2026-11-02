@@ -59,6 +59,14 @@ export function getCurrentRole() {
   })
 }
 
+// 切换当前角色视图（教师端小程序）
+export function switchRole(roleId) {
+  return request({
+    url: '/api/teacher/switchRole/' + roleId,
+    method: 'put'
+  })
+}
+
 // 删除教师信息
 export function delTeacherinfo(jsid) {
   return request({

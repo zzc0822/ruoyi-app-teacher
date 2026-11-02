@@ -8,6 +8,7 @@ const RETRY_BASE_MS = 15000
 const RETRY_MAX_MS = 5 * 60 * 1000
 
 let flushing = false
+let flushPromise = null
 let retryTimer = null
 let initialized = false
 
@@ -414,55 +415,90 @@ function pendingCount(list) {
   return (list || []).filter(item => item.status === 'pending' || item.status === 'preparing').length
 }
 
-export async function flushOfflineQueue() {
-  if (flushing || !getToken()) {
-    const list = readQueue()
-    return { synced: 0, pending: pendingCount(list), failed: list.filter(item => item.status === 'failed').length }
+function summarizeQueue(synced) {
+  const list = readQueue()
+  const problem = list.find(item => item.lastError)
+  return {
+    synced: synced || 0,
+    total: list.length,
+    pending: pendingCount(list),
+    failed: list.filter(item => item.status === 'failed').length,
+    lastError: problem ? problem.lastError : ''
   }
-  flushing = true
+}
+
+// 手动同步不受退避时间限制，并把失败/待持久化事项一并拉起重试。
+function resetForManualSync() {
+  const list = readQueue()
+  list.forEach(item => {
+    if (item.status === 'failed' || item.status === 'preparing') {
+      item.status = 'pending'
+    }
+    if (item.status !== 'pending') return
+    item.nextRetryAt = 0
+    ;(item.uploads || []).forEach(upload => {
+      upload.runtimePath = upload.runtimePath || upload.localPath
+    })
+  })
+  writeQueue(list)
+}
+
+async function runFlush(manual) {
   let synced = 0
-  try {
-    let list = readQueue()
-    for (const item of list) {
-      if (item.status !== 'pending') continue
-      if (item.nextRetryAt && item.nextRetryAt > Date.now()) continue
-      try {
-        await processItem(item)
-        list = list.filter(x => x.localId !== item.localId)
-        synced++
-        writeQueue(list)
-        uni.$emit && uni.$emit('offlineQueueSynced', item)
-        uni.$emit && uni.$emit('refreshHomeData')
-      } catch (error) {
-        if (isRetryableFailure(error)) {
-          item.status = 'pending'
-          item.retryCount = (item.retryCount || 0) + 1
-          item.nextRetryAt = Date.now() + retryDelay(item.retryCount)
-        } else {
-          item.status = 'failed'
-        }
-        item.lastError = String(error.message || error.msg || error || '同步失败').slice(0, 300)
-        writeQueue(list)
-        if (item.status === 'failed') {
-          uni.$emit && uni.$emit('offlineQueueItemFailed', item)
-        }
+  let list = readQueue()
+  for (const item of list) {
+    if (item.status !== 'pending') continue
+    if (!manual && item.nextRetryAt && item.nextRetryAt > Date.now()) continue
+    try {
+      await processItem(item)
+      list = list.filter(x => x.localId !== item.localId)
+      synced++
+      writeQueue(list)
+      uni.$emit && uni.$emit('offlineQueueSynced', item)
+      uni.$emit && uni.$emit('refreshHomeData')
+    } catch (error) {
+      if (isRetryableFailure(error)) {
+        item.status = 'pending'
+        item.retryCount = (item.retryCount || 0) + 1
+        item.nextRetryAt = Date.now() + retryDelay(item.retryCount)
+      } else {
+        item.status = 'failed'
+      }
+      item.lastError = String(error.message || error.msg || error || '同步失败').slice(0, 300)
+      writeQueue(list)
+      if (item.status === 'failed') {
+        uni.$emit && uni.$emit('offlineQueueItemFailed', item)
       }
     }
-  } finally {
-    flushing = false
+  }
+  return summarizeQueue(synced)
+}
+
+export function flushOfflineQueue(options = {}) {
+  const manual = options.manual === true
+  if (!getToken()) {
+    return Promise.resolve(Object.assign(summarizeQueue(0), { needLogin: true }))
+  }
+  if (flushing) {
+    if (!manual) return flushPromise || Promise.resolve(summarizeQueue(0))
+    // 正在自动同步时点“立即同步”，等本轮结束后再强制跑一轮。
+    return (flushPromise || Promise.resolve()).then(() => flushOfflineQueue(options))
+  }
+  if (manual) resetForManualSync()
+  flushing = true
+  flushPromise = runFlush(manual).then(result => {
     const remaining = readQueue()
     const retryable = remaining.filter(item => item.status === 'pending')
     if (retryable.length) {
       const next = Math.min.apply(null, retryable.map(item => item.nextRetryAt || Date.now()))
       scheduleFlush(Math.max(1000, next - Date.now()))
     }
-  }
-  const remaining = readQueue()
-  return {
-    synced,
-    pending: pendingCount(remaining),
-    failed: remaining.filter(item => item.status === 'failed').length
-  }
+    return result
+  }).finally(() => {
+    flushing = false
+    flushPromise = null
+  })
+  return flushPromise
 }
 
 export function getOfflineQueue() {
@@ -491,16 +527,7 @@ export function retryOfflineItem(localId) {
 }
 
 export function retryAllOfflineItems() {
-  const list = readQueue()
-  list.forEach(item => {
-    if (item.status === 'failed') {
-      item.status = 'pending'
-      item.nextRetryAt = 0
-      item.lastError = ''
-    }
-  })
-  writeQueue(list)
-  flushOfflineQueue()
+  return flushOfflineQueue({ manual: true })
 }
 
 export function discardOfflineItem(localId) {

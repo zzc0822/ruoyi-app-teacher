@@ -23,9 +23,8 @@
     <view
       class="counselor-progress-section"
       v-if="showCounselorProgress"
-      @click="goCounselorProgress"
     >
-      <view class="progress-head">
+      <view class="progress-head" @click="goCounselorProgress('all')">
         <view class="progress-head-copy">
           <text class="progress-title">{{ progressTitle }}</text>
           <text class="progress-meta">{{ progressMeta }}</text>
@@ -45,42 +44,42 @@
       </view>
       <template v-else-if="progressBoard">
         <view class="progress-overview" v-if="progressViewMode === 'college'">
-          <view class="progress-overview-item">
+          <view class="progress-overview-item" hover-class="progress-overview-item--pressed" @click.stop="goCounselorProgress('all')">
             <text class="progress-overview-num">{{ displayCount(progressBoard.counselorCount) }}</text>
             <text class="progress-overview-label">辅导员</text>
           </view>
-          <view class="progress-overview-item is-warning">
+          <view class="progress-overview-item is-warning" hover-class="progress-overview-item--pressed" @click.stop="goCounselorProgress('backlog')">
             <text class="progress-overview-num">{{ displayCount(progressBoard.backlogCount) }}</text>
             <text class="progress-overview-label">有积压</text>
           </view>
-          <view class="progress-overview-item is-muted">
+          <view class="progress-overview-item is-muted" hover-class="progress-overview-item--pressed" @click.stop="goCounselorProgress('lagging')">
             <text class="progress-overview-num">{{ displayCount(progressBoard.laggingCount) }}</text>
             <text class="progress-overview-label">无产出</text>
           </view>
-          <view class="progress-overview-item is-danger">
+          <view class="progress-overview-item is-danger" hover-class="progress-overview-item--pressed" @click.stop="goCounselorProgress('pending')">
             <text class="progress-overview-num">{{ displayCount(progressBoard.pendingTotal) }}</text>
             <text class="progress-overview-label">待处理</text>
           </view>
         </view>
         <view class="progress-overview" v-else-if="progressViewMode === 'mine' && progressMinePerson">
-          <view class="progress-overview-item">
+          <view class="progress-overview-item" hover-class="progress-overview-item--pressed" @click.stop="goCounselorRecords('weekOutput', '本周产出')">
             <text class="progress-overview-num">{{ displayCount(progressMinePerson.weekOutput) }}</text>
             <text class="progress-overview-label">本周产出</text>
           </view>
-          <view class="progress-overview-item is-warning">
+          <view class="progress-overview-item is-warning" hover-class="progress-overview-item--pressed" @click.stop="goCounselorProgress('pending')">
             <text class="progress-overview-num">{{ displayCount(progressMinePerson.pendingTotal) }}</text>
             <text class="progress-overview-label">待处理</text>
           </view>
-          <view class="progress-overview-item is-danger">
+          <view class="progress-overview-item is-danger" hover-class="progress-overview-item--pressed" @click.stop="goCounselorProgress('overdue')">
             <text class="progress-overview-num">{{ displayCount(progressMinePerson.overdueTotal) }}</text>
             <text class="progress-overview-label">逾期/积压</text>
           </view>
-          <view class="progress-overview-item is-muted">
+          <view class="progress-overview-item is-muted" hover-class="progress-overview-item--pressed" @click.stop="goCounselorRecords('students', '带班学生')">
             <text class="progress-overview-num">{{ displayCount(progressMinePerson.studentCount) }}</text>
             <text class="progress-overview-label">带班学生</text>
           </view>
         </view>
-        <view v-if="progressHasData" class="progress-entry">
+        <view v-if="progressHasData" class="progress-entry" @click.stop="goCounselorProgress('all')">
           <text>查看人员工作明细</text>
           <uni-icons type="arrowright" size="15" color="#2563eb"></uni-icons>
         </view>
@@ -278,7 +277,7 @@ import { getMyMiniConfig } from '@/api/system/miniConfig'
 import { getMyClasses } from '@/api/affair/headteacher'
 import { getGraduationSummary } from '@/api/graduation'
 import { getDefaultGraduationYear } from '@/utils/graduation'
-import { flushOfflineQueue, getOfflineSummary, retryAllOfflineItems } from '@/utils/offlineQueue'
+import { flushOfflineQueue, getOfflineSummary } from '@/utils/offlineQueue'
 
 // 全量功能定义
 const ALL_FUNCS = [
@@ -471,16 +470,36 @@ export default {
     syncOfflineQueue() {
       if (this.syncOfflineLoading) return
       this.syncOfflineLoading = true
-      if (this.offlineSummary.failed > 0) {
-        retryAllOfflineItems()
-      }
-      flushOfflineQueue().then(result => {
+      flushOfflineQueue({ manual: true }).then(result => {
         this.refreshOfflineSummary()
-        if (result.synced > 0) {
-          uni.showToast({ title: '已同步 ' + result.synced + ' 条', icon: 'success' })
-        } else if (result.failed > 0) {
-          uni.showToast({ title: '仍有同步失败事项', icon: 'none' })
+        if (result.needLogin) {
+          uni.showToast({ title: '登录已过期，请重新登录', icon: 'none' })
+          return
         }
+        if (result.lastError && (result.failed > 0 || result.pending > 0)) {
+          const remaining = []
+          if (result.pending > 0) remaining.push('仍有 ' + result.pending + ' 条待同步')
+          if (result.failed > 0) remaining.push(result.failed + ' 条同步失败')
+          uni.showModal({
+            title: '同步未完成',
+            content: result.lastError + (remaining.length ? '\n\n' + remaining.join('，') : ''),
+            showCancel: false
+          })
+          return
+        }
+        const parts = []
+        if (result.synced > 0) parts.push('已同步 ' + result.synced + ' 条')
+        if (result.failed > 0) parts.push(result.failed + ' 条失败')
+        if (result.pending > 0) parts.push(result.pending + ' 条仍待同步')
+        if (!parts.length) parts.push('没有待同步事项')
+        const allDone = result.synced > 0 && result.pending === 0 && result.failed === 0
+        uni.showToast({
+          title: allDone ? parts[0] : parts.join('，'),
+          icon: allDone ? 'success' : 'none'
+        })
+      }).catch(() => {
+        this.refreshOfflineSummary()
+        uni.showToast({ title: '同步失败，请稍后重试', icon: 'none' })
       }).finally(() => {
         this.syncOfflineLoading = false
       })
@@ -554,9 +573,18 @@ export default {
         this.counselorProgressLoading = false
       })
     },
-    goCounselorProgress() {
+    goCounselorProgress(filter) {
       if (!this.progressHasData || this.counselorProgressLoading || this.counselorProgressError) return
-      uni.navigateTo({ url: '/pages/sub-work/counselor-progress/index' })
+      const value = filter && filter !== 'all' ? '?filter=' + filter : ''
+      uni.navigateTo({ url: '/pages/sub-work/counselor-progress/index' + value })
+    },
+    goCounselorRecords(metric, title) {
+      const person = this.progressMinePerson
+      if (!person || !person.teacherId) return
+      uni.navigateTo({
+        url: '/pages/sub-work/counselor-progress/records?teacherId=' + person.teacherId
+          + '&metric=' + metric + '&title=' + encodeURIComponent(title || '')
+      })
     },
     goCounselorTraining() {
       uni.navigateTo({ url: '/pages/sub-work/counselor-training/index' })
@@ -1056,6 +1084,10 @@ page {
   border-radius: 10rpx;
   background: #fff;
   text-align: center;
+}
+
+.progress-overview-item--pressed {
+  background: #eef6ff;
 }
 
 .progress-overview-num {

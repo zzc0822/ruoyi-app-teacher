@@ -20,53 +20,66 @@
         </view>
 
         <view v-if="viewMode === 'college'" class="summary-grid">
-          <view class="summary-item">
+          <view class="summary-item" :class="{ 'is-active': activeFilter === 'all' }" @click="setFilter('all')">
             <text class="summary-value">{{ displayCount(board.counselorCount) }}</text>
             <text class="summary-label">辅导员</text>
           </view>
-          <view class="summary-item is-warning">
+          <view class="summary-item is-warning" :class="{ 'is-active': activeFilter === 'backlog' }" @click="setFilter('backlog')">
             <text class="summary-value">{{ displayCount(board.backlogCount) }}</text>
             <text class="summary-label">有积压</text>
           </view>
-          <view class="summary-item is-muted">
+          <view class="summary-item is-muted" :class="{ 'is-active': activeFilter === 'lagging' }" @click="setFilter('lagging')">
             <text class="summary-value">{{ displayCount(board.laggingCount) }}</text>
             <text class="summary-label">无产出</text>
           </view>
-          <view class="summary-item is-danger">
+          <view class="summary-item is-danger" :class="{ 'is-active': activeFilter === 'pending' }" @click="setFilter('pending')">
             <text class="summary-value">{{ displayCount(board.pendingTotal) }}</text>
             <text class="summary-label">待处理</text>
           </view>
         </view>
 
         <view v-else-if="minePerson" class="summary-grid">
-          <view class="summary-item">
+          <view class="summary-item" @click="openRecords(minePerson, 'weekOutput', '本周产出')">
             <text class="summary-value">{{ displayCount(minePerson.weekOutput) }}</text>
             <text class="summary-label">本周产出</text>
           </view>
-          <view class="summary-item is-warning">
+          <view class="summary-item is-warning" :class="{ 'is-active': activeFilter === 'pending' }" @click="setFilter('pending')">
             <text class="summary-value">{{ displayCount(minePerson.pendingTotal) }}</text>
             <text class="summary-label">待处理</text>
           </view>
-          <view class="summary-item is-danger">
+          <view class="summary-item is-danger" :class="{ 'is-active': activeFilter === 'overdue' }" @click="setFilter('overdue')">
             <text class="summary-value">{{ displayCount(minePerson.overdueTotal) }}</text>
             <text class="summary-label">逾期/积压</text>
           </view>
-          <view class="summary-item is-muted">
+          <view class="summary-item is-muted" @click="openRecords(minePerson, 'students', '带班学生')">
             <text class="summary-value">{{ displayCount(minePerson.studentCount) }}</text>
             <text class="summary-label">带班学生</text>
           </view>
         </view>
+
+        <view class="filter-bar">
+          <view
+            v-for="tab in filterTabs"
+            :key="tab.value"
+            class="filter-chip"
+            :class="{ active: activeFilter === tab.value }"
+            @click="setFilter(tab.value)"
+          >
+            <text>{{ tab.label }}</text>
+            <text v-if="tab.count !== null && tab.count !== undefined" class="filter-count">{{ tab.count }}</text>
+          </view>
+        </view>
       </view>
 
-      <view v-if="counselors.length" class="person-section">
+      <view v-if="visibleCounselors.length" class="person-section">
         <view class="section-head">
           <text class="section-title">{{ viewMode === 'mine' ? '本周工作明细' : '辅导员明细' }}</text>
-          <text v-if="viewMode === 'college'" class="section-count">{{ counselors.length }} 人</text>
+          <text v-if="viewMode === 'college'" class="section-count">{{ visibleCounselors.length }} 人</text>
         </view>
 
         <view class="person-list">
           <view
-            v-for="person in counselors"
+            v-for="person in visibleCounselors"
             :key="person.teacherId"
             class="person-card"
             :class="{ 'is-expanded': isExpanded(person), 'is-mine': viewMode === 'mine' }"
@@ -106,22 +119,33 @@
             <view v-if="isExpanded(person)" class="person-detail">
               <view v-if="person.statusReason" class="person-reason">{{ person.statusReason }}</view>
 
+              <view class="detail-actions" v-if="person.pendingTotal || person.overdueTotal">
+                <view v-if="person.pendingTotal" class="detail-action" @click.stop="openRecords(person, 'pending', '全部待处理')">
+                  <text>全部待处理 {{ displayCount(person.pendingTotal) }} 条</text>
+                  <uni-icons type="right" size="14" color="#2563eb"></uni-icons>
+                </view>
+                <view v-if="person.overdueTotal" class="detail-action is-danger" @click.stop="openRecords(person, 'overdue', '全部逾期/积压')">
+                  <text>全部逾期/积压 {{ displayCount(person.overdueTotal) }} 条</text>
+                  <uni-icons type="right" size="14" color="#dc2626"></uni-icons>
+                </view>
+              </view>
+
               <view class="detail-block">
                 <text class="detail-block-title">本周工作</text>
                 <view class="detail-grid">
-                  <view class="detail-item">
+                  <view class="detail-item is-drill" @click.stop="openRecords(person, 'checkWeek', '本周查课')">
                     <text class="detail-value">{{ displayCount(person.weekCheckCount) }}</text>
                     <text class="detail-label">查课次数</text>
                   </view>
-                  <view class="detail-item">
+                  <view class="detail-item is-drill" @click.stop="openRecords(person, 'checkWeek', '本周查课')">
                     <text class="detail-value">{{ formatRate(person.classCoverRate) }}</text>
                     <text class="detail-label">班级覆盖</text>
                   </view>
-                  <view class="detail-item">
+                  <view class="detail-item is-drill" @click.stop="openRecords(person, 'talkWeekDone', '本周完成谈心')">
                     <text class="detail-value">{{ displayCount(person.talkWeekDone) }}</text>
                     <text class="detail-label">完成谈心</text>
                   </view>
-                  <view class="detail-item">
+                  <view class="detail-item is-drill" @click.stop="openRecords(person, 'nightWeek', '本周夜查')">
                     <text class="detail-value">{{ displayCount(person.nightWeekCount) }}</text>
                     <text class="detail-label">夜查次数</text>
                   </view>
@@ -131,19 +155,19 @@
               <view class="detail-block">
                 <text class="detail-block-title">待处理</text>
                 <view class="detail-grid">
-                  <view class="detail-item">
+                  <view class="detail-item is-drill" @click.stop="openRecords(person, 'talkPending', '待谈话')">
                     <text class="detail-value">{{ displayCount(person.talkPending) }}</text>
                     <text class="detail-label">谈心谈话</text>
                   </view>
-                  <view class="detail-item">
+                  <view class="detail-item is-drill" @click.stop="openRecords(person, 'leavePending', '待审批请假')">
                     <text class="detail-value">{{ displayCount(person.leavePending) }}</text>
                     <text class="detail-label">请假审批</text>
                   </view>
-                  <view class="detail-item">
+                  <view class="detail-item is-drill" @click.stop="openRecords(person, 'rectifyOpen', '未闭环整改')">
                     <text class="detail-value">{{ displayCount(person.rectifyOpen) }}</text>
                     <text class="detail-label">宿舍整改</text>
                   </view>
-                  <view class="detail-item">
+                  <view class="detail-item is-drill" @click.stop="openRecords(person, 'todoPending', '未完成待办')">
                     <text class="detail-value">{{ displayCount(person.todoPending) }}</text>
                     <text class="detail-label">待办事项</text>
                   </view>
@@ -151,10 +175,10 @@
               </view>
 
               <view class="detail-badges">
-                <text class="detail-badge">谈心超期 {{ displayCount(person.talkOverdue) }}</text>
-                <text class="detail-badge">请假积压 {{ displayCount(person.leaveBacklog) }}</text>
-                <text class="detail-badge">整改逾期 {{ displayCount(person.rectifyOverdue) }}</text>
-                <text class="detail-badge">待办逾期 {{ displayCount(person.todoOverdue) }}</text>
+                <text class="detail-badge" @click.stop="openRecords(person, 'talkOverdue', '超期未谈')">谈心超期 {{ displayCount(person.talkOverdue) }}</text>
+                <text class="detail-badge" @click.stop="openRecords(person, 'leaveBacklog', '请假积压')">请假积压 {{ displayCount(person.leaveBacklog) }}</text>
+                <text class="detail-badge" @click.stop="openRecords(person, 'rectifyOverdue', '逾期整改')">整改逾期 {{ displayCount(person.rectifyOverdue) }}</text>
+                <text class="detail-badge" @click.stop="openRecords(person, 'todoOverdue', '逾期待办')">待办逾期 {{ displayCount(person.todoOverdue) }}</text>
               </view>
 
               <view class="detail-dates">
@@ -167,7 +191,7 @@
       </view>
 
       <view v-else class="page-state">
-        <text>{{ viewMode === 'mine' ? '当前账号未绑定辅导员带班信息' : '本学院暂无辅导员带班数据' }}</text>
+        <text>{{ emptyText }}</text>
       </view>
     </template>
   </view>
@@ -182,7 +206,8 @@ export default {
       loading: true,
       loadError: '',
       progressData: null,
-      expandedTeacherId: null
+      expandedTeacherId: null,
+      activeFilter: 'all'
     }
   },
   computed: {
@@ -198,8 +223,59 @@ export default {
     minePerson() {
       return this.counselors.length ? this.counselors[0] : null
     },
+    filterTabs() {
+      if (this.viewMode === 'mine') {
+        return [
+          { value: 'all', label: '全部', count: null },
+          { value: 'pending', label: '待处理', count: null },
+          { value: 'overdue', label: '逾期积压', count: null }
+        ]
+      }
+      const board = this.board || {}
+      return [
+        { value: 'all', label: '全部', count: board.counselorCount || 0 },
+        { value: 'backlog', label: '有积压', count: board.backlogCount || 0 },
+        { value: 'lagging', label: '无产出', count: board.laggingCount || 0 },
+        {
+          value: 'pending',
+          label: '待处理',
+          count: this.counselors.filter(person => Number(person.pendingTotal || 0) > 0).length
+        }
+      ]
+    },
+    visibleCounselors() {
+      const list = this.counselors.slice()
+      const number = value => Number(value || 0)
+      switch (this.activeFilter) {
+        case 'backlog':
+          return list.filter(person => person.status === 'backlog')
+            .sort((a, b) => number(b.overdueTotal) - number(a.overdueTotal))
+        case 'lagging':
+          return list.filter(person => person.status === 'lagging')
+        case 'pending':
+          return list.filter(person => number(person.pendingTotal) > 0)
+            .sort((a, b) => number(b.pendingTotal) - number(a.pendingTotal))
+        case 'overdue':
+          return list.filter(person => number(person.overdueTotal) > 0)
+            .sort((a, b) => number(b.overdueTotal) - number(a.overdueTotal))
+        case 'output':
+          return list.filter(person => number(person.weekOutput) > 0)
+            .sort((a, b) => number(b.weekOutput) - number(a.weekOutput))
+        default:
+          return list
+      }
+    },
+    emptyText() {
+      if (!this.counselors.length) {
+        return this.viewMode === 'mine' ? '当前账号未绑定辅导员带班信息' : '本学院暂无辅导员带班数据'
+      }
+      return this.viewMode === 'mine' ? '当前筛选下暂无工作事项' : '当前筛选下暂无辅导员'
+    },
     pageTitle() {
-      return this.viewMode === 'mine' ? '我的本周工作' : '辅导员工作明细'
+      const base = this.viewMode === 'mine' ? '我的本周工作' : '辅导员工作明细'
+      const labels = { backlog: '有积压', lagging: '无产出', pending: '待处理', overdue: '逾期/积压', output: '本周产出' }
+      const label = labels[this.activeFilter]
+      return label ? `${base} · ${label}` : base
     },
     pageMeta() {
       if (!this.board) return ''
@@ -211,7 +287,8 @@ export default {
       return `${this.board.collegeName || '本学院'} · 本周工作进展`
     }
   },
-  onLoad() {
+  onLoad(options) {
+    this.activeFilter = (options && options.filter) || 'all'
     this.loadProgress()
   },
   onPullDownRefresh() {
@@ -225,6 +302,7 @@ export default {
       this.loadError = ''
       return getCounselorWorkProgress().then(res => {
         this.progressData = (res && res.data) || null
+        this.activeFilter = this.normalizeFilter(this.activeFilter)
         if (this.viewMode === 'mine' && this.minePerson) {
           this.expandedTeacherId = this.minePerson.teacherId
         } else if (this.expandedTeacherId) {
@@ -240,6 +318,25 @@ export default {
     },
     isExpanded(person) {
       return !!person && this.expandedTeacherId === person.teacherId
+    },
+    normalizeFilter(value) {
+      const allowed = this.viewMode === 'mine'
+        ? ['all', 'pending', 'overdue']
+        : ['all', 'backlog', 'lagging', 'pending', 'overdue', 'output']
+      return allowed.includes(value) ? value : 'all'
+    },
+    setFilter(value) {
+      this.activeFilter = this.normalizeFilter(value)
+      if (this.viewMode === 'college' && this.activeFilter !== 'all' && this.visibleCounselors.length) {
+        this.expandedTeacherId = this.visibleCounselors[0].teacherId
+      }
+    },
+    openRecords(person, metric, title) {
+      if (!person || !person.teacherId) return
+      uni.navigateTo({
+        url: '/pages/sub-work/counselor-progress/records?teacherId=' + person.teacherId
+          + '&metric=' + metric + '&title=' + encodeURIComponent(title || '')
+      })
     },
     togglePerson(person) {
       if (!person || this.viewMode === 'mine') return
@@ -347,6 +444,11 @@ page {
   text-align: center;
 }
 
+.summary-item.is-active {
+  background: #eff6ff;
+  box-shadow: inset 0 0 0 1rpx #bfdbfe;
+}
+
 .summary-value {
   display: block;
   color: #0f172a;
@@ -373,6 +475,49 @@ page {
 
 .summary-item.is-danger .summary-value {
   color: #dc2626;
+}
+
+.filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10rpx;
+  padding: 0 20rpx 20rpx;
+  background: #f8fafc;
+}
+
+.filter-chip {
+  display: flex;
+  align-items: center;
+  gap: 6rpx;
+  padding: 8rpx 16rpx;
+  border: 1rpx solid #e2e8f0;
+  border-radius: 24rpx;
+  background: #fff;
+  color: #64748b;
+  font-size: 21rpx;
+}
+
+.filter-chip.active {
+  border-color: #2563eb;
+  background: #eff6ff;
+  color: #1d4ed8;
+  font-weight: 600;
+}
+
+.filter-count {
+  min-width: 28rpx;
+  padding: 0 6rpx;
+  border-radius: 10rpx;
+  background: #f1f5f9;
+  color: #64748b;
+  font-size: 18rpx;
+  line-height: 28rpx;
+  text-align: center;
+}
+
+.filter-chip.active .filter-count {
+  background: #dbeafe;
+  color: #1d4ed8;
 }
 
 .person-section {
@@ -515,6 +660,32 @@ page {
   line-height: 1.5;
 }
 
+.detail-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10rpx;
+  margin-bottom: 20rpx;
+}
+
+.detail-action {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14rpx 16rpx;
+  border: 1rpx solid #bfdbfe;
+  border-radius: 10rpx;
+  background: #eff6ff;
+  color: #1d4ed8;
+  font-size: 22rpx;
+  font-weight: 600;
+}
+
+.detail-action.is-danger {
+  border-color: #fecaca;
+  background: #fef2f2;
+  color: #b91c1c;
+}
+
 .detail-block + .detail-block {
   margin-top: 20rpx;
 }
@@ -540,6 +711,14 @@ page {
   border-radius: 8rpx;
   background: #fff;
   text-align: center;
+}
+
+.detail-item.is-drill {
+  border-color: #dbeafe;
+}
+
+.detail-item.is-drill:active {
+  background: #eff6ff;
 }
 
 .detail-value {
@@ -571,6 +750,10 @@ page {
   background: #f1f5f9;
   color: #64748b;
   font-size: 19rpx;
+}
+
+.detail-badge:active {
+  background: #e2e8f0;
 }
 
 .detail-dates {

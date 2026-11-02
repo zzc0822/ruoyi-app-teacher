@@ -44,8 +44,8 @@
             <text class="value">{{ item.ownerName || item.counselorName || '-' }}</text>
           </view>
         </view>
-        <view class="card-action" v-if="statusKey(item) === 'submitted'">
-          <text class="action-text">点击现场复核 →</text>
+        <view class="card-action" v-if="statusKey(item) === 'suggested' || statusKey(item) === 'submitted'">
+          <text class="action-text">{{ statusKey(item) === 'suggested' ? '待确认整改建议 →' : '点击现场复核 →' }}</text>
         </view>
       </view>
 
@@ -69,6 +69,7 @@ export default {
       counts: {},
       totalCount: 0,
       statusOptions: [
+        { value: 'suggested', label: '待确认建议' },
         { value: 'pending', label: '待整改' },
         { value: 'submitted', label: '待复核' },
         { value: 'rejected', label: '已打回' },
@@ -211,6 +212,7 @@ export default {
   color: #666;
 }
 .st-pending { background: #fff3e0; color: #ff9800; }
+.st-suggested { background: #fef3c7; color: #b45309; }
 .st-submitted { background: #e3f2fd; color: #2196f3; }
 .st-rejected { background: #ffebee; color: #f44336; }
 .st-overdue { background: #ffebee; color: #f44336; }

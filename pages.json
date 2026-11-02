@@ -166,6 +166,12 @@
         "enablePullDownRefresh": true
       }
     }, {
+      "path": "counselor-progress/records",
+      "style": {
+        "navigationBarTitleText": "工作记录",
+        "enablePullDownRefresh": true
+      }
+    }, {
       "path": "graduation/index",
       "style": {
         "navigationBarTitleText": "毕业班级管理",
@@ -268,7 +274,8 @@
     }, {
       "path": "dormcheck/index",
       "style": {
-        "navigationBarTitleText": "宿舍查寝"
+        "navigationBarTitleText": "宿舍工作台",
+        "enablePullDownRefresh": true
       }
     }, {
       "path": "dormcheck/night",
@@ -289,6 +296,26 @@
       "path": "dormcheck/rectifyDetail",
       "style": {
         "navigationBarTitleText": "整改单详情"
+      }
+    }, {
+      "path": "dormcheck/room",
+      "style": {
+        "navigationBarTitleText": "宿舍详情"
+      }
+    }, {
+      "path": "dormcheck/checkRecord",
+      "style": {
+        "navigationBarTitleText": "现场巡查评分"
+      }
+    }, {
+      "path": "dormcheck/issue",
+      "style": {
+        "navigationBarTitleText": "登记宿舍异常"
+      }
+    }, {
+      "path": "dormcheck/issueDetail",
+      "style": {
+        "navigationBarTitleText": "宿舍异常详情"
       }
     }, {
       "path": "leave/index",

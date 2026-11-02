@@ -1,5 +1,5 @@
 <template>
-  <view class="mine-container">
+  <view class="mine-container" @click="closeRoleMenu">
     <view class="profile-section">
       <view class="profile-card">
         <image
@@ -24,25 +24,36 @@
           </view>
           <view
             class="role-row"
-            :class="{ 'role-row-expanded': rolesExpanded }"
-            @click.stop="toggleRoles"
+            @click.stop="toggleRoleMenu"
           >
             <text class="role-label">当前角色</text>
             <view class="role-values">
-              <text
-                v-for="roleName in visibleRoleNames"
-                :key="roleName"
-                class="role-value"
-              >
-                {{ roleName }}
-              </text>
+              <text class="role-value">{{ teacherRole || '未设置' }}</text>
             </view>
-            <view v-if="hasOtherRoles" class="role-toggle">
-              <uni-icons
-                :type="rolesExpanded ? 'top' : 'bottom'"
-                size="12"
-                color="#0f766e"
-              />
+            <view v-if="hasOtherRoles" class="role-switch">
+              <text>切换</text>
+              <uni-icons type="right" size="12" color="#0f766e" />
+            </view>
+            <view v-if="roleMenuOpen" class="role-menu" @click.stop>
+              <view
+                v-for="role in selectableRoles"
+                :key="role.roleId"
+                class="role-menu-item"
+                :class="{ 'is-current': isCurrentRole(role) }"
+                @click.stop="handleRoleTap(role)"
+              >
+                <view class="role-menu-main">
+                  <text class="role-menu-name">{{ role.roleName }}</text>
+                  <text v-if="isCurrentRole(role)" class="role-menu-tag">当前</text>
+                </view>
+                <text v-if="switchingRoleId === role.roleId" class="role-menu-loading">切换中</text>
+                <uni-icons
+                  v-else-if="isCurrentRole(role)"
+                  type="checkmarkempty"
+                  size="16"
+                  color="#0f766e"
+                />
+              </view>
             </view>
           </view>
         </view>
@@ -121,11 +132,12 @@
         </view>
       </view>
     </view>
+
   </view>
 </template>
 
 <script>
-import { getCurrentRole, getTeacherinfoByUserId, getMyRoles } from '@/api/work/teacherinfo'
+import { getCurrentRole, getTeacherinfoByUserId, getMyRoles, switchRole } from '@/api/work/teacherinfo'
 import config from '@/config'
 
 export default {
@@ -138,7 +150,9 @@ export default {
       teacherPhoto: '',
       roleList: [],
       roleNames: [],
-      rolesExpanded: false
+      roleMenuOpen: false,
+      switchingRoleId: null,
+      currentRole: null
     }
   },
   computed: {
@@ -146,13 +160,10 @@ export default {
       return this.$store.state.user.avatar
     },
     hasOtherRoles() {
-      return this.roleNames.length > 1
+      return this.selectableRoles.length > 1
     },
-    visibleRoleNames() {
-      if (this.rolesExpanded) {
-        return this.roleNames
-      }
-      return this.teacherRole ? [this.teacherRole] : []
+    selectableRoles() {
+      return this.roleList.filter(role => role && role.roleName)
     }
   },
   onShow() {
@@ -160,6 +171,7 @@ export default {
     this.loadProfileData()
   },
   onHide() {
+    this.roleMenuOpen = false
     uni.$off('refreshMinePage', this.loadProfileData)
   },
   methods: {
@@ -196,10 +208,47 @@ export default {
         .filter(Boolean)
       this.roleNames = allRoleNames
     },
-    toggleRoles() {
-      if (this.hasOtherRoles) {
-        this.rolesExpanded = !this.rolesExpanded
+    toggleRoleMenu() {
+      if (!this.hasOtherRoles) {
+        return
       }
+      this.roleMenuOpen = !this.roleMenuOpen
+    },
+    closeRoleMenu() {
+      this.roleMenuOpen = false
+    },
+    isCurrentRole(role) {
+      if (!role || !this.currentRole || this.currentRole.roleId == null) {
+        return false
+      }
+      return String(this.currentRole.roleId) === String(role.roleId)
+    },
+    handleRoleTap(role) {
+      if (!role || this.switchingRoleId != null) {
+        return
+      }
+      if (this.isCurrentRole(role)) {
+        this.closeRoleMenu()
+        return
+      }
+      this.switchingRoleId = role.roleId
+      uni.showLoading({ title: '切换中...' })
+      switchRole(role.roleId).then(() => {
+        return this.$store.dispatch('GetInfo')
+      }).then(() => {
+        uni.hideLoading()
+        uni.removeStorageSync('roleConfig')
+        uni.removeStorageSync('userRoles')
+        this.closeRoleMenu()
+        uni.showToast({ title: '已切换', icon: 'success' })
+        setTimeout(() => {
+          uni.reLaunch({ url: '/pages/index' })
+        }, 500)
+      }).catch(err => {
+        uni.hideLoading()
+        this.switchingRoleId = null
+        uni.showToast({ title: (err && err.msg) || '切换失败', icon: 'none' })
+      })
     },
     handleToInfo() {
       this.$tab.navigateTo('/pages/sub-mine/info/index')
@@ -333,6 +382,7 @@ page {
 }
 
 .role-row {
+  position: relative;
   display: flex;
   align-items: flex-start;
   gap: 12rpx;
@@ -366,13 +416,80 @@ page {
   line-height: 26rpx;
 }
 
-.role-toggle {
+.role-switch {
   display: flex;
-  flex: 0 0 auto;
   align-items: center;
-  justify-content: center;
-  width: 32rpx;
-  height: 36rpx;
+  gap: 2rpx;
+  flex: 0 0 auto;
+  padding: 5rpx 12rpx;
+  border: 1rpx solid #99f6e4;
+  border-radius: 8rpx;
+  color: #0f766e;
+  font-size: 22rpx;
+  line-height: 26rpx;
+}
+
+.role-menu {
+  position: absolute;
+  top: calc(100% + 8rpx);
+  right: 0;
+  z-index: 20;
+  box-sizing: border-box;
+  width: 420rpx;
+  padding: 8rpx;
+  border: 1rpx solid #e2e8f0;
+  border-radius: 12rpx;
+  background: #ffffff;
+  box-shadow: 0 12rpx 32rpx rgba(15, 23, 42, 0.16);
+}
+
+.role-menu-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12rpx;
+  padding: 18rpx 16rpx;
+  border-radius: 8rpx;
+}
+
+.role-menu-item + .role-menu-item {
+  margin-top: 2rpx;
+}
+
+.role-menu-item.is-current {
+  background: #e6fffb;
+}
+
+.role-menu-main {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 10rpx;
+  min-width: 0;
+}
+
+.role-menu-name {
+  overflow: hidden;
+  color: #0f172a;
+  font-size: 26rpx;
+  line-height: 1.4;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.role-menu-tag {
+  flex: 0 0 auto;
+  padding: 2rpx 8rpx;
+  border-radius: 6rpx;
+  background: #ccfbf1;
+  color: #0f766e;
+  font-size: 20rpx;
+}
+
+.role-menu-loading {
+  flex: 0 0 auto;
+  color: #94a3b8;
+  font-size: 22rpx;
 }
 
 .header-action {
