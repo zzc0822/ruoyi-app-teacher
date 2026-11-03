@@ -6,11 +6,18 @@
   import { hasPrivacyConsent } from '@/utils/privacy'
 
   export default {
+    globalData: {
+      config: null,
+      // 每次进入小程序（冷启动或从后台回来）允许检查一次功能更新
+      featureUpdateEligible: true
+    },
     onLaunch: function() {
+      this.globalData.featureUpdateEligible = true
       this.initApp()
       initOfflineQueue()
     },
     onShow: function() {
+      this.globalData.featureUpdateEligible = true
       flushOfflineQueue()
     },
     methods: {

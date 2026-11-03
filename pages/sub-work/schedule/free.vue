@@ -188,6 +188,8 @@ export default {
       const parts = []
       if (this.scopeType === 'all') {
         parts.push('全校')
+      } else if (this.scopeType === 'jys') {
+        parts.push(this.collegeName || '教研室')
       } else if (this.scopeType === 'myClasses') {
         parts.push('我的带班')
       } else {

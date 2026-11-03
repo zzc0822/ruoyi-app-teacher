@@ -55,7 +55,7 @@
 
 <script>
 import { getWatermarkConfig } from '@/api/work/watermark'
-import { addWatermark, getLocation, prepareCapture } from '@/utils/watermark'
+import { addWatermark, getLocation, prepareCapture, resolveWatermarkConfig } from '@/utils/watermark'
 import { resolveImg } from '@/utils/image'
 
 /**
@@ -68,6 +68,12 @@ export default {
   props: {
     photos: { type: Array, default: () => [] },
     sceneCode: { type: String, default: '' },
+    /**
+     * 统一水印入参：
+     * false 强制关闭；true 强制开启；对象可覆盖显示内容（showScene/showTime/showWeek/
+     * showLocation/showAddress/title/customText/extraLines/accentColor）；不传则跟随后台场景配置。
+     */
+    watermark: { type: [Boolean, Object], default: null },
     title: { type: String, default: '现场照片' },
     tip: { type: String, default: '' },
     showTitle: { type: Boolean, default: true },
@@ -91,7 +97,7 @@ export default {
   data() {
     const suffix = Date.now().toString(36) + Math.random().toString(36).slice(2, 8)
     return {
-      watermarkConfig: null,
+      sceneConfig: null,
       watermarkConfigPromise: null,
       canvasId: 'localPhotoWatermark' + suffix
     }
@@ -113,8 +119,12 @@ export default {
   },
   watch: {
     sceneCode(value) {
-      this.watermarkConfig = null
+      this.sceneConfig = null
       this.loadConfig(value)
+    },
+    watermark() {
+      // 入参变化后，下一次拍照会按新配置重新解析水印内容
+      this.$forceUpdate()
     }
   },
   created() {
@@ -131,11 +141,14 @@ export default {
       if (!sceneCode) return
       this.watermarkConfigPromise = getWatermarkConfig(sceneCode)
         .then(res => {
-          this.watermarkConfig = res.data || null
+          this.sceneConfig = res.data || null
         })
         .catch(() => {
-          this.watermarkConfig = null
+          this.sceneConfig = null
         })
+    },
+    effectiveWatermarkConfig(extraOptions) {
+      return resolveWatermarkConfig(this.sceneConfig, extraOptions === undefined ? this.watermark : extraOptions)
     },
     async capturePhoto() {
       if (this.disabled) return
@@ -157,10 +170,11 @@ export default {
           try {
             const localPath = await addWatermark(
               originalPath,
-              this.watermarkConfig,
+              this.sceneConfig,
               captureInfo.info,
               this,
-              this.canvasId
+              this.canvasId,
+              this.watermark
             )
             const index = (this.photos || []).length
             const photo = {
@@ -193,10 +207,10 @@ export default {
     async resolveCaptureInfo(options = {}) {
       const showLoading = options.showLoading !== false
       const showError = options.showError !== false
-      if (!this.watermarkConfig && this.watermarkConfigPromise) {
+      if (!this.sceneConfig && this.watermarkConfigPromise) {
         await this.watermarkConfigPromise
       }
-      const config = this.watermarkConfig
+      const config = this.effectiveWatermarkConfig()
       if (!config || config.enabled !== '1') {
         if (!this.requireLocation) return { ready: true, info: null }
         if (showLoading) uni.showLoading({ title: '定位中...' })

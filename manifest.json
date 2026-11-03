@@ -2,8 +2,8 @@
     "name" : "智慧学工教师端",
     "appid" : "__UNI__42C657A",
     "description" : "",
-    "versionName" : "1.2.12",
-    "versionCode" : "112",
+    "versionName" : "1.2.13",
+    "versionCode" : "113",
     "transformPx" : false,
     "app-plus" : {
         "usingComponents" : true,

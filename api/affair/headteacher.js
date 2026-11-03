@@ -120,7 +120,7 @@ export function getMyApply() {
   })
 }
 
-// 查看我的工作证明列表
+// 查看我的工作证明申请列表
 export function getMyCertificates() {
   return request({
     url: '/api/headteacher/certificate/my',
@@ -128,7 +128,7 @@ export function getMyCertificates() {
   })
 }
 
-// 检查是否可以生成工作证明
+// 检查是否可以申请工作证明，并取回系统自动核定的证明内容
 export function checkCertificate(certYear) {
   return request({
     url: '/api/headteacher/certificate/check/' + certYear,
@@ -136,10 +136,11 @@ export function checkCertificate(certYear) {
   })
 }
 
-// 生成班主任工作证明
-export function generateCertificate(certYear) {
+// 提交班主任工作证明申请，学院审核通过后自动生成正式证明
+export function applyCertificate(certYear, data) {
   return request({
-    url: '/api/headteacher/certificate/generate/' + certYear,
-    method: 'post'
+    url: '/api/headteacher/certificate/apply/' + certYear,
+    method: 'post',
+    data: data || {}
   })
 }

@@ -4,6 +4,7 @@
     <view class="section">
       <view class="section-header">
         <text class="section-title">班主任工作证明</text>
+        <text class="section-desc">学院审核通过后生成</text>
       </view>
       <view class="year-picker">
         <text class="year-label">选择学年：</text>
@@ -13,67 +14,98 @@
       </view>
     </view>
 
-    <!-- 证书状态 -->
+    <!-- 申请状态 -->
     <view class="section" v-if="certStatus !== null">
-      <!-- 未检查 -->
       <view v-if="certStatus === 'checking'" class="status-card">
-        <text class="status-text">正在检查资格...</text>
+        <text class="status-text">正在核对任职记录...</text>
       </view>
 
-      <!-- 已生成（已锁定） -->
-      <view v-else-if="certStatus === 'generated'" class="status-card success">
+      <view v-else-if="certStatus === 'approved'" class="status-card success">
         <view class="status-icon">
           <uni-icons type="checkmarkempty" size="40" color="#18bc37"></uni-icons>
         </view>
-        <text class="status-title">证明已生成</text>
-        <text class="status-desc">生成时间：{{ certificate.generateTime }}</text>
-        <text class="status-locked">该证明已锁定，不可修改</text>
+        <text class="status-title">证明已出具</text>
+        <text class="status-desc">学院审核通过：{{ currentApply.reviewTime || currentApply.updateTime }}</text>
         <view class="btn-group">
-          <button class="btn-primary" @click="downloadPdf">下载PDF</button>
+          <button class="btn-primary" @click="downloadCurrentPdf">下载正式PDF</button>
         </view>
       </view>
 
-      <!-- 满足条件，可生成 -->
+      <view v-else-if="certStatus === 'pending'" class="status-card">
+        <view class="status-icon">
+          <uni-icons type="calendar" size="40" color="#f3a044"></uni-icons>
+        </view>
+        <text class="status-title">学院审核中</text>
+        <text class="status-desc">提交时间：{{ currentApply.createTime }}</text>
+        <view class="btn-group" v-if="currentApply.draftPdfPath">
+          <button class="btn-secondary" @click="downloadDraft(currentApply)">查看审批草稿</button>
+        </view>
+      </view>
+
+      <view v-else-if="certStatus === 'rejected'" class="status-card danger">
+        <view class="status-icon">
+          <uni-icons type="closeempty" size="40" color="#e43d33"></uni-icons>
+        </view>
+        <text class="status-title">申请已驳回</text>
+        <text class="status-desc">{{ currentApply.reviewRemark || '学院驳回了本次申请' }}</text>
+        <view class="btn-group">
+          <button class="btn-primary" @click="openApply" :loading="applying">重新申请</button>
+        </view>
+      </view>
+
       <view v-else-if="certStatus === 'eligible'" class="status-card">
         <view class="status-icon">
           <uni-icons type="info" size="40" color="#2979ff"></uni-icons>
         </view>
-        <text class="status-title">可以生成工作证明</text>
-        <text class="status-desc">您在 {{ currentYear }} 学年有班主任任职记录，可以生成工作证明。</text>
+        <text class="status-title">可申请工作证明</text>
+        <text class="status-desc">系统已核定您在 {{ currentYear }} 学年有 {{ assignmentCount }} 段班主任任职记录。</text>
         <view class="warn-box">
           <uni-icons type="warning" size="16" color="#f3a044"></uni-icons>
-          <text class="warn-text">证明一旦生成将不可修改，请确认信息无误后再生成。</text>
+          <text class="warn-text">提交后将送学院审核，审核通过前暂不能出具正式证明。</text>
         </view>
         <view class="btn-group">
-          <button class="btn-primary" @click="doGenerate" :loading="generating">生成证明</button>
+          <button class="btn-primary" @click="openApply" :loading="applying">申请工作证明</button>
         </view>
       </view>
 
-      <!-- 不满足条件 -->
       <view v-else-if="certStatus === 'ineligible'" class="status-card">
         <view class="status-icon">
           <uni-icons type="closeempty" size="40" color="#e43d33"></uni-icons>
         </view>
-        <text class="status-title">暂不满足生成条件</text>
-        <text class="status-desc">在 {{ currentYear }} 学年内没有班主任任职记录。</text>
+        <text class="status-title">暂不能申请</text>
+        <text class="status-desc">{{ checkReason || '在 ' + currentYear + ' 学年内没有班主任任职记录。' }}</text>
       </view>
     </view>
 
-    <!-- 已生成的证明列表 -->
+    <!-- 我的申请 -->
     <view class="section" v-if="certList.length > 0">
       <view class="section-header">
-        <text class="section-title">我的证明</text>
+        <text class="section-title">我的申请</text>
         <text class="section-count">共{{ certList.length }}份</text>
       </view>
-      <view class="cert-item" v-for="(item, idx) in certList" :key="idx">
+      <view class="cert-item" v-for="item in certList" :key="item.id" @click="showDetail(item)">
         <view class="cert-info">
-          <text class="cert-year">{{ item.certYear }} 学年</text>
-          <text class="cert-time">生成于 {{ item.generateTime }}</text>
+          <text class="cert-year">{{ item.certYear }} 学年 · {{ statusText(item.status) }}</text>
+          <text class="cert-time">提交于 {{ shortTime(item.createTime) }}</text>
           <text class="cert-college" v-if="item.collegeName">{{ item.collegeName }}</text>
         </view>
         <view class="cert-actions">
-          <text class="cert-locked">已锁定</text>
-          <button class="btn-small" @click="downloadCertPdf(item)">下载</button>
+          <button class="btn-small" @click.stop="downloadItem(item)">
+            {{ item.certificatePdfPath ? '正式' : item.draftPdfPath ? '草稿' : '详情' }}
+          </button>
+        </view>
+      </view>
+    </view>
+
+    <!-- 申请理由 -->
+    <view v-if="applyVisible" class="apply-mask">
+      <view class="apply-panel">
+        <text class="apply-title">申请班主任工作证明</text>
+        <textarea class="apply-textarea" v-model="applyReason" maxlength="500"
+                  placeholder="因工作需要，申请开具班主任工作证明。" />
+        <view class="apply-btns">
+          <button class="btn-plain" @click="applyVisible = false">取消</button>
+          <button class="btn-primary small" @click="submitApply" :loading="applying">提交申请</button>
         </view>
       </view>
     </view>
@@ -81,20 +113,30 @@
 </template>
 
 <script>
-import { getMyCertificates, checkCertificate, generateCertificate } from '@/api/affair/headteacher'
+import { getMyCertificates, checkCertificate, applyCertificate } from '@/api/affair/headteacher'
 import config from '@/config'
 
 export default {
   data() {
     const currentYear = this.getCurrentCertYear()
+    const yearOptions = this.generateYearOptions()
     return {
-      yearOptions: this.generateYearOptions(),
-      yearIndex: 0,
+      yearOptions,
+      yearIndex: Math.max(0, yearOptions.indexOf(currentYear)),
       currentYear: currentYear,
-      certStatus: null, // null, 'checking', 'generated', 'eligible', 'ineligible'
-      certificate: null,
+      certStatus: null,
+      currentApply: null,
+      checkReason: '',
+      content: null,
       certList: [],
-      generating: false
+      applying: false,
+      applyVisible: false,
+      applyReason: '因工作需要，申请开具班主任工作证明。'
+    }
+  },
+  computed: {
+    assignmentCount() {
+      return this.content && this.content.assignments ? this.content.assignments.length : 0
     }
   },
   onShow() {
@@ -115,7 +157,8 @@ export default {
     },
     generateYearOptions() {
       const options = []
-      const currentYear = new Date().getFullYear()
+      const now = new Date()
+      const currentYear = now.getMonth() + 1 >= 9 ? now.getFullYear() : now.getFullYear() - 1
       for (let y = currentYear; y >= currentYear - 5; y--) {
         options.push(y + '-' + (y + 1))
       }
@@ -135,48 +178,73 @@ export default {
       this.certStatus = 'checking'
       checkCertificate(this.currentYear).then(res => {
         const data = res.data
-        if (data.generated) {
-          this.certStatus = 'generated'
-          this.certificate = data.certificate
-        } else if (data.eligible) {
-          this.certStatus = 'eligible'
-        } else {
-          this.certStatus = 'ineligible'
-        }
+        this.currentApply = data.application || null
+        this.content = data.content || null
+        this.checkReason = data.reason || ''
+        this.certStatus = this.resolveStatus(data)
       }).catch(() => {
         this.certStatus = 'ineligible'
       })
     },
-    doGenerate() {
-      uni.showModal({
-        title: '确认生成',
-        content: '证明一旦生成后不可修改，确定要生成 ' + this.currentYear + ' 学年的班主任工作证明吗？',
-        success: (res) => {
-          if (res.confirm) {
-            this.generating = true
-            generateCertificate(this.currentYear).then(res => {
-              this.generating = false
-              uni.showToast({ title: '生成成功', icon: 'success' })
-              this.certificate = res.data
-              this.certStatus = 'generated'
-              this.loadCertList()
-            }).catch(err => {
-              this.generating = false
-              uni.showToast({ title: err.message || '生成失败', icon: 'none' })
-            })
-          }
-        }
+    resolveStatus(data) {
+      if (data.certificate && data.certificate.pdfPath) return 'approved'
+      if (data.application && data.application.status === '0') return 'pending'
+      if (data.application && data.application.status === '1' && data.application.certificatePdfPath) return 'approved'
+      if (data.application && data.application.status === '2') return 'rejected'
+      if (data.eligible) return 'eligible'
+      return 'ineligible'
+    },
+    openApply() {
+      this.applyReason = '因工作需要，申请开具班主任工作证明。'
+      this.applyVisible = true
+    },
+    submitApply() {
+      this.applying = true
+      applyCertificate(this.currentYear, { applyReason: this.applyReason }).then(() => {
+        uni.showToast({ title: '已提交审核', icon: 'success' })
+        this.applyVisible = false
+        this.checkCert()
+        this.loadCertList()
+      }).catch(err => {
+        uni.showToast({ title: err.message || '提交失败', icon: 'none' })
+      }).finally(() => {
+        this.applying = false
       })
     },
-    downloadPdf() {
-      if (this.certificate && this.certificate.pdfPath) {
-        this.doDownload(this.certificate.pdfPath)
+    downloadCurrentPdf() {
+      if (this.currentApply && this.currentApply.certificatePdfPath) {
+        this.doDownload(this.currentApply.certificatePdfPath)
       }
     },
-    downloadCertPdf(item) {
-      if (item.pdfPath) {
-        this.doDownload(item.pdfPath)
+    downloadDraft(item) {
+      if (item && item.draftPdfPath) {
+        this.doDownload(item.draftPdfPath)
       }
+    },
+    downloadItem(item) {
+      if (item && item.certificatePdfPath) {
+        this.doDownload(item.certificatePdfPath)
+      } else if (item && item.draftPdfPath) {
+        this.doDownload(item.draftPdfPath)
+      }
+    },
+    showDetail(item) {
+      const reviewLine = item.status === '2' && item.reviewRemark
+        ? '\n审核意见：' + item.reviewRemark
+        : item.status === '0'
+          ? '\n请等待学院审核。'
+          : ''
+      uni.showModal({
+        title: item.certYear + '学年证明',
+        content: (item.applyReason || '申请工作证明') + reviewLine,
+        showCancel: false
+      })
+    },
+    statusText(status) {
+      return { '0': '学院审核中', '1': '已通过', '2': '已驳回', '3': '已撤回' }[status] || '已提交'
+    },
+    shortTime(value) {
+      return value ? String(value).substring(0, 10).replace('T', ' ') : ''
     },
     doDownload(pdfPath) {
       const url = config.baseUrl + pdfPath
@@ -246,6 +314,11 @@ export default {
   margin-bottom: 16rpx;
 }
 
+.section-desc {
+  font-size: 22rpx;
+  color: #8a94a6;
+}
+
 .section-title {
   font-size: 28rpx;
   font-weight: bold;
@@ -283,6 +356,11 @@ export default {
 
   &.success {
     background: #f8fff8;
+    border-radius: 12rpx;
+  }
+
+  &.danger {
+    background: #fff8f7;
     border-radius: 12rpx;
   }
 }
@@ -340,6 +418,20 @@ export default {
   border-radius: 12rpx;
   height: 80rpx;
   line-height: 80rpx;
+}
+
+.btn-secondary {
+  background: #eef4ff;
+  color: #2979ff;
+  font-size: 28rpx;
+  border-radius: 12rpx;
+  height: 80rpx;
+  line-height: 80rpx;
+}
+
+.btn-primary.small {
+  height: 72rpx;
+  line-height: 72rpx;
 }
 
 .cert-item {
@@ -403,5 +495,58 @@ export default {
   line-height: 1.5;
   margin: 0;
   border: none;
+}
+
+.apply-mask {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  background: rgba(0, 0, 0, .45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40rpx;
+}
+
+.apply-panel {
+  width: 100%;
+  background: #fff;
+  border-radius: 18rpx;
+  padding: 32rpx;
+}
+
+.apply-title {
+  display: block;
+  font-size: 30rpx;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 20rpx;
+}
+
+.apply-textarea {
+  width: 100%;
+  min-height: 180rpx;
+  padding: 20rpx;
+  border: 1rpx solid #e5e7eb;
+  border-radius: 12rpx;
+  box-sizing: border-box;
+  font-size: 26rpx;
+  color: #333;
+}
+
+.apply-btns {
+  display: flex;
+  justify-content: flex-end;
+  gap: 20rpx;
+  margin-top: 24rpx;
+}
+
+.btn-plain {
+  background: #f3f4f6;
+  color: #4b5563;
+  font-size: 26rpx;
+  border-radius: 12rpx;
+  height: 72rpx;
+  line-height: 72rpx;
 }
 </style>

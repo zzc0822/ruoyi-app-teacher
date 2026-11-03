@@ -712,6 +712,8 @@ export default {
       if (key === 'myClass') return 'func-item'
       // 谈话记录要看已共享给自己的记录，不要求带班
       if (key === 'talk') return 'func-item'
+      // 工作证明按历史任职记录生成，当前不带班也可以申请
+      if (key === 'certificate') return 'func-item'
       // 其他功能需要有班级才可用
       return hasClass ? 'func-item' : 'func-item func-item-disabled'
     },
@@ -722,14 +724,14 @@ export default {
         uni.navigateTo({ url: '/pages/sub-work/headteacher/index' })
       } else if (key === 'talk') {
         uni.navigateTo({ url: '/pages/sub-work/talk/index?viewScope=headteacher' })
+      } else if (key === 'certificate') {
+        uni.navigateTo({ url: '/pages/sub-work/headteacher/certificate' })
       } else if (!hasClass) {
         uni.showToast({ title: '暂未分配班级，操作不可用', icon: 'none' })
       } else if (key === 'worklog') {
         uni.navigateTo({ url: '/pages/sub-work/headteacher/worklog-list' })
       } else if (key === 'addWorklog') {
         uni.navigateTo({ url: '/pages/sub-work/headteacher/worklog-add' })
-      } else if (key === 'certificate') {
-        uni.navigateTo({ url: '/pages/sub-work/headteacher/certificate' })
       }
     },
     onFuncClick(item) {

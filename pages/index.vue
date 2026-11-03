@@ -108,6 +108,12 @@
         </view>
       </view>
     </view>
+
+    <feature-update-popup
+      :visible="featureUpdateVisible"
+      :items="featureUpdates"
+      @close="closeFeatureUpdate"
+    />
   </view>
 </template>
 
@@ -117,9 +123,14 @@ import { getCurrentRole, getTeacherinfoByUserId } from '@/api/work/teacherinfo'
 import { getMySchedule } from '@/api/work/schedule'
 import { listTodo } from '@/api/work/todo'
 import { getMyMiniConfig } from '@/api/system/miniConfig'
+import { getLatestFeatureTimeline } from '@/api/system/featureTimeline'
 import { createRoleComputed } from '@/utils/roleSystem'
+import FeatureUpdatePopup from '@/components/feature-update-popup/index.vue'
+
+let featureUpdateLoading = false
 
 export default {
+  components: { FeatureUpdatePopup },
   data() {
     return {
       nickName: '',
@@ -138,7 +149,9 @@ export default {
       currentWeek: 1,
       miniConfig: {},
       miniConfigLoaded: false,
-      currentRole: null
+      currentRole: null,
+      featureUpdateVisible: false,
+      featureUpdates: []
     }
   },
   onShow() {
@@ -149,6 +162,7 @@ export default {
     this.loadTodoList()
     this.buildWeekDays()
     this.loadMySchedule()
+    this.loadFeatureUpdates()
     
     // 监听刷新事件
     uni.$on('refreshHomeData', this.loadAllData)
@@ -176,6 +190,31 @@ export default {
         this.miniConfig = {}
         this.miniConfigLoaded = false
       })
+    },
+    loadFeatureUpdates() {
+      const app = getApp()
+      const globalData = (app && app.globalData) || {}
+      if (!globalData.featureUpdateEligible || featureUpdateLoading) {
+        return
+      }
+      featureUpdateLoading = true
+      getLatestFeatureTimeline(5).then(res => {
+        featureUpdateLoading = false
+        globalData.featureUpdateEligible = false
+        const list = res && Array.isArray(res.data) ? res.data : []
+        const items = list.filter(item => item && item.title)
+        if (!items.length) {
+          return
+        }
+        this.featureUpdates = items
+        this.featureUpdateVisible = true
+      }).catch(() => {
+        featureUpdateLoading = false
+        globalData.featureUpdateEligible = false
+      })
+    },
+    closeFeatureUpdate() {
+      this.featureUpdateVisible = false
     },
     // ===== 周日历相关 =====
     buildWeekDays() {

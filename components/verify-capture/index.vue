@@ -11,6 +11,7 @@
       <local-photo-picker
         ref="picker"
         :scene-code="sceneCode"
+        :watermark="watermark"
         :photos="photos"
         :min-count="minCount"
         :max-count="maxCount"
@@ -51,6 +52,8 @@ export default {
   props: {
     // 水印场景编码，决定后端水印配置（是否显示时间/坐标/地址）
     sceneCode: { type: String, required: true },
+    // 统一水印入参：false 强制关闭；true 强制开启；对象覆盖显示内容；不传跟随后台
+    watermark: { type: [Boolean, Object], default: null },
     // 相对路径数组，通过 .sync 回传，页面可直接 JSON.stringify 入库
     photos: { type: Array, default: () => [] },
     remark: { type: String, default: '' },
