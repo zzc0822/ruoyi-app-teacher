@@ -3,7 +3,7 @@
     <!-- 学年选择 -->
     <view class="section">
       <view class="section-header">
-        <text class="section-title">班主任工作证明</text>
+        <text class="section-title">班主任证明</text>
         <text class="section-desc">学院审核通过后生成</text>
       </view>
       <view class="year-picker">
@@ -37,6 +37,9 @@
         </view>
         <text class="status-title">学院审核中</text>
         <text class="status-desc">提交时间：{{ currentApply.createTime }}</text>
+        <view class="btn-group">
+          <button class="btn-primary" @click="openEditApply">修改申请</button>
+        </view>
         <view class="btn-group" v-if="currentApply.draftPdfPath">
           <button class="btn-secondary" @click="downloadDraft(currentApply)">查看审批草稿</button>
         </view>
@@ -100,12 +103,26 @@
     <!-- 申请理由 -->
     <view v-if="applyVisible" class="apply-mask">
       <view class="apply-panel">
-        <text class="apply-title">申请班主任工作证明</text>
+        <text class="apply-title">{{ editing ? '修改班主任证明申请' : '申请班主任证明' }}</text>
         <textarea class="apply-textarea" v-model="applyReason" maxlength="500"
                   placeholder="因工作需要，申请开具班主任工作证明。" />
+        <view v-if="editing" class="apply-assign">
+          <text class="apply-assign-tip">勾选要写入证明的带班经历，未勾选的记录不会出现在证明中。</text>
+          <checkbox-group v-if="editAssignments.length" @change="onAssignChange">
+            <label class="assign-item" v-for="item in editAssignments" :key="item.recordKey">
+              <checkbox :value="item.recordKey" :checked="editSelected.indexOf(item.recordKey) >= 0"
+                        color="#2979ff" />
+              <view class="assign-info">
+                <text class="assign-name">{{ item.className }}</text>
+                <text class="assign-range">{{ item.startDate }} 至 {{ item.endDate }}</text>
+              </view>
+            </label>
+          </checkbox-group>
+          <text v-else class="assign-empty">正在读取任职记录...</text>
+        </view>
         <view class="apply-btns">
           <button class="btn-plain" @click="applyVisible = false">取消</button>
-          <button class="btn-primary small" @click="submitApply" :loading="applying">提交申请</button>
+          <button class="btn-primary small" @click="submitApply" :loading="applying">{{ editing ? '保存修改' : '提交申请' }}</button>
         </view>
       </view>
     </view>
@@ -113,7 +130,7 @@
 </template>
 
 <script>
-import { getMyCertificates, checkCertificate, applyCertificate } from '@/api/affair/headteacher'
+import { getMyCertificates, checkCertificate, applyCertificate, updateCertificate } from '@/api/affair/headteacher'
 import config from '@/config'
 
 export default {
@@ -130,7 +147,10 @@ export default {
       content: null,
       certList: [],
       applying: false,
+      editing: false,
       applyVisible: false,
+      editAssignments: [],
+      editSelected: [],
       applyReason: '因工作需要，申请开具班主任工作证明。'
     }
   },
@@ -195,14 +215,54 @@ export default {
       return 'ineligible'
     },
     openApply() {
+      this.editing = false
+      this.editAssignments = []
+      this.editSelected = []
       this.applyReason = '因工作需要，申请开具班主任工作证明。'
       this.applyVisible = true
     },
+    // 未审核完成前可修改申请，保留已勾选的经历范围
+    openEditApply() {
+      if (!this.currentApply) return
+      this.editing = true
+      this.applyReason = this.currentApply.applyReason || '因工作需要，申请开具班主任工作证明。'
+      const current = this.currentApply.content && this.currentApply.content.assignments
+        ? this.currentApply.content.assignments : []
+      this.editSelected = current.map(item => item.recordKey).filter(Boolean)
+      this.editAssignments = []
+      this.applyVisible = true
+      // 重新核定全部任职经历，避免快照只有已勾选的记录而无法调整范围
+      checkCertificate(this.currentYear, true).then(res => {
+        if (!this.editing) return
+        const content = res.data && res.data.content
+        const assignments = content && content.assignments ? content.assignments : []
+        if (!assignments.length) return
+        this.editAssignments = assignments
+        const validKeys = assignments.map(item => item.recordKey).filter(Boolean)
+        this.editSelected = this.editSelected.filter(key => validKeys.indexOf(key) >= 0)
+        if (!this.editSelected.length) this.editSelected = validKeys
+      }).catch(() => {})
+    },
+    onAssignChange(e) {
+      this.editSelected = (e.detail && e.detail.value) || []
+    },
     submitApply() {
+      if (this.editing && !this.editSelected.length) {
+        uni.showToast({ title: '请至少保留一段带班经历', icon: 'none' })
+        return
+      }
       this.applying = true
-      applyCertificate(this.currentYear, { applyReason: this.applyReason }).then(() => {
-        uni.showToast({ title: '已提交审核', icon: 'success' })
+      const payload = { applyReason: this.applyReason }
+      if (this.editing) {
+        payload.selectedKeys = this.editSelected
+      }
+      const request = this.editing
+        ? updateCertificate(this.currentYear, payload)
+        : applyCertificate(this.currentYear, payload)
+      request.then(() => {
+        uni.showToast({ title: this.editing ? '修改已保存' : '已提交审核', icon: 'success' })
         this.applyVisible = false
+        this.editing = false
         this.checkCert()
         this.loadCertList()
       }).catch(err => {
@@ -510,6 +570,8 @@ export default {
 
 .apply-panel {
   width: 100%;
+  max-height: 80vh;
+  overflow-y: auto;
   background: #fff;
   border-radius: 18rpx;
   padding: 32rpx;
@@ -532,6 +594,53 @@ export default {
   box-sizing: border-box;
   font-size: 26rpx;
   color: #333;
+}
+
+.apply-assign {
+  margin-top: 20rpx;
+  padding-top: 20rpx;
+  border-top: 1rpx solid #f0f0f0;
+}
+
+.apply-assign-tip {
+  display: block;
+  font-size: 22rpx;
+  color: #8a94a6;
+  margin-bottom: 12rpx;
+}
+
+.assign-item {
+  display: flex;
+  align-items: center;
+  padding: 14rpx 0;
+  border-bottom: 1rpx solid #f7f7f7;
+
+  &:last-child {
+    border-bottom: none;
+  }
+}
+
+.assign-info {
+  flex: 1;
+  margin-left: 8rpx;
+}
+
+.assign-name {
+  display: block;
+  font-size: 26rpx;
+  color: #333;
+}
+
+.assign-range {
+  display: block;
+  font-size: 22rpx;
+  color: #999;
+  margin-top: 4rpx;
+}
+
+.assign-empty {
+  font-size: 24rpx;
+  color: #999;
 }
 
 .apply-btns {

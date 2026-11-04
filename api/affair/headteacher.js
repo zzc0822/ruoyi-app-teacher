@@ -128,11 +128,12 @@ export function getMyCertificates() {
   })
 }
 
-// 检查是否可以申请工作证明，并取回系统自动核定的证明内容
-export function checkCertificate(certYear) {
+// 检查是否可以申请工作证明，并取回系统自动核定的证明内容；refresh=true 时忽略快照重新核定
+export function checkCertificate(certYear, refresh) {
   return request({
     url: '/api/headteacher/certificate/check/' + certYear,
-    method: 'get'
+    method: 'get',
+    params: refresh ? { refresh: true } : {}
   })
 }
 
@@ -141,6 +142,15 @@ export function applyCertificate(certYear, data) {
   return request({
     url: '/api/headteacher/certificate/apply/' + certYear,
     method: 'post',
+    data: data || {}
+  })
+}
+
+// 学院审核完成前修改本人已提交的申请
+export function updateCertificate(certYear, data) {
+  return request({
+    url: '/api/headteacher/certificate/apply/' + certYear,
+    method: 'put',
     data: data || {}
   })
 }
