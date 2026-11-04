@@ -3,7 +3,10 @@
     <view class="update-dialog">
       <view class="update-header">
         <view class="update-heading">
-          <text class="update-title">功能更新</text>
+          <view class="update-title-row">
+            <text class="update-title">功能更新</text>
+            <text v-if="displayVersion" class="update-version">{{ displayVersion }}</text>
+          </view>
           <text class="update-subtitle">最近上线内容</text>
         </view>
         <view class="update-close" hover-class="update-close-active" @click="close">
@@ -41,6 +44,27 @@ export default {
     items: {
       type: Array,
       default: () => []
+    },
+    appVersion: {
+      type: String,
+      default: ''
+    }
+  },
+  computed: {
+    // 优先展示当前小程序版本，缺失时回落到最新更新记录的版本号
+    displayVersion() {
+      const appLabel = this.normalizeVersion(this.appVersion)
+      if (appLabel) {
+        return appLabel
+      }
+      const list = this.items || []
+      for (let i = 0; i < list.length; i++) {
+        const label = this.normalizeVersion(list[i] && list[i].version)
+        if (label) {
+          return label
+        }
+      }
+      return ''
     }
   },
   methods: {
@@ -58,6 +82,13 @@ export default {
         fix: '修复'
       }
       return labels[category] || '更新'
+    },
+    normalizeVersion(version) {
+      const value = version === null || version === undefined ? '' : String(version).trim()
+      if (!value) {
+        return ''
+      }
+      return /^[vV]/.test(value) ? value : 'v' + value
     }
   }
 }
@@ -105,11 +136,29 @@ export default {
   min-width: 0;
 }
 
+.update-title-row {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
 .update-title {
   color: #0f172a;
   font-size: 36rpx;
   font-weight: 700;
   line-height: 1.35;
+}
+
+.update-version {
+  flex-shrink: 0;
+  margin-left: 14rpx;
+  padding: 4rpx 14rpx;
+  border-radius: 8rpx;
+  background: #ecfeff;
+  color: #0e7490;
+  font-size: 22rpx;
+  font-weight: 600;
+  line-height: 1.5;
 }
 
 .update-subtitle {

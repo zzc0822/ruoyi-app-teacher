@@ -112,6 +112,7 @@
     <feature-update-popup
       :visible="featureUpdateVisible"
       :items="featureUpdates"
+      :app-version="appVersion"
       @close="closeFeatureUpdate"
     />
   </view>
@@ -151,7 +152,8 @@ export default {
       miniConfigLoaded: false,
       currentRole: null,
       featureUpdateVisible: false,
-      featureUpdates: []
+      featureUpdates: [],
+      appVersion: ''
     }
   },
   onShow() {
@@ -162,6 +164,7 @@ export default {
     this.loadTodoList()
     this.buildWeekDays()
     this.loadMySchedule()
+    this.loadAppVersion()
     this.loadFeatureUpdates()
     
     // 监听刷新事件
@@ -212,6 +215,11 @@ export default {
         featureUpdateLoading = false
         globalData.featureUpdateEligible = false
       })
+    },
+    loadAppVersion() {
+      const app = getApp()
+      const config = app && app.globalData && app.globalData.config
+      this.appVersion = (config && config.appInfo && config.appInfo.version) || ''
     },
     closeFeatureUpdate() {
       this.featureUpdateVisible = false
