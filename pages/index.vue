@@ -127,8 +127,10 @@ import { getMyMiniConfig } from '@/api/system/miniConfig'
 import { getLatestFeatureTimeline } from '@/api/system/featureTimeline'
 import { createRoleComputed } from '@/utils/roleSystem'
 import FeatureUpdatePopup from '@/components/feature-update-popup/index.vue'
+import appConfig from '@/config'
 
 let featureUpdateLoading = false
+const FEATURE_UPDATE_SEEN_KEY = 'featureUpdateSeenKey'
 
 export default {
   components: { FeatureUpdatePopup },
@@ -209,17 +211,29 @@ export default {
         if (!items.length) {
           return
         }
+        const currentKey = this.buildFeatureUpdateKey(items)
+        const seenKey = uni.getStorageSync(FEATURE_UPDATE_SEEN_KEY) || ''
+        if (seenKey === currentKey) {
+          return
+        }
         this.featureUpdates = items
         this.featureUpdateVisible = true
+        // 同一版本、同一批更新只弹一次
+        uni.setStorageSync(FEATURE_UPDATE_SEEN_KEY, currentKey)
       }).catch(() => {
         featureUpdateLoading = false
         globalData.featureUpdateEligible = false
       })
     },
+    buildFeatureUpdateKey(items) {
+      const latest = items && items.length ? items[0] : null
+      const marker = latest && (latest.id || latest.version)
+      return (this.appVersion || 'unknown') + '#' + (marker || '')
+    },
     loadAppVersion() {
       const app = getApp()
-      const config = app && app.globalData && app.globalData.config
-      this.appVersion = (config && config.appInfo && config.appInfo.version) || ''
+      const runtimeConfig = (app && app.globalData && app.globalData.config) || appConfig
+      this.appVersion = (runtimeConfig && runtimeConfig.appInfo && runtimeConfig.appInfo.version) || ''
     },
     closeFeatureUpdate() {
       this.featureUpdateVisible = false

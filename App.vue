@@ -8,7 +8,7 @@
   export default {
     globalData: {
       config: null,
-      // 每次进入小程序（冷启动或从后台回来）允许检查一次功能更新
+      // 每次冷启动允许检查一次功能更新，是否弹出由首页按已展示版本判断
       featureUpdateEligible: true
     },
     onLaunch: function() {
@@ -17,7 +17,6 @@
       initOfflineQueue()
     },
     onShow: function() {
-      this.globalData.featureUpdateEligible = true
       flushOfflineQueue()
     },
     methods: {
