@@ -18,7 +18,7 @@ module.exports = {
     // 应用名称
     name: "ruoyi-app",
     // 应用版本
-    version: "1.2.13",
+    version: "1.2.14",
     // 应用logo
     logo: "/static/logo.png",
     // 官方网站
