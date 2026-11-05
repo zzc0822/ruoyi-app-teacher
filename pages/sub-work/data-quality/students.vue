@@ -169,6 +169,12 @@ export default {
   background: #f4f7f9;
 }
 
+/* #ifdef H5 */
+.student-page {
+  padding-top: calc(24rpx + 44px);
+}
+/* #endif */
+
 .summary-band {
   position: relative;
   padding: 26rpx 24rpx;

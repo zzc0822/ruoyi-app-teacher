@@ -1,31 +1,26 @@
 <template>
   <view class="message-page">
-    <view class="inbox-head">
-      <view class="inbox-copy">
-        <text class="inbox-title">消息中心</text>
-        <text class="inbox-sub">{{ unread > 0 ? unread + ' 条未读消息' : '暂无未读消息' }}</text>
+    <view class="filter-bar">
+      <view class="filter-chips">
+        <view
+          class="filter-chip"
+          :class="{ active: filter === 'all' }"
+          @click="switchFilter('all')"
+        >
+          <text>全部</text>
+        </view>
+        <view
+          class="filter-chip"
+          :class="{ active: filter === 'unread' }"
+          @click="switchFilter('unread')"
+        >
+          <text>未读</text>
+          <text v-if="unread > 0" class="filter-count">{{ unread > 99 ? '99+' : unread }}</text>
+        </view>
       </view>
       <view v-if="unread > 0" class="read-all" @click="handleReadAll">
-        <uni-icons type="checkmarkempty" size="16" color="#0f766e" />
+        <uni-icons type="checkmarkempty" size="14" color="#0f766e" />
         <text>全部已读</text>
-      </view>
-    </view>
-
-    <view class="filter-bar">
-      <view
-        class="filter-chip"
-        :class="{ active: filter === 'all' }"
-        @click="switchFilter('all')"
-      >
-        <text>全部</text>
-      </view>
-      <view
-        class="filter-chip"
-        :class="{ active: filter === 'unread' }"
-        @click="switchFilter('unread')"
-      >
-        <text>未读</text>
-        <text v-if="unread > 0" class="filter-count">{{ unread > 99 ? '99+' : unread }}</text>
       </view>
     </view>
 
@@ -257,49 +252,36 @@ export default {
   background: #f4f7f9;
 }
 
-.inbox-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 8rpx 4rpx 20rpx;
-  gap: 16rpx;
+/* #ifdef H5 */
+.message-page {
+  padding-top: calc(24rpx + 44px);
 }
-
-.inbox-copy {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-}
-
-.inbox-title {
-  font-size: 40rpx;
-  font-weight: 600;
-  color: #0f172a;
-  line-height: 1.3;
-}
-
-.inbox-sub {
-  margin-top: 6rpx;
-  font-size: 24rpx;
-  color: #64748b;
-}
+/* #endif */
 
 .read-all {
   display: flex;
   align-items: center;
   gap: 6rpx;
-  padding: 12rpx 20rpx;
+  padding: 10rpx 18rpx;
   border-radius: 999rpx;
   background: #ffffff;
-  font-size: 24rpx;
+  font-size: 22rpx;
   color: #0f766e;
   flex-shrink: 0;
 }
 
 .filter-bar {
   display: flex;
-  gap: 12rpx;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16rpx;
   margin-bottom: 20rpx;
+}
+
+.filter-chips {
+  display: flex;
+  gap: 12rpx;
+  min-width: 0;
 }
 
 .filter-chip {
@@ -451,5 +433,12 @@ export default {
   text-align: center;
   font-size: 22rpx;
   color: #94a3b8;
+}
+
+@media (min-width: 900px) {
+  .message-page {
+    max-width: 720px;
+    margin: 0 auto;
+  }
 }
 </style>
