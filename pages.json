@@ -333,6 +333,18 @@
         "navigationBarTitleText": "待办事项"
       }
     }, {
+      "path": "data-quality/index",
+      "style": {
+        "navigationBarTitleText": "我的整改",
+        "enablePullDownRefresh": true
+      }
+    }, {
+      "path": "data-quality/students",
+      "style": {
+        "navigationBarTitleText": "整改学生明细",
+        "enablePullDownRefresh": true
+      }
+    }, {
       "path": "schedule/index",
       "style": {
         "navigationBarTitleText": "我的课表"

@@ -517,7 +517,8 @@ export default {
         party: '/pages/sub-work/party/index',
         worklog: '/pages/sub-work/headteacher/worklog-list',
         addWorklog: '/pages/sub-work/headteacher/worklog-add',
-        certificate: '/pages/sub-work/headteacher/certificate'
+        certificate: '/pages/sub-work/headteacher/certificate',
+        quality: '/pages/sub-work/data-quality/index'
       }
       if (routes[key]) {
         let url = routes[key]
@@ -541,7 +542,8 @@ export default {
         party: '党',
         worklog: '记',
         addWorklog: '录',
-        certificate: '证'
+        certificate: '证',
+        quality: '整'
       }[key] || '项'
     },
     isMiniFeatureEnabled(section, funcKey) {
@@ -705,6 +707,7 @@ export default {
           { key: 'inspection', name: '学风检查', icon: 'compose', color: 'cyan', section: 'student', func: 'inspection' },
           { key: 'leave', name: '请假审批', icon: 'paperplane-filled', color: 'red', section: 'student', func: 'leave' },
           { key: 'talk', name: '谈心谈话', icon: 'chat-filled', color: 'orange', section: 'student', func: 'talk' },
+          { key: 'quality', name: '我的整改', icon: 'compose', color: 'cyan' },
           { key: 'todo', name: '待办事项', icon: 'flag-filled', color: 'purple' }
         ],
         admin: [
@@ -713,6 +716,7 @@ export default {
           { key: 'inspection', name: '学风检查', icon: 'compose', color: 'cyan', section: 'student', func: 'inspection' },
           { key: 'leave', name: '请假审批', icon: 'paperplane-filled', color: 'red', section: 'student', func: 'leave' },
           { key: 'talk', name: '谈心谈话', icon: 'chat-filled', color: 'orange', section: 'student', func: 'talk' },
+          { key: 'quality', name: '我的整改', icon: 'compose', color: 'cyan' },
           { key: 'todo', name: '待办事项', icon: 'flag-filled', color: 'purple' }
         ],
         counselor: [
@@ -721,6 +725,7 @@ export default {
           { key: 'inspection', name: '学风检查', icon: 'compose', color: 'cyan', section: 'student', func: 'inspection' },
           { key: 'talk', name: '记录谈话', icon: 'chat-filled', color: 'orange', section: 'student', func: 'talk' },
           { key: 'leave', name: '请假审批', icon: 'paperplane-filled', color: 'red', section: 'student', func: 'leave' },
+          { key: 'quality', name: '我的整改', icon: 'compose', color: 'cyan' },
           { key: 'todo', name: '待办事项', icon: 'flag-filled', color: 'purple' }
         ],
         headteacher: [
@@ -728,13 +733,15 @@ export default {
           { key: 'talk', name: '谈心谈话', icon: 'chat-filled', color: 'orange', section: 'headteacher' },
           { key: 'worklog', name: '工作记录', icon: 'list', color: 'green', section: 'headteacher' },
           { key: 'addWorklog', name: '新增记录', icon: 'plusempty', color: 'red', section: 'headteacher' },
-          { key: 'certificate', name: '工作证明', icon: 'paperplane', color: 'purple', section: 'headteacher' }
+          { key: 'certificate', name: '工作证明', icon: 'paperplane', color: 'purple', section: 'headteacher' },
+          { key: 'quality', name: '我的整改', icon: 'compose', color: 'cyan' }
         ],
         teacher: [
           { key: 'schedule', name: '我的课表', icon: 'calendar-filled', color: 'blue', section: 'teaching', func: 'schedule' },
           { key: 'attendance', name: '考勤汇总', icon: 'bars', color: 'orange', section: 'teaching', func: 'attendance_summary' },
           { key: 'classcheck', name: '查课管理', icon: 'checkbox-filled', color: 'green', section: 'student', func: 'classcheck' },
           { key: 'talk', name: '谈心谈话', icon: 'chat-filled', color: 'red', section: 'student', func: 'talk' },
+          { key: 'quality', name: '我的整改', icon: 'compose', color: 'cyan' },
           { key: 'todo', name: '待办事项', icon: 'flag-filled', color: 'purple' }
         ],
         partyCadre: [
