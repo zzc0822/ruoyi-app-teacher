@@ -53,8 +53,9 @@
       <view
         v-for="task in visibleTasks"
         :key="task.taskId"
+        :id="'task-' + task.taskId"
         class="task-card"
-        :class="{ 'is-overdue': task.overdue }"
+        :class="{ 'is-overdue': task.overdue, 'is-focused': isFocusTask(task) }"
       >
         <view class="task-head">
           <text class="task-issue">{{ issueLabel(task.issueType) }}</text>
@@ -198,7 +199,8 @@ export default {
       remark: '',
       submitting: false,
       detailLoading: false,
-      logs: []
+      logs: [],
+      focusTaskId: null
     }
   },
   computed: {
@@ -237,7 +239,10 @@ export default {
       return this.pendingStatus === '1' && this.current.status !== '0'
     }
   },
-  onLoad() {
+  onLoad(options) {
+    if (options && options.taskId) {
+      this.focusTaskId = Number(options.taskId)
+    }
     this.loadTasks()
   },
   onPullDownRefresh() {
@@ -248,6 +253,9 @@ export default {
   methods: {
     issueLabel(type) {
       return ISSUE_LABELS[type] || type || '数据质量问题'
+    },
+    isFocusTask(task) {
+      return this.focusTaskId && Number(task.taskId) === Number(this.focusTaskId)
     },
     actionLabel(value, from) {
       if (value === '1') return from === '0' ? '开始整改' : '退回整改'
@@ -265,11 +273,34 @@ export default {
     setFilter(value) {
       this.activeFilter = value
     },
+    scrollToFocus() {
+      if (!this.focusTaskId) {
+        return
+      }
+      const exists = this.tasks.some(task => Number(task.taskId) === Number(this.focusTaskId))
+      if (!exists) {
+        return
+      }
+      this.$nextTick(() => {
+        const query = uni.createSelectorQuery().in(this)
+        query.select('#task-' + this.focusTaskId).boundingClientRect()
+        query.selectViewport().scrollOffset()
+        query.exec(res => {
+          if (res && res[0] && res[1]) {
+            uni.pageScrollTo({
+              scrollTop: Math.max(0, res[0].top + res[1].scrollTop - 120),
+              duration: 250
+            })
+          }
+        })
+      })
+    },
     loadTasks() {
       this.loading = true
       this.loadError = ''
       return listMyQualityTasks().then(res => {
         this.tasks = res.data || []
+        this.scrollToFocus()
         this.loading = false
       }).catch(error => {
         this.tasks = []
@@ -487,6 +518,11 @@ export default {
 
 .task-card.is-overdue {
   border-left-color: #dc2626;
+}
+
+.task-card.is-focused {
+  border-left-color: #0f766e;
+  box-shadow: 0 0 0 2rpx #99d5c8;
 }
 
 .task-head {

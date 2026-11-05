@@ -66,6 +66,16 @@
         "navigationBarTitleText": "关于我们"
       }
     }, {
+      "path": "agreement/index",
+      "style": {
+        "navigationBarTitleText": "用户服务协议"
+      }
+    }, {
+      "path": "privacy/index",
+      "style": {
+        "navigationBarTitleText": "隐私政策"
+      }
+    }, {
       "path": "party/index",
       "style": {
         "navigationBarTitleText": "我的党务"
@@ -342,6 +352,12 @@
       "path": "data-quality/students",
       "style": {
         "navigationBarTitleText": "整改学生明细",
+        "enablePullDownRefresh": true
+      }
+    }, {
+      "path": "message/index",
+      "style": {
+        "navigationBarTitleText": "消息中心",
         "enablePullDownRefresh": true
       }
     }, {

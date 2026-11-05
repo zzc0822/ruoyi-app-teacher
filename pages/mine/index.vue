@@ -102,6 +102,18 @@
       <view class="menu-section">
         <text class="section-title">服务与设置</text>
         <view class="menu-list">
+          <view class="list-cell" @click="handleToMessage">
+            <view class="menu-item-box">
+              <view class="menu-icon">
+                <uni-icons type="notification" size="20" color="#0f766e" />
+              </view>
+              <text class="menu-text">消息中心</text>
+            </view>
+            <view class="menu-tail">
+              <text v-if="unreadCount > 0" class="menu-badge">{{ unreadCount > 99 ? '99+' : unreadCount }}</text>
+              <uni-icons type="right" size="15" color="#cbd5e1" />
+            </view>
+          </view>
           <view class="list-cell" @click="handleHelp">
             <view class="menu-item-box">
               <view class="menu-icon">
@@ -138,6 +150,7 @@
 
 <script>
 import { getCurrentRole, getTeacherinfoByUserId, getMyRoles, switchRole } from '@/api/work/teacherinfo'
+import { getUnreadCount } from '@/api/work/message'
 import config from '@/config'
 
 export default {
@@ -152,7 +165,8 @@ export default {
       roleNames: [],
       roleMenuOpen: false,
       switchingRoleId: null,
-      currentRole: null
+      currentRole: null,
+      unreadCount: 0
     }
   },
   computed: {
@@ -193,6 +207,16 @@ export default {
       this.roleList = roleRes && Array.isArray(roleRes.data) ? roleRes.data : []
       this.currentRole = currentRoleRes && currentRoleRes.data ? currentRoleRes.data : null
       this.applyProfile()
+      this.loadUnreadCount()
+    },
+    loadUnreadCount() {
+      getUnreadCount().then(res => {
+        const count = res && res.data ? res.data.count : 0
+        this.unreadCount = Number(count) || 0
+      }).catch(() => {})
+    },
+    handleToMessage() {
+      uni.navigateTo({ url: '/pages/sub-work/message/index' })
     },
     applyProfile() {
       const teacher = this.teacherInfo || {}
@@ -560,5 +584,25 @@ page {
 .menu-text {
   color: #1e293b;
   font-size: 28rpx;
+}
+
+.menu-tail {
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+  flex-shrink: 0;
+}
+
+.menu-badge {
+  min-width: 34rpx;
+  height: 34rpx;
+  padding: 0 10rpx;
+  border-radius: 17rpx;
+  background: #ef4444;
+  color: #ffffff;
+  font-size: 20rpx;
+  line-height: 34rpx;
+  text-align: center;
+  box-sizing: border-box;
 }
 </style>

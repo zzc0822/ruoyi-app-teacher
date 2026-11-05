@@ -20,34 +20,42 @@
     data() {
       return {
         list: [{
-            icon: 'iconfont icon-github',
-            title: '若依问题',
+            icon: 'iconfont icon-user',
+            title: '账号与登录',
             childList: [{
-              title: '若依开源吗？',
-              content: '开源'
+              title: '如何登录系统？',
+              content: '使用本人工号或手机号及密码登录。已绑定微信的教师，也可以使用手机号快捷登录。'
             }, {
-              title: '若依可以商用吗？',
-              content: '可以'
+              title: '忘记密码怎么办？',
+              content: '请联系学校学生工作部门或系统管理员重置密码。'
             }, {
-              title: '若依官网地址多少？',
-              content: 'http://ruoyi.vip'
-            }, {
-              title: '若依文档地址多少？',
-              content: 'http://doc.ruoyi.vip'
+              title: '如何修改登录密码？',
+              content: '请点击[我的] - [应用设置] - [修改密码]即可修改登录密码'
             }]
           },
           {
             icon: 'iconfont icon-help',
-            title: '其他问题',
+            title: '业务使用',
             childList: [{
-              title: '如何退出登录？',
-              content: '请点击[我的] - [应用设置] - [退出登录]即可退出登录',
+              title: '如何查看所带学生？',
+              content: '请进入[工作台] - [我的学生]查看。可查看的学生范围由你的角色和带班关系决定。'
             }, {
-              title: '如何修改用户头像？',
-              content: '请点击[我的] - [选择头像] - [点击提交]即可更换用户头像',
+              title: '为什么有些功能看不到？',
+              content: '系统按照角色和岗位权限开放功能。如确需使用某项功能，请联系系统管理员调整权限。'
+            }]
+          },
+          {
+            icon: 'iconfont icon-setting',
+            title: '权限与安全',
+            childList: [{
+              title: '拍照或定位无法使用？',
+              content: '请在微信或手机系统设置中允许本小程序使用相机、相册和位置权限。如仍无法使用，请联系系统管理员。'
             }, {
-              title: '如何修改登录密码？',
-              content: '请点击[我的] - [应用设置] - [修改密码]即可修改登录密码',
+              title: '如何保护学生信息？',
+              content: '请仅在履行岗位职责所必需的范围内查询和使用学生信息，不得截屏、外传或向无关人员提供。'
+            }, {
+              title: '如何反馈系统问题？',
+              content: '请联系学校学生工作部门或系统管理员，并说明出现问题的时间、所在页面和具体操作。'
             }]
           }
         ]
