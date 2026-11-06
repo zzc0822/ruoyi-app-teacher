@@ -1,14 +1,14 @@
 // 应用全局配置
 module.exports = {
   // 后端服务协议，部署 HTTPS 时改为 'https'
-  protocol: 'http',
+  protocol: 'https',
   // 后端服务主机，可以是 IP 或域名
   // host: 'localhost',
-  host: 'localhost:8080',
+  host: 'ry.mytbu.cn',
   // 后端服务端口号（HTTPS 默认 443）
-  port: 8080,
+  port: 443,
   // API 路径前缀（Nginx 代理路径）
-  apiPrefix: '',
+  apiPrefix: '/prod-api',
   // 自动拼接完整 baseUrl（兼容旧代码直接读取 config.baseUrl）
   get baseUrl() {
     return `${this.protocol}://${this.host}${this.apiPrefix}`
@@ -18,7 +18,7 @@ module.exports = {
     // 应用名称
     name: "智慧学工教师端",
     // 应用版本
-    version: "1.2.19",
+    version: "1.2.20",
     // 应用logo
     logo: "/static/logo.png",
     // 政策协议
