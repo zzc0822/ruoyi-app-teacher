@@ -182,6 +182,18 @@
         "enablePullDownRefresh": true
       }
     }, {
+      "path": "tuition/index",
+      "style": {
+        "navigationBarTitleText": "欠费催缴",
+        "enablePullDownRefresh": true
+      }
+    }, {
+      "path": "tuition/detail",
+      "style": {
+        "navigationBarTitleText": "欠费详情",
+        "enablePullDownRefresh": true
+      }
+    }, {
       "path": "graduation/index",
       "style": {
         "navigationBarTitleText": "毕业班级管理",

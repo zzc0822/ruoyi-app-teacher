@@ -89,6 +89,28 @@
       </template>
     </view>
 
+    <!-- 欠费催缴：学院书记看总览，辅导员看本人学生 -->
+    <view class="tuition-module" v-if="showTuition" @click="goTuition">
+      <view class="tuition-module-main">
+        <view class="tuition-module-icon">
+          <uni-icons type="wallet" size="24" color="#ffffff"></uni-icons>
+        </view>
+        <view class="tuition-module-copy">
+          <view class="tuition-module-title-row">
+            <text class="tuition-module-title">欠费催缴</text>
+            <text class="tuition-module-tag">{{ tuitionViewMode === 'college' ? '学院总览' : '我的学生' }}</text>
+          </view>
+          <text class="tuition-module-sub">{{ tuitionSummaryText }}</text>
+        </view>
+        <uni-icons type="right" size="18" color="#b45309"></uni-icons>
+      </view>
+      <view class="tuition-module-meta" v-if="tuitionOverview">
+        <text>欠费 {{ tuitionOverview.studentCount || 0 }} 人</text>
+        <text>危急未跟进 {{ tuitionOverview.crisisPendingCount || 0 }}</text>
+        <text>首联逾期 {{ tuitionOverview.firstContactOverdueCount || 0 }}</text>
+      </view>
+    </view>
+
     <!-- 辅导员训练平台：书记查看学院成绩，辅导员训练与参赛 -->
     <view
       class="training-platform-section"
@@ -271,6 +293,7 @@
 import { getRoleViewConfig } from '@/utils/roleViewConfig'
 import { getWorkDashboard } from '@/api/work/dashboard'
 import { getCounselorWorkProgress } from '@/api/work/counselorProgress'
+import { getTuitionOverview } from '@/api/work/tuition'
 import { getRandomQuote } from '@/api/work/workquote'
 import { roleMixin } from '@/utils/roleSystem'
 import { getMyMiniConfig } from '@/api/system/miniConfig'
@@ -322,6 +345,8 @@ export default {
       counselorProgress: null,
       counselorProgressLoading: false,
       counselorProgressError: '',
+      tuitionOverview: null,
+      tuitionLoading: false,
       pendingList: [],
       // 学工金句
       workQuote: {
@@ -342,6 +367,17 @@ export default {
     showTeaching() { return !!(this.miniConfig.teaching && this.miniConfig.teaching.enabled) },
     showCounselorProgress() { return this.isSecretaryRole || this.isCounselorRole },
     showCounselorTraining() { return this.isSecretaryRole || this.isCounselorRole },
+    showTuition() { return this.isSecretaryRole || this.isCounselorRole },
+    tuitionViewMode() { return this.isSecretaryRole ? 'college' : 'mine' },
+    tuitionSummaryText() {
+      if (this.tuitionLoading) return '欠费概况加载中...'
+      if (!this.tuitionOverview) return '查看欠费名单、跟进状态和缓交节点'
+      const overview = this.tuitionOverview
+      if (this.tuitionViewMode === 'college') {
+        return `覆盖 ${overview.counselorCount || 0} 名辅导员 · 已联系 ${overview.touchedCount || 0}/${overview.studentCount || 0} 人`
+      }
+      return `本人负责 ${overview.studentCount || 0} 名学生 · 待跟进 ${overview.pendingCount || 0} 人`
+    },
     progressBoard() { return this.counselorProgress && this.counselorProgress.board },
     progressViewMode() { return (this.counselorProgress && this.counselorProgress.viewMode) || 'none' },
     progressMinePerson() {
@@ -416,6 +452,9 @@ export default {
     }
     if (this.showCounselorProgress) {
       this.loadCounselorProgress()
+    }
+    if (this.showTuition) {
+      this.loadTuitionOverview()
     }
 
     this.refreshOfflineSummary()
@@ -577,6 +616,21 @@ export default {
       if (!this.progressHasData || this.counselorProgressLoading || this.counselorProgressError) return
       const value = filter && filter !== 'all' ? '?filter=' + filter : ''
       uni.navigateTo({ url: '/pages/sub-work/counselor-progress/index' + value })
+    },
+    loadTuitionOverview() {
+      if (this.tuitionLoading) return
+      this.tuitionLoading = true
+      getTuitionOverview().then(res => {
+        const data = (res && res.data) || {}
+        this.tuitionOverview = data.overview || null
+      }).catch(() => {
+        this.tuitionOverview = null
+      }).finally(() => {
+        this.tuitionLoading = false
+      })
+    },
+    goTuition() {
+      uni.navigateTo({ url: '/pages/sub-work/tuition/index' })
     },
     goCounselorRecords(metric, title) {
       const person = this.progressMinePerson
@@ -1009,6 +1063,82 @@ page {
   border-top: 1rpx solid #edf2f7;
   background: #f8fafc;
   color: #7c8799;
+  font-size: 20rpx;
+}
+
+.tuition-module {
+  margin: 24rpx;
+  overflow: hidden;
+  border: 1rpx solid #f0dfc8;
+  border-radius: 16rpx;
+  background: #ffffff;
+  box-shadow: 0 6rpx 18rpx rgba(15, 23, 42, 0.04);
+}
+
+.tuition-module-main {
+  display: flex;
+  align-items: center;
+  gap: 18rpx;
+  padding: 24rpx;
+}
+
+.tuition-module-icon {
+  flex: 0 0 80rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 80rpx;
+  height: 80rpx;
+  border-radius: 18rpx;
+  background: #b45309;
+}
+
+.tuition-module-copy {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.tuition-module-title-row {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+}
+
+.tuition-module-title {
+  color: #172033;
+  font-size: 30rpx;
+  font-weight: 700;
+}
+
+.tuition-module-tag {
+  flex-shrink: 0;
+  padding: 4rpx 10rpx;
+  border-radius: 6rpx;
+  background: #fff7ed;
+  color: #b45309;
+  font-size: 19rpx;
+}
+
+.tuition-module-sub {
+  margin-top: 8rpx;
+  overflow: hidden;
+  color: #64748b;
+  font-size: 22rpx;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tuition-module-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12rpx;
+  padding: 14rpx 24rpx;
+  border-top: 1rpx solid #f5efe6;
+  background: #fffbf5;
+  color: #8a6a42;
   font-size: 20rpx;
 }
 

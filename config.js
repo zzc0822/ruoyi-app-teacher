@@ -18,7 +18,7 @@ module.exports = {
     // 应用名称
     name: "智慧学工教师端",
     // 应用版本
-    version: "1.2.21",
+    version: "1.2.22",
     // 应用logo
     logo: "/static/logo.png",
     // 政策协议
