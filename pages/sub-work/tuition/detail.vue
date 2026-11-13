@@ -14,7 +14,7 @@
         <view class="student-head">
           <view class="student-name-row">
             <text class="student-name">{{ record.studentName || '未命名学生' }}</text>
-            <text v-if="record.paymentState === 'cleared'" class="tag tag-good">已缴清</text>
+            <text v-if="record.followupStatus === 'cleared'" class="tag tag-good">已缴清</text>
             <text v-else class="tag" :class="severityClass(record.severity)">{{ severityLabel(record.severity) }}</text>
           </view>
           <text class="student-xh">{{ record.xh }}</text>
