@@ -111,6 +111,28 @@
       </view>
     </view>
 
+    <!-- 心理健康：辅导员看本人测评督促与访谈跟踪，学院书记看辅导员进度 -->
+    <view class="psych-module" v-if="showPsych" @click="goPsych">
+      <view class="psych-module-main">
+        <view class="psych-module-icon">
+          <uni-icons type="heart-filled" size="24" color="#ffffff"></uni-icons>
+        </view>
+        <view class="psych-module-copy">
+          <view class="psych-module-title-row">
+            <text class="psych-module-title">心理健康</text>
+            <text class="psych-module-tag">{{ psychViewMode === 'college' ? '学院进度' : '我的学生' }}</text>
+          </view>
+          <text class="psych-module-sub">{{ psychSummaryText }}</text>
+        </view>
+        <uni-icons type="right" size="18" color="#0f766e"></uni-icons>
+      </view>
+      <view class="psych-module-meta" v-if="psychOverview">
+        <text>待测评 {{ psychStats.assessmentPending || 0 }}</text>
+        <text>待访谈 {{ psychStats.surveyOpen || 0 }}</text>
+        <text>追踪逾期 {{ psychStats.surveyFollowUpDue || 0 }}</text>
+      </view>
+    </view>
+
     <!-- 辅导员训练平台：书记查看学院成绩，辅导员训练与参赛 -->
     <view
       class="training-platform-section"
@@ -294,6 +316,7 @@ import { getRoleViewConfig } from '@/utils/roleViewConfig'
 import { getWorkDashboard } from '@/api/work/dashboard'
 import { getCounselorWorkProgress } from '@/api/work/counselorProgress'
 import { getTuitionOverview } from '@/api/work/tuition'
+import { getPsychWorkbench } from '@/api/work/psych'
 import { getRandomQuote } from '@/api/work/workquote'
 import { roleMixin } from '@/utils/roleSystem'
 import { getMyMiniConfig } from '@/api/system/miniConfig'
@@ -347,6 +370,8 @@ export default {
       counselorProgressError: '',
       tuitionOverview: null,
       tuitionLoading: false,
+      psychOverview: null,
+      psychLoading: false,
       pendingList: [],
       // 学工金句
       workQuote: {
@@ -368,6 +393,20 @@ export default {
     showCounselorProgress() { return this.isSecretaryRole || this.isCounselorRole },
     showCounselorTraining() { return this.isSecretaryRole || this.isCounselorRole },
     showTuition() { return this.isSecretaryRole || this.isCounselorRole },
+    showPsych() { return this.isSecretaryRole || this.isCounselorRole },
+    psychViewMode() { return this.isSecretaryRole ? 'college' : 'mine' },
+    psychStats() { return (this.psychOverview && this.psychOverview.stats) || {} },
+    psychSummaryText() {
+      if (this.psychLoading) return '心理概况加载中...'
+      if (!this.psychOverview) return '测评督促、访谈跟进和持续追踪'
+      const stats = this.psychStats
+      const rate = Number(stats.assessmentRate || 0)
+      if (this.psychViewMode === 'college') {
+        const counselors = (this.psychOverview.counselors || []).length
+        return `覆盖 ${counselors} 名辅导员 · 测评完成率 ${rate.toFixed(1).replace('.0', '')}%`
+      }
+      return `本人带班测评 ${stats.assessmentTotal || 0} 人 · 待访谈 ${stats.surveyOpen || 0} 人`
+    },
     tuitionViewMode() { return this.isSecretaryRole ? 'college' : 'mine' },
     tuitionSummaryText() {
       if (this.tuitionLoading) return '欠费概况加载中...'
@@ -455,6 +494,9 @@ export default {
     }
     if (this.showTuition) {
       this.loadTuitionOverview()
+    }
+    if (this.showPsych) {
+      this.loadPsychOverview()
     }
 
     this.refreshOfflineSummary()
@@ -631,6 +673,20 @@ export default {
     },
     goTuition() {
       uni.navigateTo({ url: '/pages/sub-work/tuition/index' })
+    },
+    loadPsychOverview() {
+      if (this.psychLoading) return
+      this.psychLoading = true
+      getPsychWorkbench().then(res => {
+        this.psychOverview = (res && res.data) || null
+      }).catch(() => {
+        this.psychOverview = null
+      }).finally(() => {
+        this.psychLoading = false
+      })
+    },
+    goPsych() {
+      uni.navigateTo({ url: '/pages/sub-work/psych/index' })
     },
     goCounselorRecords(metric, title) {
       const person = this.progressMinePerson
@@ -1139,6 +1195,82 @@ page {
   border-top: 1rpx solid #f5efe6;
   background: #fffbf5;
   color: #8a6a42;
+  font-size: 20rpx;
+}
+
+.psych-module {
+  margin: 24rpx;
+  overflow: hidden;
+  border: 1rpx solid #d6e6e8;
+  border-radius: 16rpx;
+  background: #ffffff;
+  box-shadow: 0 6rpx 18rpx rgba(15, 23, 42, 0.04);
+}
+
+.psych-module-main {
+  display: flex;
+  align-items: center;
+  gap: 18rpx;
+  padding: 24rpx;
+}
+
+.psych-module-icon {
+  flex: 0 0 80rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 80rpx;
+  height: 80rpx;
+  border-radius: 18rpx;
+  background: #1b5e6b;
+}
+
+.psych-module-copy {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.psych-module-title-row {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+}
+
+.psych-module-title {
+  color: #172033;
+  font-size: 30rpx;
+  font-weight: 700;
+}
+
+.psych-module-tag {
+  flex-shrink: 0;
+  padding: 4rpx 10rpx;
+  border-radius: 6rpx;
+  background: #ecfdf5;
+  color: #0f766e;
+  font-size: 19rpx;
+}
+
+.psych-module-sub {
+  margin-top: 8rpx;
+  overflow: hidden;
+  color: #64748b;
+  font-size: 22rpx;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.psych-module-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12rpx;
+  padding: 14rpx 24rpx;
+  border-top: 1rpx solid #e7f0f1;
+  background: #f5fbfb;
+  color: #47727a;
   font-size: 20rpx;
 }
 

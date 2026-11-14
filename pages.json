@@ -194,6 +194,12 @@
         "enablePullDownRefresh": true
       }
     }, {
+      "path": "psych/index",
+      "style": {
+        "navigationBarTitleText": "心理健康工作台",
+        "enablePullDownRefresh": true
+      }
+    }, {
       "path": "graduation/index",
       "style": {
         "navigationBarTitleText": "毕业班级管理",
