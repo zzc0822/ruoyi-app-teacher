@@ -21,6 +21,19 @@
         </view>
         <view class="student-amount">{{ money(record.arrearsAmount) }}</view>
         <view class="student-amount-label">本期欠费</view>
+        <view class="student-meta">
+          <text class="meta-strong">{{ record.className || '班级待匹配' }}</text>
+          <text class="meta-sep">/</text>
+          <text>{{ record.grade ? record.grade + '级' : '年级待匹配' }}</text>
+          <text class="meta-sep">/</text>
+          <text>{{ record.majorName || '专业待匹配' }}</text>
+        </view>
+        <view class="student-meta student-meta-sub">
+          <text>{{ record.collegeName || '学院待匹配' }}</text>
+          <text class="meta-sep">/</text>
+          <text>学生电话 {{ record.phone || '未登记' }}</text>
+          <text v-if="record.phone" class="meta-call" @click.stop="callPhone">呼叫</text>
+        </view>
         <view class="student-grid">
           <view class="student-cell">
             <text class="cell-value">{{ record.arrearsRatio === null || record.arrearsRatio === undefined ? '--' : record.arrearsRatio + '%' }}</text>
@@ -35,31 +48,48 @@
             <text class="cell-name">已登记实缴</text>
           </view>
         </view>
-      </view>
-
-      <view class="card">
-        <view class="card-title">学生信息</view>
-        <view class="info-row"><text class="info-label">班级</text><text class="info-value">{{ record.className || '待匹配' }}</text></view>
-        <view class="info-row"><text class="info-label">年级</text><text class="info-value">{{ record.grade || '待匹配' }}</text></view>
-        <view class="info-row"><text class="info-label">专业</text><text class="info-value">{{ record.majorName || '待匹配' }}</text></view>
-        <view class="info-row"><text class="info-label">学院</text><text class="info-value">{{ record.collegeName || '待匹配' }}</text></view>
-        <view class="info-row"><text class="info-label">辅导员</text><text class="info-value">{{ record.counselorName || '未分配' }}</text></view>
-        <view class="info-row">
-          <text class="info-label">联系电话</text>
-          <view class="info-value phone-row">
-            <text>{{ record.phone || '未登记' }}</text>
-            <text v-if="record.phone" class="phone-action" @click="callPhone">呼叫</text>
+        <view class="counselor-bar" @click="callCounselor">
+          <view class="counselor-main">
+            <text class="counselor-label">责任辅导员</text>
+            <text class="counselor-name">{{ record.counselorName || '未分配' }}</text>
+          </view>
+          <view class="counselor-contact">
+            <text class="counselor-phone">{{ record.counselorPhone || '电话未登记' }}</text>
+            <text v-if="record.counselorPhone" class="counselor-call">拨打</text>
           </view>
         </view>
       </view>
 
       <view class="card">
         <view class="card-title">缴费与跟进</view>
-        <view class="info-row"><text class="info-label">跟进状态</text><text class="info-value">{{ statusLabel(record.followupStatus) }}</text></view>
-        <view class="info-row"><text class="info-label">承诺金额</text><text class="info-value">{{ money(record.promiseAmount) }}</text></view>
-        <view class="info-row"><text class="info-label">承诺日期</text><text class="info-value">{{ record.promiseDate || '未承诺' }}</text></view>
-        <view class="info-row"><text class="info-label">下次跟进</text><text class="info-value">{{ record.nextFollowupDate || '未安排' }}</text></view>
-        <view v-if="record.clearedTime" class="info-row"><text class="info-label">缴清时间</text><text class="info-value">{{ record.clearedTime }}</text></view>
+        <view class="info-row">
+          <text class="info-label">跟进状态</text>
+          <view class="info-stack">
+            <text class="info-value">{{ statusLabel(record.followupStatus) }}</text>
+            <text class="info-time">{{ followupTimeText }}</text>
+          </view>
+        </view>
+        <view class="info-row">
+          <text class="info-label">承诺缴费</text>
+          <view class="info-stack">
+            <text class="info-value">{{ record.promiseAmount ? money(record.promiseAmount) + ' 元' : '未承诺' }}</text>
+            <text class="info-time">{{ record.promiseDate ? shortDate(record.promiseDate) + ' 前缴清' : '未约定缴清日期' }}</text>
+          </view>
+        </view>
+        <view class="info-row">
+          <text class="info-label">下次跟进</text>
+          <view class="info-stack">
+            <text class="info-value">{{ record.nextFollowupDate ? shortDate(record.nextFollowupDate) : '未安排' }}</text>
+            <text class="info-time">{{ nextFollowupHint }}</text>
+          </view>
+        </view>
+        <view v-if="record.clearedTime" class="info-row">
+          <text class="info-label">缴清时间</text>
+          <view class="info-stack">
+            <text class="info-value">{{ shortTime(record.clearedTime) }}</text>
+            <text class="info-time">工作流已结束</text>
+          </view>
+        </view>
         <view v-if="record.firstContactOverdue" class="alert-row">
           <uni-icons type="info" size="14" color="#b45309"></uni-icons>
           <text>首次联系已逾期 {{ record.firstContactOverdueDays || 0 }} 天，请优先联系。</text>
@@ -102,6 +132,25 @@
                 <text v-if="event.amount">{{ money(event.amount) }} 元</text>
                 <text v-if="event.attachments && event.attachments.length">佐证 {{ event.attachments.length }} 份</text>
               </view>
+              <view v-if="event.attachments && event.attachments.length" class="timeline-attachments">
+                <view
+                  v-for="(att, attIndex) in event.attachments"
+                  :key="att.id || attIndex"
+                  class="timeline-attachment"
+                  @click.stop="openAttachment(event, att)"
+                >
+                  <image
+                    v-if="isImageAttachment(att)"
+                    class="timeline-thumb"
+                    :src="getAttachSrc(att)"
+                    mode="aspectFill"
+                  />
+                  <view v-else class="timeline-file">
+                    <uni-icons type="paperclip" size="16" color="#64748b"></uni-icons>
+                    <text class="timeline-file-name">{{ att.fileName || '附件' }}</text>
+                  </view>
+                </view>
+              </view>
             </view>
           </view>
         </view>
@@ -115,6 +164,7 @@
 
 <script>
 import { getTuitionRecord, getTuitionTimeline } from '@/api/work/tuition'
+import config from '@/config'
 
 export default {
   data() {
@@ -125,7 +175,18 @@ export default {
       record: null,
       followups: [],
       deferralPlans: [],
-      timeline: []
+      timeline: [],
+      baseUrl: config.baseUrl
+    }
+  },
+  computed: {
+    followupTimeText() {
+      const time = this.record && this.record.lastFollowupTime
+      return time ? '最近跟进 ' + this.shortTime(time) : '尚无跟进记录'
+    },
+    nextFollowupHint() {
+      if (!this.record || !this.record.nextFollowupDate) return '尚未安排下次联系'
+      return this.record.followupStatus === 'cleared' ? '已缴清，无需继续跟进' : '按计划联系学生'
     }
   },
   onLoad(options) {
@@ -162,6 +223,64 @@ export default {
     callPhone() {
       if (!this.record || !this.record.phone) return
       uni.makePhoneCall({ phoneNumber: String(this.record.phone) })
+    },
+    callCounselor() {
+      if (!this.record || !this.record.counselorPhone) return
+      uni.makePhoneCall({ phoneNumber: String(this.record.counselorPhone) })
+    },
+    isImageAttachment(att) {
+      if (!att) return false
+      const mediaType = String(att.mediaType || att.fileType || '').toLowerCase()
+      if (mediaType.indexOf('image') === 0 || mediaType.indexOf('image/') >= 0) return true
+      const name = String(att.fileName || att.filePath || '').toLowerCase()
+      return /\.(jpg|jpeg|png|gif|webp|bmp|heic)$/.test(name)
+    },
+    getAttachSrc(att) {
+      if (!att) return ''
+      if (att.thumbnailBase64 && att.thumbnailBase64.indexOf('data:') === 0) return att.thumbnailBase64
+      const path = att.filePath || ''
+      if (!path) return ''
+      if (path.indexOf('http://') === 0 || path.indexOf('https://') === 0) return path
+      if (path.indexOf('/profile') === 0) return this.baseUrl + path
+      return this.baseUrl + '/profile' + (path.charAt(0) === '/' ? '' : '/') + path
+    },
+    openAttachment(event, att) {
+      if (this.isImageAttachment(att)) {
+        const urls = (event.attachments || [])
+          .filter(item => this.isImageAttachment(item))
+          .map(item => this.getAttachSrc(item))
+          .filter(Boolean)
+        if (urls.length) {
+          const current = this.getAttachSrc(att)
+          uni.previewImage({
+            current: urls.indexOf(current) >= 0 ? current : urls[0],
+            urls
+          })
+          return
+        }
+      }
+      const url = this.getAttachSrc(att)
+      if (!url) {
+        uni.showToast({ title: '附件地址缺失', icon: 'none' })
+        return
+      }
+      uni.showLoading({ title: '正在打开' })
+      uni.downloadFile({
+        url,
+        success: res => {
+          if (res.statusCode !== 200) {
+            uni.showToast({ title: '附件下载失败', icon: 'none' })
+            return
+          }
+          uni.openDocument({
+            filePath: res.tempFilePath,
+            showMenu: true,
+            fail: () => uni.showToast({ title: '该附件暂不支持预览', icon: 'none' })
+          })
+        },
+        fail: () => uni.showToast({ title: '附件下载失败', icon: 'none' }),
+        complete: () => uni.hideLoading()
+      })
     },
     money(value) {
       return Number(value || 0).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -285,6 +404,41 @@ export default {
   font-size: 21rpx;
 }
 
+.student-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8rpx;
+  margin-top: 14rpx;
+  color: rgba(255, 255, 255, 0.82);
+  font-size: 22rpx;
+  line-height: 1.45;
+}
+
+.student-meta-sub {
+  margin-top: 4rpx;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 21rpx;
+}
+
+.meta-strong {
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.meta-sep {
+  color: rgba(255, 255, 255, 0.32);
+}
+
+.meta-call {
+  margin-left: 4rpx;
+  padding: 1rpx 10rpx;
+  border: 1rpx solid rgba(255, 255, 255, 0.32);
+  border-radius: 6rpx;
+  color: rgba(255, 255, 255, 0.88);
+  font-size: 19rpx;
+}
+
 .student-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -309,6 +463,61 @@ export default {
 
 .cell-name {
   color: rgba(255, 255, 255, 0.68);
+  font-size: 19rpx;
+}
+
+.counselor-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16rpx;
+  margin-top: 18rpx;
+  padding: 14rpx 18rpx;
+  border: 1rpx solid rgba(242, 197, 111, 0.34);
+  border-radius: 12rpx;
+  background: rgba(242, 197, 111, 0.14);
+}
+
+.counselor-main {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  min-width: 0;
+}
+
+.counselor-label {
+  flex-shrink: 0;
+  color: #f0c97f;
+  font-size: 20rpx;
+}
+
+.counselor-name {
+  overflow: hidden;
+  color: #ffffff;
+  font-size: 25rpx;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.counselor-contact {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  gap: 10rpx;
+}
+
+.counselor-phone {
+  color: #ffd89b;
+  font-size: 23rpx;
+  font-variant-numeric: tabular-nums;
+}
+
+.counselor-call {
+  padding: 2rpx 12rpx;
+  border: 1rpx solid rgba(255, 216, 155, 0.5);
+  border-radius: 6rpx;
+  color: #ffd89b;
   font-size: 19rpx;
 }
 
@@ -358,6 +567,20 @@ export default {
 .info-value {
   text-align: right;
   color: #1e293b;
+}
+
+.info-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 3rpx;
+  min-width: 0;
+}
+
+.info-time {
+  color: #94a3b8;
+  font-size: 20rpx;
+  line-height: 1.4;
 }
 
 .phone-row {
@@ -581,6 +804,43 @@ export default {
   margin-top: 6rpx;
   color: #94a3b8;
   font-size: 19rpx;
+}
+
+.timeline-attachments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10rpx;
+  margin-top: 10rpx;
+}
+
+.timeline-attachment {
+  overflow: hidden;
+  border: 1rpx solid #e2e8f0;
+  border-radius: 10rpx;
+}
+
+.timeline-thumb {
+  display: block;
+  width: 136rpx;
+  height: 136rpx;
+  background: #f1f5f9;
+}
+
+.timeline-file {
+  display: flex;
+  align-items: center;
+  gap: 6rpx;
+  max-width: 420rpx;
+  padding: 10rpx 14rpx;
+  background: #f8fafc;
+}
+
+.timeline-file-name {
+  overflow: hidden;
+  color: #475569;
+  font-size: 20rpx;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .empty-tip {
