@@ -761,7 +761,7 @@ export default {
     getLeaveTypeText(type) {
       if (!type) return '已请假'
       if (String(type).includes('假')) return String(type)
-      const labels = { sick: '病假', personal: '事假', other: '其他' }
+      const labels = { sick: '病假', personal: '事假', public: '公假', other: '其他' }
       return labels[type] || '已请假'
     },
     cycleStudentStatus(index) {

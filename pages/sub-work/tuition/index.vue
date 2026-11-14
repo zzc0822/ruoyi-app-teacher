@@ -48,9 +48,9 @@
         </view>
       </view>
 
-      <view v-if="isCollegeView" class="view-tabs">
+      <view v-if="showProgressTabs" class="view-tabs">
         <view class="view-tab" :class="{ active: viewMode === 'records' }" @click="switchView('records')">学生名单</view>
-        <view class="view-tab" :class="{ active: viewMode === 'progress' }" @click="switchView('progress')">辅导员推进</view>
+        <view class="view-tab" :class="{ active: viewMode === 'progress' }" @click="switchView('progress')">{{ progressTabLabel }}</view>
       </view>
 
       <template v-if="viewMode === 'records'">
@@ -125,7 +125,7 @@
         </view>
       </template>
 
-      <view v-else class="counselor-list">
+      <view v-else-if="isCollegeView" class="counselor-list">
         <view
           v-for="(row, index) in counselors"
           :key="index"
@@ -151,6 +151,59 @@
         </view>
         <view v-if="!counselors.length" class="page-state is-inline">
           <text>本学院暂无辅导员欠费数据</text>
+        </view>
+      </view>
+
+      <view v-else class="counselor-list">
+        <view v-if="myProgress" class="self-card">
+          <view class="self-head">
+            <view class="self-copy">
+              <view class="self-name-row">
+                <text class="self-name">{{ myProgress.counselor_name || '本人' }}</text>
+                <text class="self-tag">本人带班</text>
+              </view>
+              <text class="self-sub">{{ myProgress.followup_count || 0 }} 名欠费学生 · {{ myProgress.class_count || 0 }} 个班</text>
+            </view>
+            <text class="self-amount">{{ money(myProgress.arrears_amount) }}</text>
+          </view>
+          <view class="self-grid">
+            <view class="self-cell">
+              <text class="self-num is-warn">{{ myProgress.pending_count || 0 }}</text>
+              <text class="self-label">待跟进</text>
+            </view>
+            <view class="self-cell">
+              <text class="self-num">{{ myProgress.touched_count || 0 }}</text>
+              <text class="self-label">已联系</text>
+            </view>
+            <view class="self-cell">
+              <text class="self-num is-danger">{{ myProgress.first_contact_overdue_count || 0 }}</text>
+              <text class="self-label">首联逾期</text>
+            </view>
+            <view class="self-cell">
+              <text class="self-num is-good">{{ myProgress.cleared_count || 0 }}</text>
+              <text class="self-label">已缴清</text>
+            </view>
+          </view>
+          <view class="self-track-head">
+            <text>联系覆盖</text>
+            <text>{{ percent(myProgress.touched_count, myProgress.followup_count) }}</text>
+          </view>
+          <view class="counselor-track">
+            <view class="counselor-track-fill" :style="{ width: percent(myProgress.touched_count, myProgress.followup_count) }"></view>
+          </view>
+          <view class="self-meta">
+            <text>分段缴 {{ myProgress.segmented_count || 0 }}</text>
+            <text>缓交 {{ myProgress.deferral_count || 0 }}</text>
+            <text :class="{ 'is-danger': Number(myProgress.due_followup_count || 0) > 0 }">逾期跟进 {{ myProgress.due_followup_count || 0 }}</text>
+            <text>承诺 {{ myProgress.promised_count || 0 }}</text>
+          </view>
+          <view class="self-foot" @click="switchView('records')">
+            <text>查看我的欠费学生名单</text>
+            <uni-icons type="arrowright" size="14" color="#b45309"></uni-icons>
+          </view>
+        </view>
+        <view v-else class="page-state is-inline">
+          <text>当前账号暂无可统计的欠费学生</text>
         </view>
       </view>
     </template>
@@ -205,6 +258,15 @@ export default {
     isCollegeView() {
       return this.isSecretaryRole || this.isTopSecretaryRole
     },
+    showProgressTabs() {
+      return this.isCollegeView || this.isCounselorRole
+    },
+    progressTabLabel() {
+      return this.isCollegeView ? '辅导员推进' : '我的进度'
+    },
+    myProgress() {
+      return this.counselors.length ? this.counselors[0] : null
+    },
     scopeTitle() {
       if (this.isCollegeView) {
         return this.collegeName || '本学院欠费'
@@ -224,6 +286,7 @@ export default {
     }
   },
   onLoad() {
+    this.checkRole()
     this.reload()
   },
   onPullDownRefresh() {
@@ -300,6 +363,8 @@ export default {
     loadCounselors() {
       return listTuitionCounselors({ batchId: this.batchId }).then(res => {
         this.counselors = (res && res.data) || []
+      }).catch(() => {
+        this.counselors = []
       })
     },
     loadMore() {
@@ -807,5 +872,135 @@ export default {
   margin-top: 14rpx;
   color: #64748b;
   font-size: 21rpx;
+}
+
+.self-card {
+  padding: 26rpx 24rpx;
+  border: 1rpx solid #f0dfc8;
+  border-radius: 16rpx;
+  background: #fffdf8;
+}
+
+.self-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16rpx;
+}
+
+.self-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 8rpx;
+  min-width: 0;
+}
+
+.self-name-row {
+  display: flex;
+  align-items: center;
+  gap: 10rpx;
+}
+
+.self-name {
+  color: #172033;
+  font-size: 30rpx;
+  font-weight: 600;
+}
+
+.self-tag {
+  padding: 3rpx 10rpx;
+  border-radius: 6rpx;
+  background: #fff7ed;
+  color: #b45309;
+  font-size: 19rpx;
+}
+
+.self-sub {
+  color: #7c8799;
+  font-size: 21rpx;
+}
+
+.self-amount {
+  flex-shrink: 0;
+  color: #b04a43;
+  font-size: 28rpx;
+  font-weight: 700;
+}
+
+.self-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12rpx;
+  margin-top: 20rpx;
+}
+
+.self-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4rpx;
+  padding: 16rpx 4rpx;
+  border-radius: 10rpx;
+  background: #ffffff;
+  border: 1rpx solid #f3eadc;
+}
+
+.self-num {
+  color: #172033;
+  font-size: 32rpx;
+  font-weight: 700;
+}
+
+.self-num.is-warn {
+  color: #b45309;
+}
+
+.self-num.is-danger {
+  color: #b04a43;
+}
+
+.self-num.is-good {
+  color: #2f7d6d;
+}
+
+.self-label {
+  color: #8a6a42;
+  font-size: 19rpx;
+}
+
+.self-track-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12rpx;
+  margin-top: 20rpx;
+  color: #64748b;
+  font-size: 21rpx;
+}
+
+.self-meta {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8rpx;
+  margin-top: 14rpx;
+  color: #64748b;
+  font-size: 21rpx;
+}
+
+.self-meta .is-danger {
+  color: #b04a43;
+}
+
+.self-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12rpx;
+  margin-top: 18rpx;
+  padding-top: 16rpx;
+  border-top: 1rpx solid #f3eadc;
+  color: #b45309;
+  font-size: 22rpx;
 }
 </style>

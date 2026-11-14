@@ -166,6 +166,18 @@
             <text class="item-value">{{ formatTransport(item.transportType) }} {{ item.transportInfo || '' }}</text>
           </view>
         </view>
+        <view class="approval-flow">
+          <view class="flow-line">
+            <text class="flow-role">辅导员</text>
+            <text class="flow-name">{{ formatCounselor(item) }}</text>
+            <text :class="['flow-state', counselorStageClass(item)]">{{ counselorStageText(item) }}</text>
+          </view>
+          <view class="flow-line" v-if="hasSecretaryStage(item)">
+            <text class="flow-role">书记</text>
+            <text class="flow-name">{{ secretaryStageName(item) }}</text>
+            <text :class="['flow-state', secretaryStageClass(item)]">{{ secretaryStageText(item) }}</text>
+          </view>
+        </view>
         <!-- 附件缩略图区域 -->
         <view class="item-attach" v-if="getDisplayAttachments(item).length > 0">
           <text class="attach-label">{{ getAttachLabel(item) }}</text>
@@ -507,8 +519,55 @@ export default {
       return map[val] || val || '未知'
     },
     formatLeaveType(val) {
-      const map = { sick: '病假', personal: '事假', other: '其他' }
+      const map = { sick: '病假', personal: '事假', public: '公假', other: '其他' }
       return map[val] || val || '未知'
+    },
+    formatCounselor(item) {
+      if (!item) return '未分配'
+      const name = item.counselorName || '未分配'
+      const phone = item.counselorPhone ? item.counselorPhone : '电话未登记'
+      return `${name}（${phone}）`
+    },
+    hasSecretaryStage(item) {
+      if (!item) return false
+      return item.approvalLevel === 'secretary' || Number(item.leaveDays || 0) > 3
+    },
+    counselorStageText(item) {
+      if (!item) return ''
+      if (item.approvalLevel === 'secretary') return '已转上级'
+      if (item.approvalStatus === 'forward') return '已转上级'
+      if (item.approvalStatus === 'approved') return (item.approverName || '辅导员') + ' 已通过'
+      if (item.approvalStatus === 'rejected') return (item.approverName || '辅导员') + ' 已拒绝'
+      if (item.approvalStatus === 'supplement') return '待补充'
+      return '待审批'
+    },
+    counselorStageClass(item) {
+      if (!item) return 'is-muted'
+      if (item.approvalLevel === 'secretary' || item.approvalStatus === 'forward') return 'is-ok'
+      if (item.approvalStatus === 'approved') return 'is-ok'
+      if (item.approvalStatus === 'rejected') return 'is-danger'
+      if (item.approvalStatus === 'supplement') return 'is-warn'
+      return 'is-warn'
+    },
+    secretaryStageName(item) {
+      if (item && item.approvalLevel === 'secretary'
+        && (item.approvalStatus === 'approved' || item.approvalStatus === 'rejected')) {
+        return item.approverName || '学院书记'
+      }
+      return '学院书记'
+    },
+    secretaryStageText(item) {
+      if (!item) return ''
+      if (item.approvalLevel !== 'secretary') return '待辅导员转办'
+      if (item.approvalStatus === 'approved') return (item.approverName || '书记') + ' 已通过'
+      if (item.approvalStatus === 'rejected') return (item.approverName || '书记') + ' 已拒绝'
+      return '待审批'
+    },
+    secretaryStageClass(item) {
+      if (!item || item.approvalLevel !== 'secretary') return 'is-muted'
+      if (item.approvalStatus === 'approved') return 'is-ok'
+      if (item.approvalStatus === 'rejected') return 'is-danger'
+      return 'is-warn'
     },
     formatReturnStatus(val) {
       const map = { not_returned: '未销假', returned: '已销假', overdue: '逾期未归', late_returned: '逾期销假' }
@@ -779,6 +838,57 @@ export default {
 
 .item-body {
   margin-bottom: 8rpx;
+}
+
+.approval-flow {
+  margin: 10rpx 0 4rpx;
+  padding: 10rpx 14rpx;
+  border-radius: 8rpx;
+  background: #f8fafb;
+}
+
+.flow-line {
+  display: flex;
+  align-items: center;
+  gap: 10rpx;
+  padding: 4rpx 0;
+  font-size: 22rpx;
+}
+
+.flow-role {
+  flex-shrink: 0;
+  width: 70rpx;
+  color: #8a94a3;
+}
+
+.flow-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  color: #333;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.flow-state {
+  flex-shrink: 0;
+  font-size: 21rpx;
+}
+
+.flow-state.is-ok {
+  color: #18bc37;
+}
+
+.flow-state.is-warn {
+  color: #f3a044;
+}
+
+.flow-state.is-danger {
+  color: #e43d33;
+}
+
+.flow-state.is-muted {
+  color: #999;
 }
 
 .item-row {

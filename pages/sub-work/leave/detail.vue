@@ -282,7 +282,7 @@
 <script>
 import { getLeave, approvalLeave, returnLeave, updateSupplementLeave } from '@/api/work/leave'
 import { getTeacherinfoByUserId } from '@/api/work/teacherinfo'
-import { isAdmin } from '@/utils/role'
+import { isAdmin, isSecretary } from '@/utils/role'
 import config from '@/config'
 
 export default {
@@ -293,6 +293,7 @@ export default {
       baseUrl: config.baseUrl,
       currentTeacherId: null,
       isAdminUser: false,
+      isSecretaryUser: false,
       supplementSaving: false,
       leaveTypeOptions: [
         { value: 'sick', label: '病假' },
@@ -321,6 +322,7 @@ export default {
     },
     canReturn() {
       return this.detail && this.detail.approvalStatus === 'approved'
+        && !this.isSecretaryUser
         && this.detail.returnStatus !== 'returned' && this.detail.returnStatus !== 'late_returned'
     },
     canSupplement() {
@@ -349,6 +351,7 @@ export default {
       let roles = []
       try { roles = uni.getStorageSync('user_roles') || [] } catch (e) {}
       this.isAdminUser = isAdmin(roles)
+      this.isSecretaryUser = isSecretary(roles)
       getTeacherinfoByUserId().then(res => {
         this.currentTeacherId = res.data && res.data.teacherId
       }).catch(() => {})
@@ -533,7 +536,7 @@ export default {
       return map[val] || val || '未知'
     },
     formatLeaveType(val) {
-      const map = { sick: '病假', personal: '事假', other: '其他' }
+      const map = { sick: '病假', personal: '事假', public: '公假', other: '其他' }
       return map[val] || val || '未知'
     },
     formatReturnStatus(val) {
@@ -556,7 +559,7 @@ export default {
       return `${y}-${m}-${day} ${h}:${min}`
     },
     formatLeaveTypeSafe(val) {
-      const map = { sick: '病假', personal: '事假', other: '其他' }
+      const map = { sick: '病假', personal: '事假', public: '公假', other: '其他' }
       return map[val] || val || '-'
     },
     formatReturnStatusSafe(val) {

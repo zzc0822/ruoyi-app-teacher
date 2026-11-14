@@ -1844,7 +1844,7 @@ export default {
       return this.classLeaves.some(l => l.xh === xh)
     },
     formatLeaveType(val) {
-      const map = { sick: '病假', personal: '事假', other: '其他' }
+      const map = { sick: '病假', personal: '事假', public: '公假', other: '其他' }
       return map[val] || val || '请假'
     },
     getTodayStr() {
