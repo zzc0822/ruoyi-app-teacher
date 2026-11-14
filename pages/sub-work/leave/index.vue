@@ -534,15 +534,17 @@ export default {
     },
     counselorStageText(item) {
       if (!item) return ''
+      if (Number(item.leaveDays || 0) > 3) return '带班辅导员'
       if (item.approvalLevel === 'secretary') return '已转上级'
       if (item.approvalStatus === 'forward') return '已转上级'
-      if (item.approvalStatus === 'approved') return (item.approverName || '辅导员') + ' 已通过'
-      if (item.approvalStatus === 'rejected') return (item.approverName || '辅导员') + ' 已拒绝'
+      if (item.approvalStatus === 'approved') return '已通过'
+      if (item.approvalStatus === 'rejected') return '已拒绝'
       if (item.approvalStatus === 'supplement') return '待补充'
       return '待审批'
     },
     counselorStageClass(item) {
       if (!item) return 'is-muted'
+      if (Number(item.leaveDays || 0) > 3) return 'is-muted'
       if (item.approvalLevel === 'secretary' || item.approvalStatus === 'forward') return 'is-ok'
       if (item.approvalStatus === 'approved') return 'is-ok'
       if (item.approvalStatus === 'rejected') return 'is-danger'
@@ -559,8 +561,8 @@ export default {
     secretaryStageText(item) {
       if (!item) return ''
       if (item.approvalLevel !== 'secretary') return '待辅导员转办'
-      if (item.approvalStatus === 'approved') return (item.approverName || '书记') + ' 已通过'
-      if (item.approvalStatus === 'rejected') return (item.approverName || '书记') + ' 已拒绝'
+      if (item.approvalStatus === 'approved') return '已通过'
+      if (item.approvalStatus === 'rejected') return '已拒绝'
       return '待审批'
     },
     secretaryStageClass(item) {
