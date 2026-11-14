@@ -24,7 +24,7 @@
         <view class="student-meta">
           <text class="meta-strong">{{ record.className || '班级待匹配' }}</text>
           <text class="meta-sep">/</text>
-          <text>{{ record.grade ? record.grade + '级' : '年级待匹配' }}</text>
+          <text>{{ gradeText(record.grade) }}</text>
           <text class="meta-sep">/</text>
           <text>{{ record.majorName || '专业待匹配' }}</text>
         </view>
@@ -284,6 +284,11 @@ export default {
     },
     money(value) {
       return Number(value || 0).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+    },
+    gradeText(value) {
+      if (!value) return '年级待匹配'
+      const text = String(value)
+      return /级$/.test(text) ? text : text + '级'
     },
     shortDate(value) {
       return value ? String(value).slice(0, 10) : '--'
