@@ -137,14 +137,19 @@
                   v-for="(att, attIndex) in event.attachments"
                   :key="att.id || attIndex"
                   class="timeline-attachment"
-                  @click.stop="openAttachment(event, att)"
+                  @click.stop="onAttachmentTap(event, attIndex)"
                 >
                   <image
-                    v-if="isImageAttachment(att)"
+                    v-if="isImageAttachment(att) && !isAttachFailed(att)"
                     class="timeline-thumb"
                     :src="getAttachSrc(att)"
                     mode="aspectFill"
+                    @error="markAttachFailed(att)"
                   />
+                  <view v-else-if="isImageAttachment(att)" class="timeline-file timeline-file-failed">
+                    <uni-icons type="image" size="16" color="#b45309"></uni-icons>
+                    <text class="timeline-file-name">图片加载失败，点击重试</text>
+                  </view>
                   <view v-else class="timeline-file">
                     <uni-icons type="paperclip" size="16" color="#64748b"></uni-icons>
                     <text class="timeline-file-name">{{ att.fileName || '附件' }}</text>
@@ -159,6 +164,30 @@
 
       <view class="foot-tip">移动端仅用于查看，登记跟进、缓交审批请在电脑端办理。</view>
     </template>
+
+    <view
+      v-if="previewVisible"
+      class="photo-preview"
+      @click="closePreview"
+      @touchmove.stop.prevent
+    >
+      <swiper
+        class="preview-swiper"
+        :current="previewIndex"
+        @change="onPreviewChange"
+        @click.stop
+      >
+        <swiper-item v-for="(url, index) in previewList" :key="index">
+          <image class="preview-image" :src="url" mode="aspectFit" @click.stop="closePreview" />
+        </swiper-item>
+      </swiper>
+      <view class="preview-topbar">
+        <text class="preview-counter">{{ previewIndex + 1 }} / {{ previewList.length }}</text>
+        <view class="preview-close" @click.stop="closePreview">
+          <uni-icons type="closeempty" size="28" color="#ffffff"></uni-icons>
+        </view>
+      </view>
+    </view>
   </view>
 </template>
 
@@ -176,10 +205,18 @@ export default {
       followups: [],
       deferralPlans: [],
       timeline: [],
+      attachErrors: {},
+      attachRetryKeys: {},
+      previewVisible: false,
+      previewList: [],
+      previewIndex: 0,
       baseUrl: config.baseUrl
     }
   },
   computed: {
+    fileBaseUrl() {
+      return String(this.baseUrl || '').replace(/\/+$/, '').replace(/\/prod-api$/, '')
+    },
     followupTimeText() {
       const time = this.record && this.record.lastFollowupTime
       return time ? '最近跟进 ' + this.shortTime(time) : '尚无跟进记录'
@@ -235,14 +272,48 @@ export default {
       const name = String(att.fileName || att.filePath || '').toLowerCase()
       return /\.(jpg|jpeg|png|gif|webp|bmp|heic)$/.test(name)
     },
+    attachKey(att) {
+      if (!att) return ''
+      return String(att.id || att.filePath || '')
+    },
+    isAttachFailed(att) {
+      const key = this.attachKey(att)
+      return !!key && !!this.attachErrors[key]
+    },
+    markAttachFailed(att) {
+      const key = this.attachKey(att)
+      if (!key) return
+      this.$set(this.attachErrors, key, true)
+    },
+    retryAttach(att) {
+      const key = this.attachKey(att)
+      if (!key) return
+      this.$delete(this.attachErrors, key)
+      this.$set(this.attachRetryKeys, key, Date.now())
+    },
+    onAttachmentTap(event, attIndex) {
+      const att = (event.attachments || [])[attIndex]
+      if (!att) return
+      if (this.isImageAttachment(att) && this.isAttachFailed(att)) {
+        this.retryAttach(att)
+        return
+      }
+      this.openAttachment(event, att)
+    },
     getAttachSrc(att) {
       if (!att) return ''
       if (att.thumbnailBase64 && att.thumbnailBase64.indexOf('data:') === 0) return att.thumbnailBase64
-      const path = att.filePath || ''
+      let path = String(att.filePath || '').trim()
       if (!path) return ''
       if (path.indexOf('http://') === 0 || path.indexOf('https://') === 0) return path
-      if (path.indexOf('/profile') === 0) return this.baseUrl + path
-      return this.baseUrl + '/profile' + (path.charAt(0) === '/' ? '' : '/') + path
+      if (path.indexOf('/prod-api/') === 0) path = path.substring('/prod-api'.length)
+      if (path.indexOf('/profile') !== 0) {
+        path = '/profile' + (path.charAt(0) === '/' ? '' : '/') + path
+      }
+      let url = this.fileBaseUrl + path
+      const retryKey = this.attachRetryKeys[this.attachKey(att)]
+      if (retryKey) url += (url.indexOf('?') >= 0 ? '&' : '?') + 'v=' + retryKey
+      return url
     },
     openAttachment(event, att) {
       if (this.isImageAttachment(att)) {
@@ -252,16 +323,15 @@ export default {
           .filter(Boolean)
         if (urls.length) {
           const current = this.getAttachSrc(att)
-          uni.previewImage({
-            current: urls.indexOf(current) >= 0 ? current : urls[0],
-            urls
-          })
+          this.previewList = urls
+          this.previewIndex = Math.max(0, urls.indexOf(current))
+          this.previewVisible = true
           return
         }
       }
       const url = this.getAttachSrc(att)
       if (!url) {
-        uni.showToast({ title: '附件地址缺失', icon: 'none' })
+        uni.showToast({ title: '佐证图片地址缺失', icon: 'none' })
         return
       }
       uni.showLoading({ title: '正在打开' })
@@ -281,6 +351,14 @@ export default {
         fail: () => uni.showToast({ title: '附件下载失败', icon: 'none' }),
         complete: () => uni.hideLoading()
       })
+    },
+    closePreview() {
+      this.previewVisible = false
+      this.previewList = []
+      this.previewIndex = 0
+    },
+    onPreviewChange(e) {
+      this.previewIndex = Number(e.detail.current || 0)
     },
     money(value) {
       return Number(value || 0).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -840,12 +918,62 @@ export default {
   background: #f8fafc;
 }
 
+.timeline-file-failed {
+  background: #fffbeb;
+}
+
 .timeline-file-name {
   overflow: hidden;
   color: #475569;
   font-size: 20rpx;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.photo-preview {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 9999;
+  background: #000000;
+}
+
+.preview-swiper {
+  width: 100%;
+  height: 100%;
+}
+
+.preview-image {
+  width: 100%;
+  height: 100%;
+}
+
+.preview-topbar {
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: calc(20rpx + env(safe-area-inset-top)) 28rpx 20rpx;
+}
+
+.preview-counter {
+  color: #ffffff;
+  font-size: 26rpx;
+}
+
+.preview-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 72rpx;
+  height: 72rpx;
+  border-radius: 50%;
+  background: rgba(15, 23, 42, 0.55);
 }
 
 .empty-tip {

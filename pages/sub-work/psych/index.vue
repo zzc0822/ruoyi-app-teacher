@@ -51,7 +51,7 @@
 
       <template v-if="viewMode === 'tasks'">
         <view v-if="tasks.length" class="task-list">
-          <view v-for="task in tasks" :key="task.taskType + '-' + task.taskId" class="task-card">
+          <view v-for="task in tasks" :key="task.taskKey" class="task-card">
             <view class="task-top">
               <view class="task-name-row">
                 <text class="priority-dot" :class="priorityClass(task.priority)"></text>
@@ -62,8 +62,6 @@
             </view>
             <text class="task-summary">{{ task.title }}</text>
             <view class="task-sub">
-              <text v-if="task.className">{{ task.className }}</text>
-              <text v-if="task.summary" class="dot">·</text>
               <text v-if="task.summary">{{ task.summary }}</text>
             </view>
             <view class="task-identity">
@@ -88,7 +86,7 @@
 
       <template v-else>
         <view v-if="counselors.length" class="counselor-list">
-          <view v-for="(row, index) in counselors" :key="row.teacherId || index" class="counselor-card">
+          <view v-for="(row, index) in counselors" :key="index" class="counselor-card" @click="openCounselorDetail(row)">
             <view class="counselor-head">
               <view class="counselor-copy">
                 <text class="counselor-name">{{ row.counselorName || '未分配' }}</text>
@@ -106,8 +104,9 @@
               <text :class="{ 'is-danger': n(row.surveyFollowUpDue) > 0 }">追踪逾期 {{ n(row.surveyFollowUpDue) }}</text>
               <text :class="{ 'is-danger': n(row.surveyOverdue) > 0 }">访谈逾期 {{ n(row.surveyOverdue) }}</text>
             </view>
-            <view v-if="row.lastFollowUpDate" class="counselor-foot">
-              <text>最近追踪 {{ shortDate(row.lastFollowUpDate) }}</text>
+            <view class="counselor-foot">
+              <text>{{ row.lastFollowUpDate ? '最近追踪 ' + shortDate(row.lastFollowUpDate) : '暂无追踪记录' }}</text>
+              <text class="counselor-more">查看待办明细</text>
             </view>
           </view>
         </view>
@@ -117,12 +116,12 @@
       </template>
     </template>
 
-    <view v-if="revealVisible" class="modal-mask" @click="closeReveal">
+    <view v-if="revealVisible" class="modal-mask" :class="{ 'is-front': counselorVisible }" @click="closeReveal">
       <view class="modal-card" @click.stop>
         <view class="modal-head">
           <view class="modal-title-wrap">
             <text class="modal-title">敏感信息二次校验</text>
-            <text class="modal-sub">{{ revealTask.studentName }} · {{ revealTask.className || '班级待匹配' }}</text>
+            <text class="modal-sub">{{ revealTask.studentName || '未命名学生' }} · {{ revealTask.className || '班级待匹配' }}</text>
           </view>
           <view class="modal-close" @click="closeReveal">
             <uni-icons type="closeempty" size="20" color="#94a3b8"></uni-icons>
@@ -130,16 +129,20 @@
         </view>
 
         <template v-if="!revealedIdentity">
+          <view v-if="grantActive" class="grant-tip">
+            <uni-icons type="checkmarkempty" size="14" color="#0f766e"></uni-icons>
+            <text>当前账号已通过二次校验，{{ grantDeadlineText }} 前查看任意学生心理明文免密，本次仍会写入访问留痕。</text>
+          </view>
           <view class="modal-field">
-            <text class="field-label">访问事由</text>
+            <text class="field-label">访问事由{{ grantActive ? '（可留空）' : '' }}</text>
             <textarea
               v-model="revealForm.reason"
               class="field-textarea"
               maxlength="200"
-              placeholder="填写本次查看明文的原因，例如：辅导员联系学生家长"
+              :placeholder="grantActive ? '留空则沿用首次校验事由' : '填写本次查看明文的原因，例如：辅导员联系学生家长'"
             />
           </view>
-          <view class="modal-field">
+          <view v-if="!grantActive && !grantChecking" class="modal-field">
             <text class="field-label">当前账号登录密码</text>
             <input
               v-model="revealForm.password"
@@ -151,17 +154,22 @@
           </view>
           <view class="modal-note">
             <uni-icons type="info" size="14" color="#94a3b8"></uni-icons>
-            <text>明文仅按人按次展示，本次查看会写入心理访问留痕。</text>
+            <text>明文仅按人展示，本次查看会写入心理访问留痕。</text>
           </view>
-          <view class="modal-submit" :class="{ disabled: revealSubmitting }" @click="submitReveal">
-            <text>{{ revealSubmitting ? '校验中...' : '校验并查看' }}</text>
+          <view class="modal-submit" :class="{ disabled: revealSubmitting || grantChecking }" @click="submitReveal">
+            <text>{{ grantChecking ? '校验授权...' : (revealSubmitting ? '校验中...' : (grantActive ? '查看明文与记录' : '校验并查看')) }}</text>
           </view>
         </template>
 
         <template v-else>
           <view class="identity-card">
             <view class="identity-main">
-              <text class="identity-name">{{ revealedIdentity.studentName }}</text>
+              <view class="identity-name-row">
+                <text class="identity-name">{{ revealedIdentity.studentName }}</text>
+                <text class="identity-badge" :class="{ 'is-grant': revealedIdentity.verifiedBy === 'GRANT' }">
+                  {{ revealedIdentity.verifiedBy === 'GRANT' ? '免密授权' : '密码校验' }}
+                </text>
+              </view>
               <text class="identity-class">{{ revealedIdentity.collegeName }} · {{ revealedIdentity.className }}</text>
             </view>
             <view class="identity-row">
@@ -181,10 +189,100 @@
             <uni-icons type="checkmarkempty" size="14" color="#0f766e"></uni-icons>
             <text>本次明文查看已写入访问留痕，请按最小必要使用。</text>
           </view>
+          <view class="timeline-card">
+            <view class="timeline-head">
+              <text class="timeline-head-title">心理工作记录</text>
+              <text class="timeline-count">{{ timeline.length }} 条</text>
+            </view>
+            <view v-if="timeline.length" class="timeline-list">
+              <view v-for="(item, index) in timeline" :key="index" class="timeline-item">
+                <view class="timeline-axis">
+                  <view class="timeline-dot" :class="'tone-' + (item.tone || 'normal')"></view>
+                  <view v-if="index < timeline.length - 1" class="timeline-line"></view>
+                </view>
+                <view class="timeline-body">
+                  <text class="timeline-time">{{ item.eventTime }}</text>
+                  <text class="timeline-title">{{ item.title }}</text>
+                  <text v-if="item.detail" class="timeline-detail">{{ item.detail }}</text>
+                  <text class="timeline-meta">{{ item.eventLabel }}{{ item.operatorName ? ' · ' + item.operatorName : '' }}</text>
+                </view>
+              </view>
+            </view>
+            <view v-else class="timeline-empty">
+              <text>暂无心理测评、普查访谈或辅导员谈话记录</text>
+            </view>
+          </view>
           <view class="modal-submit" @click="closeReveal">
             <text>关闭</text>
           </view>
         </template>
+      </view>
+    </view>
+
+    <view v-if="counselorVisible" class="modal-mask" @click="closeCounselorDetail">
+      <view class="modal-card counselor-detail-card" @click.stop>
+        <view class="modal-head">
+          <view class="modal-title-wrap">
+            <text class="modal-title">辅导员心理工作明细</text>
+            <text class="modal-sub">
+              {{ counselorInfo.counselorName || '未分配' }} · {{ counselorInfo.collegeName || '学院待匹配' }}
+            </text>
+          </view>
+          <view class="modal-close" @click="closeCounselorDetail">
+            <uni-icons type="closeempty" size="20" color="#94a3b8"></uni-icons>
+          </view>
+        </view>
+        <view class="detail-summary">
+          <view class="detail-cell">
+            <text class="detail-value">{{ n(counselorInfo.classCount) }}</text>
+            <text class="detail-label">带班</text>
+          </view>
+          <view class="detail-cell">
+            <text class="detail-value">{{ n(counselorInfo.studentCount) }}</text>
+            <text class="detail-label">学生</text>
+          </view>
+          <view class="detail-cell">
+            <text class="detail-value">{{ rateText(counselorInfo.assessmentRate) }}</text>
+            <text class="detail-label">测评完成</text>
+          </view>
+          <view class="detail-cell">
+            <text class="detail-value is-danger">{{ n(counselorInfo.surveyFollowUpDue) }}</text>
+            <text class="detail-label">追踪逾期</text>
+          </view>
+        </view>
+        <view class="detail-filter">
+          <view
+            v-for="item in counselorFilters"
+            :key="item.key"
+            class="filter-chip"
+            :class="{ 'is-active': counselorTaskFilter === item.key }"
+            @click="counselorTaskFilter = item.key"
+          >
+            <text>{{ item.label }} {{ counselorTaskCounts[item.key] }}</text>
+          </view>
+        </view>
+        <scroll-view scroll-y class="detail-scroll">
+          <view v-if="counselorLoading" class="detail-empty">
+            <text>正在加载待办...</text>
+          </view>
+          <view v-else-if="visibleCounselorTasks.length" class="detail-list">
+            <view v-for="(task, index) in visibleCounselorTasks" :key="index" class="detail-item">
+              <view class="detail-item-head">
+                <text class="detail-tag" :class="priorityClass(task.priority)">{{ task.priorityLabel || '待办' }}</text>
+                <text class="detail-source">{{ task.sourceLabel }}</text>
+                <text v-if="task.deadline" class="detail-deadline">{{ shortDateTime(task.deadline) }}</text>
+              </view>
+              <text class="detail-item-title">{{ task.title }}</text>
+              <text class="detail-item-summary">{{ task.summary }}</text>
+              <view class="detail-item-foot">
+                <text v-if="task.xh" class="detail-action" @click.stop="openReveal(task)">查看明文</text>
+              </view>
+            </view>
+          </view>
+          <view v-else class="detail-empty">
+            <text>{{ counselorTaskFilter === 'all' ? '该辅导员当前没有待办事项' : '当前筛选下没有待办' }}</text>
+          </view>
+        </scroll-view>
       </view>
     </view>
   </view>
@@ -192,7 +290,12 @@
 
 <script>
 import { roleMixin } from '@/utils/roleSystem'
-import { getPsychWorkbench, revealPsychIdentity } from '@/api/work/psych'
+import {
+  getPsychWorkbench,
+  getPsychRevealGrant,
+  getPsychCounselorDetail,
+  revealPsychIdentity
+} from '@/api/work/psych'
 
 export default {
   mixins: [roleMixin],
@@ -209,10 +312,48 @@ export default {
       revealTask: {},
       revealForm: { reason: '', password: '' },
       revealSubmitting: false,
-      revealedIdentity: null
+      revealedIdentity: null,
+      grantActive: false,
+      grantExpiresAt: null,
+      grantChecking: false,
+      counselorVisible: false,
+      counselorLoading: false,
+      counselorDetail: null,
+      counselorTaskFilter: 'all',
+      counselorFilters: [
+        { key: 'all', label: '全部' },
+        { key: 'assessment', label: '测评' },
+        { key: 'survey', label: '访谈' },
+        { key: 'talk', label: '谈话' }
+      ]
     }
   },
   computed: {
+    timeline() {
+      return (this.revealedIdentity && this.revealedIdentity.timeline) || []
+    },
+    grantDeadlineText() {
+      return this.formatGrantTime(this.grantExpiresAt)
+    },
+    counselorInfo() {
+      return (this.counselorDetail && this.counselorDetail.counselor) || {}
+    },
+    counselorTasks() {
+      return (this.counselorDetail && this.counselorDetail.tasks) || []
+    },
+    visibleCounselorTasks() {
+      if (this.counselorTaskFilter === 'all') return this.counselorTasks
+      return this.counselorTasks.filter(task => task.taskType === this.counselorTaskFilter)
+    },
+    counselorTaskCounts() {
+      const counts = { all: this.counselorTasks.length, assessment: 0, survey: 0, talk: 0 }
+      this.counselorTasks.forEach(task => {
+        if (counts[task.taskType] !== undefined) {
+          counts[task.taskType] += 1
+        }
+      })
+      return counts
+    },
     isCenterView() {
       return this.overview.viewType === 'CENTER' || this.overview.viewType === 'SCHOOL'
     },
@@ -253,7 +394,10 @@ export default {
         const data = (res && res.data) || {}
         this.overview = data
         this.stats = data.stats || {}
-        this.tasks = data.tasks || []
+        this.tasks = (data.tasks || []).map(task => ({
+          ...task,
+          taskKey: task.taskType + '-' + task.taskId
+        }))
         this.counselors = data.counselors || []
         if (!this.tasks.length && this.counselors.length) {
           this.viewMode = 'progress'
@@ -267,40 +411,90 @@ export default {
     switchView(mode) {
       this.viewMode = mode
     },
+    openCounselorDetail(row) {
+      if (!row || !row.userId) return
+      this.counselorVisible = true
+      this.counselorLoading = true
+      this.counselorTaskFilter = 'all'
+      this.counselorDetail = { counselor: row, tasks: [] }
+      getPsychCounselorDetail(row.userId).then(res => {
+        this.counselorDetail = (res && res.data) || { counselor: row, tasks: [] }
+      }).catch(error => {
+        const message = typeof error === 'string' ? error : '辅导员明细加载失败'
+        uni.showToast({ title: message, icon: 'none' })
+        this.counselorDetail = { counselor: row, tasks: [] }
+      }).finally(() => {
+        this.counselorLoading = false
+      })
+    },
+    closeCounselorDetail() {
+      this.counselorVisible = false
+      this.counselorDetail = null
+      this.counselorTaskFilter = 'all'
+      this.counselorLoading = false
+    },
     openReveal(task) {
+      if (!task || !task.xh) return
       this.revealTask = task || {}
       this.revealForm = { reason: '', password: '' }
       this.revealedIdentity = null
       this.revealVisible = true
+      this.grantChecking = true
+      getPsychRevealGrant().then(res => {
+        const data = (res && res.data) || {}
+        if (!this.revealTask) return
+        if (data.active) {
+          this.grantActive = true
+          this.grantExpiresAt = data.expiresAt
+        } else {
+          this.grantActive = false
+          this.grantExpiresAt = null
+        }
+      }).catch(() => {
+        this.grantActive = false
+        this.grantExpiresAt = null
+      }).finally(() => {
+        this.grantChecking = false
+      })
     },
     closeReveal() {
       if (this.revealSubmitting) return
       this.revealVisible = false
       this.revealedIdentity = null
+      this.grantActive = false
+      this.grantExpiresAt = null
+      this.grantChecking = false
     },
     submitReveal() {
-      if (this.revealSubmitting) return
+      if (this.revealSubmitting || this.grantChecking) return
       const reason = (this.revealForm.reason || '').trim()
       const password = this.revealForm.password || ''
-      if (!reason) {
+      if (!this.grantActive && !reason) {
         uni.showToast({ title: '请填写访问事由', icon: 'none' })
         return
       }
-      if (!password) {
+      if (!this.grantActive && !password) {
         uni.showToast({ title: '请输入当前账号登录密码', icon: 'none' })
         return
       }
       this.revealSubmitting = true
       revealPsychIdentity({
         xh: this.revealTask.xh,
-        password: password,
-        reason: reason
+        password: this.grantActive ? '' : password,
+        reason: reason,
+        reuseGrant: this.grantActive
       }).then(res => {
         this.revealedIdentity = (res && res.data) || null
+        if (this.revealedIdentity && this.revealedIdentity.grantExpiresAt) {
+          this.grantActive = true
+          this.grantExpiresAt = this.revealedIdentity.grantExpiresAt
+        }
         this.revealForm.password = ''
       }).catch(error => {
         const message = typeof error === 'string' ? error : '二次校验失败'
         uni.showToast({ title: message, icon: 'none', duration: 2600 })
+        this.grantActive = false
+        this.grantExpiresAt = null
       }).finally(() => {
         this.revealSubmitting = false
       })
@@ -319,6 +513,19 @@ export default {
     shortDate(value) {
       if (!value) return ''
       return String(value).slice(0, 10).slice(5)
+    },
+    shortDateTime(value) {
+      if (!value) return ''
+      return String(value).replace('T', ' ').slice(5, 16)
+    },
+    formatGrantTime(value) {
+      if (!value) return ''
+      const date = typeof value === 'number'
+        ? new Date(value)
+        : new Date(String(value).replace(/-/g, '/'))
+      if (Number.isNaN(date.getTime())) return String(value)
+      const pad = number => (number < 10 ? '0' : '') + number
+      return pad(date.getHours()) + ':' + pad(date.getMinutes())
     },
     priorityClass(priority) {
       if (priority === 'crisis' || priority === 'danger') return 'is-danger'
@@ -704,9 +911,17 @@ export default {
 }
 
 .counselor-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16rpx;
   margin-top: 10rpx;
   font-size: 20rpx;
   color: #94a3b8;
+}
+
+.counselor-more {
+  color: #0f766e;
 }
 
 .modal-mask {
@@ -720,6 +935,10 @@ export default {
   align-items: flex-end;
   justify-content: center;
   background: rgba(15, 23, 42, 0.45);
+}
+
+.modal-mask.is-front {
+  z-index: 1000;
 }
 
 .modal-card {
@@ -809,6 +1028,19 @@ export default {
   color: #0f766e;
 }
 
+.grant-tip {
+  display: flex;
+  align-items: flex-start;
+  gap: 8rpx;
+  margin-top: 20rpx;
+  padding: 14rpx 16rpx;
+  border-radius: 10rpx;
+  background: #effaf6;
+  color: #0f766e;
+  font-size: 21rpx;
+  line-height: 1.6;
+}
+
 .modal-submit {
   display: flex;
   align-items: center;
@@ -831,6 +1063,132 @@ export default {
   padding: 22rpx;
   border-radius: 14rpx;
   background: #f4f8f9;
+}
+
+.identity-name-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16rpx;
+}
+
+.identity-badge {
+  flex-shrink: 0;
+  padding: 4rpx 12rpx;
+  border-radius: 8rpx;
+  background: #e8eef4;
+  color: #475569;
+  font-size: 20rpx;
+}
+
+.identity-badge.is-grant {
+  background: #e3f5ee;
+  color: #0f766e;
+}
+
+.timeline-card {
+  margin-top: 22rpx;
+  padding: 20rpx 20rpx 6rpx;
+  border: 1rpx solid #e2e8ee;
+  border-radius: 14rpx;
+  background: #ffffff;
+}
+
+.timeline-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 16rpx;
+  border-bottom: 1rpx solid #eef2f6;
+}
+
+.timeline-head-title {
+  font-size: 25rpx;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.timeline-count {
+  font-size: 21rpx;
+  color: #94a3b8;
+}
+
+.timeline-item {
+  display: flex;
+  gap: 16rpx;
+  padding-top: 18rpx;
+}
+
+.timeline-axis {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 20rpx;
+  flex-shrink: 0;
+}
+
+.timeline-dot {
+  width: 14rpx;
+  height: 14rpx;
+  margin-top: 8rpx;
+  border-radius: 50%;
+  background: #5b7c99;
+}
+
+.timeline-dot.tone-warn {
+  background: #d97706;
+}
+
+.timeline-dot.tone-danger {
+  background: #c0392b;
+}
+
+.timeline-line {
+  flex: 1;
+  width: 2rpx;
+  margin-top: 6rpx;
+  background: #e2e8ee;
+}
+
+.timeline-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6rpx;
+  flex: 1;
+  padding-bottom: 18rpx;
+  min-width: 0;
+}
+
+.timeline-time {
+  font-size: 20rpx;
+  color: #94a3b8;
+}
+
+.timeline-title {
+  font-size: 24rpx;
+  font-weight: 600;
+  color: #0f172a;
+  line-height: 1.5;
+}
+
+.timeline-detail {
+  font-size: 22rpx;
+  color: #475569;
+  line-height: 1.65;
+  word-break: break-word;
+  white-space: pre-wrap;
+}
+
+.timeline-meta {
+  font-size: 20rpx;
+  color: #94a3b8;
+}
+
+.timeline-empty {
+  padding: 28rpx 0 24rpx;
+  text-align: center;
+  font-size: 21rpx;
+  color: #94a3b8;
 }
 
 .identity-main {
@@ -870,5 +1228,151 @@ export default {
   color: #0f172a;
   word-break: break-all;
   text-align: right;
+}
+
+.counselor-detail-card {
+  padding-bottom: 28rpx;
+}
+
+.detail-summary {
+  display: flex;
+  gap: 12rpx;
+  margin-top: 22rpx;
+}
+
+.detail-cell {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  gap: 6rpx;
+  padding: 16rpx 6rpx;
+  border-radius: 12rpx;
+  background: #f4f8f9;
+}
+
+.detail-value {
+  font-size: 30rpx;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.detail-value.is-danger {
+  color: #b91c1c;
+}
+
+.detail-label {
+  font-size: 20rpx;
+  color: #94a3b8;
+}
+
+.detail-filter {
+  display: flex;
+  gap: 12rpx;
+  margin-top: 20rpx;
+}
+
+.filter-chip {
+  flex: 1;
+  padding: 12rpx 0;
+  border-radius: 10rpx;
+  background: #f1f5f9;
+  text-align: center;
+  font-size: 22rpx;
+  color: #64748b;
+}
+
+.filter-chip.is-active {
+  background: #12324a;
+  color: #ffffff;
+}
+
+.detail-scroll {
+  height: 42vh;
+  margin-top: 16rpx;
+}
+
+.detail-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+  padding-bottom: 12rpx;
+}
+
+.detail-item {
+  padding: 18rpx;
+  border: 1rpx solid #e2e8ee;
+  border-radius: 12rpx;
+  background: #ffffff;
+}
+
+.detail-item-head {
+  display: flex;
+  align-items: center;
+  gap: 10rpx;
+  font-size: 20rpx;
+  color: #94a3b8;
+}
+
+.detail-tag {
+  padding: 2rpx 10rpx;
+  border-radius: 6rpx;
+  background: #e8eef4;
+  color: #475569;
+  font-size: 19rpx;
+}
+
+.detail-tag.is-danger {
+  background: #fdecec;
+  color: #b91c1c;
+}
+
+.detail-tag.is-warn {
+  background: #fdf3e3;
+  color: #b45309;
+}
+
+.detail-source {
+  color: #5b7c99;
+}
+
+.detail-deadline {
+  margin-left: auto;
+}
+
+.detail-item-title {
+  display: block;
+  margin-top: 10rpx;
+  font-size: 25rpx;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.detail-item-summary {
+  display: block;
+  margin-top: 6rpx;
+  font-size: 22rpx;
+  line-height: 1.6;
+  color: #526273;
+}
+
+.detail-item-foot {
+  display: flex;
+  gap: 20rpx;
+  margin-top: 10rpx;
+}
+
+.detail-action {
+  font-size: 22rpx;
+  color: #0f766e;
+}
+
+.detail-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 220rpx;
+  font-size: 22rpx;
+  color: #94a3b8;
 }
 </style>
