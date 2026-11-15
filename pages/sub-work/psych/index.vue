@@ -27,7 +27,7 @@
           </view>
         </view>
         <view class="hero-foot">
-          <text>已测评 {{ n(stats.assessmentCompleted) }}/{{ n(stats.assessmentTotal) }}</text>
+          <text>测评未完成 {{ n(stats.assessmentPending) }} / 在校 {{ n(stats.assessmentTotal) }}</text>
           <text>已访谈 {{ n(stats.surveyInterviewCompleted) }}/{{ n(stats.surveyTotal) }}</text>
           <text>追踪中 {{ n(stats.surveyFollowing) }}</text>
         </view>
@@ -98,7 +98,7 @@
               <view class="counselor-fill" :style="{ width: rateWidth(row.assessmentRate) }"></view>
             </view>
             <view class="counselor-meta">
-              <text>测评 {{ n(row.assessmentCompleted) }}/{{ n(row.assessmentTotal) }}</text>
+              <text>已测评 {{ n(row.assessmentCompleted) }} 人</text>
               <text class="is-warn">待测评 {{ n(row.assessmentPending) }}</text>
               <text>待访谈 {{ n(row.surveyOpen) }}</text>
               <text :class="{ 'is-danger': n(row.surveyFollowUpDue) > 0 }">追踪逾期 {{ n(row.surveyFollowUpDue) }}</text>

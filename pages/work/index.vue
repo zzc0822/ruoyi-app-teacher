@@ -405,7 +405,7 @@ export default {
         const counselors = (this.psychOverview.counselors || []).length
         return `覆盖 ${counselors} 名辅导员 · 测评完成率 ${rate.toFixed(1).replace('.0', '')}%`
       }
-      return `本人带班测评 ${stats.assessmentTotal || 0} 人 · 待访谈 ${stats.surveyOpen || 0} 人`
+      return `本人带班未完成测评 ${stats.assessmentPending || 0} 人 · 待访谈 ${stats.surveyOpen || 0} 人`
     },
     tuitionViewMode() { return this.isSecretaryRole ? 'college' : 'mine' },
     tuitionSummaryText() {
