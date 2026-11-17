@@ -44,19 +44,11 @@ export default {
     items: {
       type: Array,
       default: () => []
-    },
-    appVersion: {
-      type: String,
-      default: ''
     }
   },
   computed: {
-    // 优先展示当前小程序版本，缺失时回落到最新更新记录的版本号
+    // 版本号以功能表为准，和小程序包版本解耦，保证 PC/小程序两端显示一致
     displayVersion() {
-      const appLabel = this.normalizeVersion(this.appVersion)
-      if (appLabel) {
-        return appLabel
-      }
       const list = this.items || []
       for (let i = 0; i < list.length; i++) {
         const label = this.normalizeVersion(list[i] && list[i].version)

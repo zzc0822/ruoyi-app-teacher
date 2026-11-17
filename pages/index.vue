@@ -112,7 +112,6 @@
     <feature-update-popup
       :visible="featureUpdateVisible"
       :items="featureUpdates"
-      :app-version="appVersion"
       @close="closeFeatureUpdate"
     />
   </view>
@@ -122,12 +121,11 @@
 import { getWorkDashboard } from '@/api/work/dashboard'
 import { getCurrentRole, getTeacherinfoByUserId } from '@/api/work/teacherinfo'
 import { getMySchedule } from '@/api/work/schedule'
-import { listTodo } from '@/api/work/todo'
+import { listTodo, completeTodo } from '@/api/work/todo'
 import { getMyMiniConfig } from '@/api/system/miniConfig'
 import { getLatestFeatureTimeline } from '@/api/system/featureTimeline'
 import { createRoleComputed } from '@/utils/roleSystem'
 import FeatureUpdatePopup from '@/components/feature-update-popup/index.vue'
-import appConfig from '@/config'
 
 let featureUpdateLoading = false
 const FEATURE_UPDATE_SEEN_KEY = 'featureUpdateSeenKey'
@@ -154,8 +152,7 @@ export default {
       miniConfigLoaded: false,
       currentRole: null,
       featureUpdateVisible: false,
-      featureUpdates: [],
-      appVersion: ''
+      featureUpdates: []
     }
   },
   onShow() {
@@ -166,7 +163,6 @@ export default {
     this.loadTodoList()
     this.buildWeekDays()
     this.loadMySchedule()
-    this.loadAppVersion()
     this.loadFeatureUpdates()
     
     // 监听刷新事件
@@ -203,7 +199,7 @@ export default {
         return
       }
       featureUpdateLoading = true
-      getLatestFeatureTimeline(5).then(res => {
+      getLatestFeatureTimeline(8).then(res => {
         featureUpdateLoading = false
         globalData.featureUpdateEligible = false
         const list = res && Array.isArray(res.data) ? res.data : []
@@ -228,12 +224,7 @@ export default {
     buildFeatureUpdateKey(items) {
       const latest = items && items.length ? items[0] : null
       const marker = latest && (latest.id || latest.version)
-      return (this.appVersion || 'unknown') + '#' + (marker || '')
-    },
-    loadAppVersion() {
-      const app = getApp()
-      const runtimeConfig = (app && app.globalData && app.globalData.config) || appConfig
-      this.appVersion = (runtimeConfig && runtimeConfig.appInfo && runtimeConfig.appInfo.version) || ''
+      return 'v1#' + (marker || '')
     },
     closeFeatureUpdate() {
       this.featureUpdateVisible = false
@@ -444,10 +435,46 @@ export default {
             uni.navigateTo({ url: '/pages/sub-work/todo/index' })
           }
         })
+      } else if (['meeting', 'class_meeting', 'task'].includes(item.todoType)) {
+        // 会议/班会/普通待办在首页日历上直接给出详情与完成入口，避免点了没反应
+        this.showAgendaTodo(item)
       } else {
         // 其他类型跳转到待办列表页
         uni.navigateTo({ url: '/pages/sub-work/todo/index' })
       }
+    },
+    showAgendaTodo(item) {
+      const lines = []
+      const start = item.startTime ? item.startTime.substring(0, 16).replace('T', ' ') : ''
+      const end = item.endTime ? item.endTime.substring(0, 16).replace('T', ' ') : ''
+      if (item.allDay === '1' && start) lines.push('时间：' + start.substring(0, 10) + ' 全天')
+      else if (start && end) lines.push('时间：' + start + ' 至 ' + end)
+      else if (start) lines.push('时间：' + start)
+      else if (item.deadline) lines.push('截止：' + item.deadline.substring(0, 16).replace('T', ' '))
+      if (item.location) lines.push('地点：' + item.location)
+      if (item.description) lines.push('内容：' + item.description)
+      uni.showModal({
+        title: item.title || this.getTodoTypeLabel(item.todoType),
+        content: lines.join('\n') || '该待办暂无更多说明',
+        confirmText: '标记完成',
+        cancelText: '关闭',
+        success: res => {
+          if (res.confirm) this.completeAgendaTodo(item)
+        }
+      })
+    },
+    completeAgendaTodo(item) {
+      uni.showLoading({ title: '提交中' })
+      completeTodo(item.id).then(() => {
+        uni.hideLoading()
+        this.todoList = this.todoList.filter(todo => todo.id !== item.id)
+        this.todoTotal = Math.max(0, Number(this.todoTotal || 0) - 1)
+        this.buildWeekDays()
+        uni.showToast({ title: '已标记完成', icon: 'success' })
+      }).catch(err => {
+        uni.hideLoading()
+        uni.showToast({ title: (err && err.message) || '操作失败', icon: 'none' })
+      })
     },
     handleAgendaClick(entry) {
       if (entry.kind === 'course') {
@@ -566,6 +593,9 @@ export default {
     // 获取待办类型标签
     getTodoTypeLabel(type) {
       const typeMap = {
+        'task': '待办事项',
+        'meeting': '会议议程',
+        'class_meeting': '班会议程',
         'talk_disciplinary': '违纪谈话',
         'talk_daily': '日常谈心',
         'talk_risk_report': '高危谈心上报',
@@ -1398,6 +1428,15 @@ export default {
   &.type-todo {
     background: #f1f5f9;
     color: #64748b;
+  }
+  &.type-task {
+    background: #f1f5f9;
+    color: #64748b;
+  }
+  &.type-meeting,
+  &.type-class_meeting {
+    background: #e8f1ff;
+    color: #2979ff;
   }
   &.type-talk_disciplinary {
     background: #ffe8e8;
