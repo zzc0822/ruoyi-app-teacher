@@ -1,0 +1,27 @@
+{
+  "size": {
+    "total": 3145612,
+    "packages": [
+      {
+        "name": "TOTAL",
+        "size": 3145612
+      },
+      {
+        "name": "main",
+        "size": 1342620
+      },
+      {
+        "name": "/pages/common/",
+        "size": 3625
+      },
+      {
+        "name": "/pages/sub-mine/",
+        "size": 126657
+      },
+      {
+        "name": "/pages/sub-work/",
+        "size": 1672710
+      }
+    ]
+  }
+}
