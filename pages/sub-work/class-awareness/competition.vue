@@ -1,5 +1,5 @@
 <template>
-  <view class="page">
+  <view class="page" :class="{ 'page-quiz': phase === 'quiz' }">
     <view v-if="phase === 'loading'" class="state-card">
       <view class="loading-ring" />
       <text class="state-title">正在识别辅导员身份</text>
@@ -8,66 +8,62 @@
 
     <view v-else-if="phase === 'error'" class="state-card">
       <view class="error-mark">!</view>
-      <text class="state-title">暂时无法进入赛事</text>
+      <text class="state-title">暂时无法进入学院测试</text>
       <text class="state-copy">{{ errorMessage }}</text>
     </view>
 
     <view v-else-if="phase === 'waiting'" class="state-card waiting-card">
-      <view class="session-tag">{{ session.scopeType === 'school' ? '校级赛事' : '院级赛事' }}</view>
+      <view class="session-tag">{{ session.scopeType === 'school' ? '学校测试' : '学院测试' }}</view>
       <text class="session-title">{{ session.title }}</text>
       <view class="identity-card">
         <text class="identity-label">已识别辅导员</text>
         <text class="identity-name">{{ player.playerName }}</text>
         <text class="identity-college">{{ player.collegeName }}</text>
       </view>
-      <text class="wait-title">{{ session.status === 'open' ? '等待主持人开始比赛' : '赛事即将开始' }}</text>
+      <text class="wait-title">{{ session.status === 'open' ? '等待组织者开始测试' : '测试即将开始' }}</text>
       <view class="wait-metrics">
         <view><text>{{ session.participantCount || 0 }}</text><text>已入场</text></view>
         <view><text>{{ session.studentCount }}</text><text>学生数</text></view>
-        <view><text>{{ formatTime(session.timeLimit) }}</text><text>限时</text></view>
+        <view><text>{{ session.timeLimit > 0 ? formatTime(session.timeLimit) : '不限时' }}</text><text>限时</text></view>
       </view>
     </view>
 
     <view v-else-if="phase === 'quiz'" class="quiz">
-      <view class="quiz-head">
-        <view>
-          <text class="eyebrow">当前进度</text>
-          <text class="progress-number">{{ currentIndex + 1 }}<text>/{{ questions.length }}</text></text>
+      <view class="quiz-top">
+        <view class="quiz-progress">
+          <text class="quiz-label">识别学生</text>
+          <view class="quiz-count"><text class="quiz-current">{{ currentIndex + 1 }}</text><text class="quiz-total">/ {{ questions.length }}</text></view>
         </view>
-        <view class="timer" :class="{ urgent: remainTime <= 60 }">
-          <text>剩余时间</text>
-          <text>{{ formatTime(remainTime) }}</text>
+        <view class="timer" :class="{ urgent: timeLimited && remainTime <= 60 }">
+          <text class="timer-label">{{ timeLimited ? '剩余时间' : '已用时间' }}</text>
+          <text class="timer-value">{{ formatTime(timeLimited ? remainTime : elapsed) }}</text>
         </view>
       </view>
-      <view class="progress-track"><view :style="{ width: progress + '%' }" /></view>
-      <view class="photo-wrap">
+      <view class="progress-track"><view class="progress-fill" :style="{ width: progress + '%' }" /></view>
+      <view class="photo-card">
         <image v-if="currentQuestion.studentPhoto" :src="photoUrl(currentQuestion.studentPhoto)" mode="aspectFill" class="photo" />
         <view v-else class="photo-empty">暂无照片</view>
-      </view>
-      <view class="dots">
-        <view v-for="(item, index) in questions" :key="item.questionId"
-              :class="['dot', currentIndex === index ? 'current' : '', isAnswered(index) ? 'answered' : '']"
-              @click="goTo(index)">{{ index + 1 }}</view>
+        <view class="photo-index">{{ pad(currentIndex + 1) }} / {{ pad(questions.length) }}</view>
       </view>
       <view class="form">
         <view class="field">
-          <text>班级</text>
+          <text class="field-label">班级</text>
           <input v-model="answers[currentIndex].answerClass" placeholder="请输入班级名称" />
         </view>
         <view class="field">
-          <text>姓名</text>
+          <text class="field-label">姓名</text>
           <input v-model="answers[currentIndex].answerName" placeholder="请输入学生姓名" />
         </view>
         <view class="field">
-          <text>籍贯</text>
+          <text class="field-label">籍贯</text>
           <input v-model="answers[currentIndex].answerHometown" placeholder="例如：浙江杭州" />
         </view>
         <view class="field">
-          <text>宿舍</text>
+          <text class="field-label">宿舍</text>
           <input v-model="answers[currentIndex].answerDorm" placeholder="请输入宿舍号" />
         </view>
         <view class="field">
-          <text>职务</text>
+          <text class="field-label">职务</text>
           <input v-model="answers[currentIndex].answerCadre" placeholder="无职务可留空" />
         </view>
       </view>
@@ -135,6 +131,7 @@ export default {
       answers: [],
       currentIndex: 0,
       remainTime: 0,
+      elapsed: 0,
       timer: null,
       pollTimer: null,
       submitting: false,
@@ -142,6 +139,7 @@ export default {
     }
   },
   computed: {
+    timeLimited() { return Number((this.session && this.session.timeLimit) || 0) > 0 },
     currentQuestion() {
       return this.questions[this.currentIndex] || {}
     },
@@ -161,7 +159,7 @@ export default {
   methods: {
     async loadPage() {
       if (!this.sessionCode) {
-        this.fail('赛事码不存在')
+        this.fail('测试码不存在')
         return
       }
       try {
@@ -214,7 +212,7 @@ export default {
             this.beginQuiz()
           }
           if (this.session.status === 'finished') {
-            this.fail('赛事已结束')
+            this.fail('测试已结束')
           }
         } catch (error) {
           this.fail(error)
@@ -246,8 +244,9 @@ export default {
     tickTimer() {
       const startedAt = this.parseDate(this.player.startedAt)
       const elapsed = startedAt ? Math.floor((Date.now() - startedAt.getTime()) / 1000) : 0
+      this.elapsed = elapsed
       this.remainTime = Math.max(0, Number(this.session.timeLimit || 0) - elapsed)
-      if (this.remainTime <= 0 && this.phase === 'quiz' && !this.submitting) this.submit()
+      if (this.timeLimited && this.remainTime <= 0 && this.phase === 'quiz' && !this.submitting) this.submit()
     },
     previous() {
       if (this.currentIndex <= 0) return
@@ -338,7 +337,7 @@ export default {
       return 'class_awareness_competition_answers_' + this.playerToken
     },
     fail(error) {
-      this.errorMessage = typeof error === 'string' ? error : ((error && error.message) || '请检查赛事码')
+      this.errorMessage = typeof error === 'string' ? error : ((error && error.message) || '请检查测试码')
       this.phase = 'error'
       this.stopTimers()
     }
@@ -347,20 +346,47 @@ export default {
 </script>
 
 <style scoped>
-.page { min-height: 100vh; padding: 24rpx; box-sizing: border-box; background: #f3f5f2; color: #17211e; }
-.state-card { margin-top: 18vh; padding: 60rpx 36rpx; text-align: center; background: #fff; border: 1rpx solid #e1e7e2; }
+.page {
+  min-height: 100vh;
+  box-sizing: border-box;
+  padding: 28rpx 24rpx calc(28rpx + env(safe-area-inset-bottom));
+  background: #f4f6f4;
+  color: #16231d;
+}
+/* 答题阶段锁定为整屏，避免答题时出现整页滚动/回弹条 */
+.page-quiz {
+  height: 100vh;
+  min-height: 100vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  padding-top: calc(20rpx + env(safe-area-inset-top));
+}
+
+/* 通用状态卡片 */
+.state-card {
+  margin-top: 16vh;
+  padding: 64rpx 40rpx;
+  text-align: center;
+  background: #fff;
+  border: 1rpx solid #e2e9e4;
+  border-radius: 20rpx;
+  box-shadow: 0 14rpx 40rpx rgba(21, 60, 46, 0.06);
+}
 .state-title { display: block; margin-top: 28rpx; font-size: 34rpx; font-weight: 600; }
 .state-copy { display: block; margin-top: 14rpx; color: #84908a; font-size: 24rpx; line-height: 1.7; }
-.loading-ring { width: 66rpx; height: 66rpx; margin: 0 auto; border: 4rpx solid #e0ebe5; border-top-color: #15705b; border-radius: 50%; animation: spin 1s linear infinite; }
+.loading-ring { width: 68rpx; height: 68rpx; margin: 0 auto; border: 5rpx solid #e2efe9; border-top-color: #15705b; border-radius: 50%; animation: spin 0.9s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
-.error-mark { width: 62rpx; height: 62rpx; margin: 0 auto; border: 1rpx solid #d5a24d; color: #b47b1b; font-size: 38rpx; line-height: 62rpx; }
+.error-mark { width: 64rpx; height: 64rpx; margin: 0 auto; border: 1rpx solid #d5a24d; border-radius: 50%; color: #b47b1b; font-size: 38rpx; line-height: 62rpx; }
+
+/* 等待入场 */
 .waiting-card { margin-top: 8vh; text-align: left; }
-.session-tag { color: #15705b; font-size: 20rpx; font-weight: 600; letter-spacing: 2rpx; }
-.session-title { display: block; margin-top: 12rpx; font-size: 38rpx; font-weight: 600; line-height: 1.45; }
-.identity-card { margin: 34rpx 0; padding: 28rpx; border: 1rpx solid #cfe2d8; background: #f2f8f5; }
+.session-tag { display: inline-block; padding: 6rpx 16rpx; border-radius: 8rpx; color: #0f7660; background: #e6f5ee; font-size: 20rpx; font-weight: 600; letter-spacing: 2rpx; }
+.session-title { display: block; margin-top: 16rpx; font-size: 38rpx; font-weight: 600; line-height: 1.45; }
+.identity-card { margin: 34rpx 0; padding: 30rpx; border: 1rpx solid #cfe2d8; border-radius: 16rpx; background: #f2f8f5; }
 .identity-label { display: block; color: #7d8b84; font-size: 22rpx; }
-.identity-name { display: block; margin-top: 8rpx; font-size: 38rpx; font-weight: 600; }
-.identity-college { display: block; margin-top: 4rpx; color: #5e6d66; font-size: 24rpx; }
+.identity-name { display: block; margin-top: 8rpx; font-size: 40rpx; font-weight: 600; }
+.identity-college { display: block; margin-top: 6rpx; color: #5e6d66; font-size: 24rpx; }
 .wait-title { display: block; margin-top: 22rpx; font-size: 28rpx; font-weight: 500; }
 .wait-metrics { display: flex; margin-top: 28rpx; border-top: 1rpx solid #e2e8e4; border-bottom: 1rpx solid #e2e8e4; }
 .wait-metrics view { flex: 1; padding: 22rpx 4rpx; text-align: center; border-right: 1rpx solid #e2e8e4; }
@@ -368,35 +394,52 @@ export default {
 .wait-metrics text { display: block; }
 .wait-metrics text:first-child { font-size: 34rpx; font-weight: 600; }
 .wait-metrics text:last-child { margin-top: 4rpx; color: #89958f; font-size: 20rpx; }
-.quiz { padding-bottom: 32rpx; }
-.quiz-head { display: flex; align-items: flex-end; justify-content: space-between; padding: 10rpx 4rpx 18rpx; }
-.eyebrow { display: block; color: #15705b; font-size: 20rpx; letter-spacing: 2rpx; }
-.progress-number { display: block; margin-top: 4rpx; font-size: 52rpx; }
-.progress-number text { color: #96a19b; font-size: 28rpx; }
-.timer { text-align: right; }
-.timer text { display: block; }
-.timer text:first-child { color: #8b9690; font-size: 20rpx; }
-.timer text:last-child { margin-top: 4rpx; font-size: 34rpx; font-weight: 500; }
-.timer.urgent text:last-child { color: #b54e42; }
-.progress-track { height: 4rpx; overflow: hidden; background: #dfe6e1; }
-.progress-track view { height: 100%; background: #15705b; }
-.photo-wrap { height: 520rpx; margin-top: 24rpx; overflow: hidden; background: #e8ede9; }
+
+/* 答题：整屏分区布局 */
+.quiz {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+.quiz-top { display: flex; align-items: center; justify-content: space-between; padding: 4rpx 6rpx 16rpx; }
+.quiz-progress { display: flex; flex-direction: column; }
+.quiz-label { display: block; color: #0f7660; font-size: 22rpx; font-weight: 600; letter-spacing: 2rpx; }
+.quiz-count { display: flex; align-items: baseline; margin-top: 2rpx; }
+.quiz-current { font-size: 54rpx; font-weight: 700; line-height: 1; }
+.quiz-total { margin-left: 8rpx; color: #9aa5a0; font-size: 28rpx; }
+.timer { padding: 10rpx 20rpx; border: 1rpx solid #d9e7df; border-radius: 12rpx; background: #fff; text-align: right; }
+.timer-label { display: block; color: #8b9690; font-size: 20rpx; }
+.timer-value { display: block; margin-top: 2rpx; font-size: 34rpx; font-weight: 600; font-variant-numeric: tabular-nums; }
+.timer.urgent { border-color: #e7c2bc; background: #fdf3f1; }
+.timer.urgent .timer-value { color: #b54e42; }
+.progress-track { height: 6rpx; margin: 0 6rpx; overflow: hidden; border-radius: 6rpx; background: #dfe8e2; }
+.progress-fill { height: 100%; border-radius: 6rpx; background: linear-gradient(90deg, #1f8a6e, #57c49b); transition: width 0.3s; }
+.photo-card { position: relative; flex: 1; min-height: 0; margin-top: 20rpx; overflow: hidden; border-radius: 16rpx; background: #e7ece8; }
 .photo { width: 100%; height: 100%; }
-.photo-empty { height: 100%; color: #8b9690; font-size: 26rpx; line-height: 520rpx; text-align: center; }
-.dots { display: flex; flex-wrap: wrap; gap: 10rpx; margin: 16rpx 0 24rpx; }
-.dot { width: 56rpx; height: 48rpx; border: 1rpx solid #d9e1dc; color: #7e8a84; font-size: 20rpx; line-height: 48rpx; text-align: center; background: #fff; }
-.dot.answered { color: #15705b; border-color: #9bc7b5; background: #eff7f3; }
-.dot.current { color: #fff; border-color: #15705b; background: #15705b; }
-.form { padding: 28rpx; background: #fff; border: 1rpx solid #e1e7e2; }
-.field { margin-bottom: 24rpx; }
+.photo-empty { display: flex; align-items: center; justify-content: center; height: 100%; color: #8b9690; font-size: 26rpx; }
+.photo-index { position: absolute; right: 16rpx; bottom: 16rpx; padding: 6rpx 16rpx; border-radius: 20rpx; color: #fff; background: rgba(12, 35, 26, 0.62); font-size: 22rpx; font-variant-numeric: tabular-nums; }
+.form {
+  flex-shrink: 0;
+  margin-top: 20rpx;
+  padding: 20rpx 24rpx;
+  background: #fff;
+  border: 1rpx solid #e2e9e4;
+  border-radius: 16rpx;
+  box-shadow: 0 8rpx 24rpx rgba(21, 60, 46, 0.04);
+}
+.field { display: flex; align-items: center; margin-bottom: 14rpx; }
 .field:last-child { margin-bottom: 0; }
-.field text { display: block; margin-bottom: 10rpx; color: #53615b; font-size: 24rpx; font-weight: 600; }
-.field input { height: 82rpx; padding: 0 22rpx; border: 1rpx solid #d5ddd7; background: #fafbf9; font-size: 28rpx; box-sizing: border-box; }
-.actions { display: flex; gap: 18rpx; margin-top: 28rpx; }
-.actions button { flex: 1; height: 86rpx; border-radius: 0; font-size: 28rpx; line-height: 86rpx; }
+.field-label { width: 100rpx; flex-shrink: 0; color: #4b5a53; font-size: 26rpx; font-weight: 600; }
+.field input { flex: 1; height: 68rpx; padding: 0 20rpx; border: 1rpx solid #dfe7e1; border-radius: 10rpx; background: #fafcfb; font-size: 28rpx; box-sizing: border-box; }
+.actions { display: flex; flex-shrink: 0; gap: 18rpx; margin-top: 20rpx; }
+.actions button { flex: 1; height: 84rpx; border-radius: 12rpx; font-size: 28rpx; line-height: 84rpx; }
 .ghost-btn { color: #425149; border: 1rpx solid #cad4cd; background: #fff; }
 .primary-btn { color: #fff; border: 1rpx solid #15705b; background: #15705b; }
-.result-card, .review-card { padding: 34rpx 28rpx; background: #fff; border: 1rpx solid #e1e7e2; }
+
+/* 结果 */
+.result-card, .review-card { padding: 34rpx 30rpx; background: #fff; border: 1rpx solid #e2e9e4; border-radius: 16rpx; }
+.eyebrow { color: #0f7660; font-size: 22rpx; font-weight: 600; letter-spacing: 2rpx; }
 .result-name { display: block; margin-top: 10rpx; font-size: 38rpx; font-weight: 600; }
 .score { width: 220rpx; height: 220rpx; margin: 32rpx auto; border: 1rpx solid #a8cdbd; border-radius: 50%; text-align: center; box-shadow: inset 0 0 0 12rpx #f1f8f4; }
 .score text { display: block; }
