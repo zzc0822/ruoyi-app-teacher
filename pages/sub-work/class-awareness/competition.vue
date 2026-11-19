@@ -235,8 +235,11 @@ export default {
         this.answers = this.questions.map((item, index) => saved && saved[index] ? saved[index] : {
           answerClass: '', answerName: '', answerHometown: '', answerDorm: '', answerCadre: ''
         })
+        // 中途退出重进：定位到服务端的进度，计时仍按 startedAt 连续计算，不重新开始。
+        this.currentIndex = Math.min(Number(this.player.currentIndex || 0), Math.max(this.questions.length - 1, 0))
         this.phase = 'quiz'
         this.startTimer()
+        this.reportProgress()
       } catch (error) {
         this.fail(error)
       }
