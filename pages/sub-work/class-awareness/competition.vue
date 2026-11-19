@@ -134,6 +134,7 @@ export default {
       elapsed: 0,
       timer: null,
       pollTimer: null,
+      draftTimer: null,
       submitting: false,
       result: {}
     }
@@ -231,7 +232,9 @@ export default {
         this.session = response.data.session
         this.player = response.data.player
         this.questions = response.data.questions || []
-        const saved = uni.getStorageSync(this.answerStorageKey())
+        // 服务端草稿优先（换设备也能恢复），本地缓存兜底。
+        const serverDraft = this.parseServerDraft(this.player.draftAnswers)
+        const saved = serverDraft.length ? serverDraft : (uni.getStorageSync(this.answerStorageKey()) || [])
         this.answers = this.questions.map((item, index) => saved && saved[index] ? saved[index] : {
           answerClass: '', answerName: '', answerHometown: '', answerDorm: '', answerCadre: ''
         })
@@ -239,6 +242,7 @@ export default {
         this.currentIndex = Math.min(Number(this.player.currentIndex || 0), Math.max(this.questions.length - 1, 0))
         this.phase = 'quiz'
         this.startTimer()
+        this.startDraftTimer()
         this.reportProgress()
       } catch (error) {
         this.fail(error)
@@ -280,8 +284,29 @@ export default {
       this.saveAnswers()
       updateCompetitionProgress(this.playerToken, {
         currentIndex: this.currentIndex,
-        answeredCount: this.answers.filter((answer, index) => this.isAnswered(index)).length
+        answeredCount: this.answers.filter((answer, index) => this.isAnswered(index)).length,
+        draftAnswers: JSON.stringify(this.answers)
       }).catch(() => {})
+    },
+    startDraftTimer() {
+      this.stopDraftTimer()
+      // 每 10 秒上报作答草稿，中途退出/换设备可恢复。
+      this.draftTimer = setInterval(() => {
+        if (this.phase === 'quiz') this.reportProgress()
+      }, 10000)
+    },
+    stopDraftTimer() {
+      if (this.draftTimer) clearInterval(this.draftTimer)
+      this.draftTimer = null
+    },
+    parseServerDraft(raw) {
+      if (!raw) return []
+      try {
+        const value = JSON.parse(raw)
+        return Array.isArray(value) ? value : []
+      } catch (error) {
+        return []
+      }
     },
     async submit() {
       if (this.submitting) return
@@ -337,6 +362,7 @@ export default {
     stopTimers() {
       this.stopTimer()
       this.stopPoll()
+      this.stopDraftTimer()
     },
     playerStorageKey() {
       return 'class_awareness_competition_player_' + this.sessionCode
