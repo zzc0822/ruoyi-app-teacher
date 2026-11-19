@@ -180,8 +180,13 @@ export default {
           }
         }
         const joinRes = await joinAutoSession(this.sessionCode)
-        this.player = joinRes.data
-        this.playerToken = joinRes.data.playerToken
+        const joined = joinRes && joinRes.data
+        if (!joined || !joined.playerToken) {
+          this.fail('身份识别失败，请重新扫码或从辅导员训练平台进入')
+          return
+        }
+        this.player = joined
+        this.playerToken = joined.playerToken
         uni.setStorageSync(this.playerStorageKey(), this.playerToken)
         this.resumeByStatus()
       } catch (error) {

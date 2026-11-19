@@ -91,6 +91,9 @@ const request = config => {
           })
           reject('无效的会话，或者会话已过期，请重新登录。')
           // #endif
+          // 401 已由自动登录重试或 reject 接管，不能再走到末尾的 resolve(res.data)，
+          // 否则会把 401 原始响应当成成功结果，导致调用方读到 undefined 的 data。
+          return
         } else if (code === 500) {
           if (!config.silent) toast(msg)
           reject(config.silent
